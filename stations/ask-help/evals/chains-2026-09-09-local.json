@@ -1,0 +1,282 @@
+{
+  "at": "2026-09-09T11:31:35.809Z",
+  "host": "the local 27B, thinking off, temperature 0.2, 64k context",
+  "chains": [
+    {
+      "id": "chain-a",
+      "shape": "shape-23",
+      "reached": false,
+      "corrections_needed": null,
+      "corrections_given": 5,
+      "follow_ups_with_a_document": 8,
+      "follow_ups": 8,
+      "turns": [
+        {
+          "kind": "opening",
+          "text": "In cohort A and cohort B together, how many subjects and unique subject-sessions have both a 3D FLAIR and an MP2RAGE?",
+          "document": 118,
+          "terminal": "settled",
+          "seconds": 39,
+          "matched": false
+        },
+        {
+          "kind": "correction",
+          "text": "Count a subject once even when it is in both cohorts.",
+          "document": 120,
+          "terminal": "settled",
+          "seconds": 48,
+          "matched": false
+        },
+        {
+          "kind": "correction",
+          "text": "Not within a session; across sessions, for each sequence on its own.",
+          "document": 122,
+          "terminal": "settled",
+          "seconds": 84,
+          "matched": false
+        },
+        {
+          "kind": "correction",
+          "text": "The same means the physics parameters and the resolution, not the description text.",
+          "document": 123,
+          "terminal": "settled",
+          "seconds": 60,
+          "matched": false
+        },
+        {
+          "kind": "correction",
+          "text": "Some sessions have two FLAIR reconstructions of one acquisition; keep the original over the derived.",
+          "document": 124,
+          "terminal": "settled",
+          "seconds": 93,
+          "matched": false
+        },
+        {
+          "kind": "correction",
+          "text": "Never a reformat, never a projection, never a localizer.",
+          "document": 125,
+          "terminal": "settled",
+          "seconds": 78,
+          "matched": false
+        },
+        {
+          "kind": "addition",
+          "text": "Of those sessions, how many have the same protocol on the FLAIR and the MP2RAGE, compared across sessions?",
+          "document": 126,
+          "terminal": "settled",
+          "seconds": 168,
+          "matched": false
+        },
+        {
+          "kind": "addition",
+          "text": "Now a table with one FLAIR and one MP2RAGE per session, with the stack ids.",
+          "document": 127,
+          "terminal": "settled",
+          "seconds": 120,
+          "matched": false
+        },
+        {
+          "kind": "addition",
+          "text": "When both are originals keep the one with the most slices.",
+          "document": 127,
+          "terminal": "settled",
+          "seconds": 42,
+          "matched": false
+        },
+        {
+          "kind": "addition",
+          "text": "Then the longest echo, then the latest series.",
+          "document": 128,
+          "terminal": "settled",
+          "seconds": 87,
+          "matched": false
+        },
+        {
+          "kind": "addition",
+          "text": "Add the SWI to the same table, magnitude of the last echo.",
+          "document": 129,
+          "terminal": "settled",
+          "seconds": 168,
+          "matched": false
+        },
+        {
+          "kind": "addition",
+          "text": "Add the subject's cohort identifier and the session date.",
+          "document": 129,
+          "terminal": "settled",
+          "seconds": 216,
+          "matched": false
+        },
+        {
+          "kind": "addition",
+          "text": "Add the slice count and the resolution.",
+          "document": 130,
+          "terminal": "settled",
+          "seconds": 108,
+          "matched": false
+        },
+        {
+          "kind": "addition",
+          "text": "Add the sex, the birth date and the age at the session.",
+          "document": 130,
+          "terminal": "failed",
+          "seconds": 60,
+          "matched": false
+        }
+      ]
+    },
+    {
+      "id": "chain-b",
+      "shape": "shape-15",
+      "reached": true,
+      "corrections_needed": 0,
+      "corrections_given": 5,
+      "follow_ups_with_a_document": 7,
+      "follow_ups": 7,
+      "turns": [
+        {
+          "kind": "opening",
+          "text": "The sessions of cohort A that have both a main T1-weighted MPRAGE and a main T2-weighted FLAIR, both 3D, as two stack rows per session with eight named columns.",
+          "document": 131,
+          "terminal": "settled",
+          "seconds": 105,
+          "matched": true
+        },
+        {
+          "kind": "addition",
+          "text": "The T1-weighted may also be a VIBE.",
+          "document": 131,
+          "terminal": "settled",
+          "seconds": 45,
+          "matched": false
+        },
+        {
+          "kind": "addition",
+          "text": "Add the slice count and the resolution.",
+          "document": 131,
+          "terminal": "settled",
+          "seconds": 21,
+          "matched": false
+        },
+        {
+          "kind": "addition",
+          "text": "Same table for the T2-weighted TSE, axial, as a new role.",
+          "document": 133,
+          "terminal": "settled",
+          "seconds": 96,
+          "matched": false
+        },
+        {
+          "kind": "addition",
+          "text": "Add the sex, the birth date and the age at the session.",
+          "document": 134,
+          "terminal": "settled",
+          "seconds": 60,
+          "matched": false
+        },
+        {
+          "kind": "addition",
+          "text": "Same table without the FLAIR role.",
+          "document": 134,
+          "terminal": "settled",
+          "seconds": 27,
+          "matched": false
+        },
+        {
+          "kind": "addition",
+          "text": "Same table for cohort B.",
+          "document": 135,
+          "terminal": "settled",
+          "seconds": 63,
+          "matched": false
+        },
+        {
+          "kind": "addition",
+          "text": "Name the file for the version and keep the previous one.",
+          "document": 135,
+          "terminal": "settled",
+          "seconds": 21,
+          "matched": false
+        }
+      ]
+    },
+    {
+      "id": "chain-c",
+      "shape": "shape-11",
+      "reached": true,
+      "corrections_needed": 0,
+      "corrections_given": 4,
+      "follow_ups_with_a_document": 1,
+      "follow_ups": 1,
+      "turns": [
+        {
+          "kind": "opening",
+          "text": "Split cohort A into converters and non-converters under the baseline and follow-up criteria, as one table.",
+          "document": 13,
+          "terminal": "settled",
+          "seconds": 45,
+          "matched": true
+        },
+        {
+          "kind": "addition",
+          "text": "Transition dates may be at year precision; treat them as their whole year.",
+          "document": 136,
+          "terminal": "settled",
+          "seconds": 48,
+          "matched": false
+        }
+      ]
+    }
+  ],
+  "stability": {
+    "shape": "shape-23",
+    "times": 5,
+    "runs": [
+      {
+        "document": null,
+        "terminal": "loop_stopped",
+        "content_hash": null,
+        "row_count": -1,
+        "digest": null,
+        "seconds": 60
+      },
+      {
+        "document": null,
+        "terminal": "loop_stopped",
+        "content_hash": null,
+        "row_count": -1,
+        "digest": null,
+        "seconds": 57
+      },
+      {
+        "document": null,
+        "terminal": "loop_stopped",
+        "content_hash": null,
+        "row_count": -1,
+        "digest": null,
+        "seconds": 60
+      },
+      {
+        "document": 140,
+        "terminal": "settled",
+        "content_hash": "0e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8",
+        "row_count": 0,
+        "digest": "37f53eb14839513e00f3f54494f1601b",
+        "seconds": 216
+      },
+      {
+        "document": 144,
+        "terminal": "settled",
+        "content_hash": "0e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8",
+        "row_count": 0,
+        "digest": "37f53eb14839513e00f3f54494f1601b",
+        "seconds": 84
+      }
+    ],
+    "matched_gold": 0,
+    "distinct_answers": 1,
+    "distinct_digests": 1,
+    "stable": false
+  },
+  "note": "chain A reached the gold answer at the second correction (scored after the run with the count comparison of #10); chains B and C at the opening; every follow-up turn left a document"
+}

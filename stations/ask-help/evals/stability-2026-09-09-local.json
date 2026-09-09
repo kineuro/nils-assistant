@@ -1,0 +1,55 @@
+{
+  "at": "2026-09-09T12:21:31.143Z",
+  "host": "the local 27B, thinking off, temperature 0.2, 64k context",
+  "chains": [],
+  "stability": {
+    "shape": "shape-23",
+    "times": 5,
+    "runs": [
+      {
+        "document": 149,
+        "terminal": "settled",
+        "content_hash": "fcfe0bdf87113984fe6d4f961b5f3f8c11e6e3fd4b383ac95f37cd8a62a4faf7",
+        "row_count": 1,
+        "digest": "37f53eb14839513e00f3f54494f1601b",
+        "seconds": 30
+      },
+      {
+        "document": 150,
+        "terminal": "settled",
+        "content_hash": "fcfe0bdf87113984fe6d4f961b5f3f8c11e6e3fd4b383ac95f37cd8a62a4faf7",
+        "row_count": 1,
+        "digest": "37f53eb14839513e00f3f54494f1601b",
+        "seconds": 36
+      },
+      {
+        "document": 151,
+        "terminal": "settled",
+        "content_hash": "fcfe0bdf87113984fe6d4f961b5f3f8c11e6e3fd4b383ac95f37cd8a62a4faf7",
+        "row_count": 1,
+        "digest": "37f53eb14839513e00f3f54494f1601b",
+        "seconds": 33
+      },
+      {
+        "document": 152,
+        "terminal": "settled",
+        "content_hash": "fcfe0bdf87113984fe6d4f961b5f3f8c11e6e3fd4b383ac95f37cd8a62a4faf7",
+        "row_count": 1,
+        "digest": "37f53eb14839513e00f3f54494f1601b",
+        "seconds": 33
+      },
+      {
+        "document": 151,
+        "terminal": "settled",
+        "content_hash": "fcfe0bdf87113984fe6d4f961b5f3f8c11e6e3fd4b383ac95f37cd8a62a4faf7",
+        "row_count": 1,
+        "digest": "37f53eb14839513e00f3f54494f1601b",
+        "seconds": 36
+      }
+    ],
+    "matched_gold": 5,
+    "distinct_answers": 1,
+    "distinct_digests": 1,
+    "stable": true
+  }
+}
