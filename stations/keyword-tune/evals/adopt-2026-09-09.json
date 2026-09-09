@@ -1,0 +1,45 @@
+{
+  "bar": "closing bar 8, first half: the overlay try names what adopt then moves",
+  "rehearsal_over_the_whole_scope": {
+    "scope": "batch:1",
+    "sample": {
+      "asked": 2000,
+      "read": 63
+    },
+    "moves": [
+      {
+        "axis": "post_contrast",
+        "from": "",
+        "to": "1",
+        "stacks": 17
+      }
+    ],
+    "review_items": {
+      "close": 0,
+      "open": 0
+    },
+    "cases": {
+      "passed": 1,
+      "failed": 0,
+      "failures": null
+    },
+    "overlay": "tune-post_contrast@1.0.0",
+    "pack": "mri@0.1.1"
+  },
+  "adopt": {
+    "job": 8,
+    "overlay": 1,
+    "status": "adopted"
+  },
+  "post_contrast_tiers": {
+    "before": {
+      "keywords": 10
+    },
+    "after": {
+      "keywords": 27
+    }
+  },
+  "moved": 17,
+  "matches": true,
+  "note": "the knob rig: a synthetic tree of 209 files, 63 stacks, manufacturer SYNTHETIC, the site word zzgado in the descriptions of 17 stacks"
+}

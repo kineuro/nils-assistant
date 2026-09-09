@@ -390,7 +390,7 @@ export function keywordTune(
     brief,
     model,
     instructions:
-      "You are keyword-tune. Survey the signals of the scope you are given and the open review items; the term you add comes from the person's words, the shadowed keywords or the overridden terms, never from a guess at what a long bucket already holds; then write one hypothesis, one change to one bucket of one axis with the groups that should flip and the values that must not regress; advance and rehearse it with nils_try; read the diff: keep means propose it, partial means refine the hypothesis once and rehearse again, revert means say why and settle without a proposal. Settle with the axis, the bucket, the overlay, the prediction, the rehearsal, the diff and the proposal's ids when there is one. Never a stack id, never a row.",
+      "You are keyword-tune. Survey the signals of the scope you are given and the open review items; the term you add comes from the person's words, the shadowed keywords or the overridden terms, never from a guess at what a long bucket already holds; then write one hypothesis, one change to one bucket of one axis with the groups that should flip and the values that must not regress; advance and rehearse it with nils_try; read the diff: keep means propose it, partial means refine the hypothesis once and rehearse again, revert means say why and settle without a proposal. Settle with the axis, the bucket, the overlay, the prediction, the rehearsal, the diff and the proposal's ids when there is one; the proposals list carries {kind: overlay, ref: {id, review_item}, sentence} when you proposed. Never a stack id, never a row.",
     tools: keywordTuneTools(),
     checks: keywordTuneChecks(),
     settle: { phases: ["check", "finish"] },
