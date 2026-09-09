@@ -1,0 +1,490 @@
+{
+  "id": "baseline-minimax-m2.7-anthropic-shape-18",
+  "question": "For the sessions of cohort A, one stack per role, the rules given one at a time, an original over a derived, then the most slices, then the longest echo, then the latest, as a table with the session, the role and the stack.",
+  "model": "minimax-m2.7-anthropic",
+  "recorded_at": "2026-09-09",
+  "attempts": [
+    {
+      "events": [
+        {
+          "type": "start"
+        },
+        {
+          "type": "thinking_start",
+          "contentIndex": 0
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": "The"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " user wants to build a document that:\n1. Looks at sessions of cohort \"ms-cohort-a\"\n2. For each session, picks one"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " stack per role using rules applied in order:\n   - First: prefer original over derived\n   - Second: most slices"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": "\n   - Third: longest echo\n   - Fourth: latest\n\nLet me build this step by step:\n\n1. First, define the cohort set"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": ": ms-cohort-a\n2. Then get the sessions of that cohort\n3. Then get stacks per session\n4. For each session/role combination"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": ", apply the picking rules\n\nThe output should be a table with session, role, and stack.\n\nLet"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " me think about the structure:\n- `scope`: cohort ms-cohort-a\n- `sessions`: sessions of scope\n- `stacks`:"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " stacks of sessions\n- `role`: axis value for role\n- Pick one stack"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " per session per role using the rules:\n  - Original over derived (I need to figure out how to detect original vs derived - likely"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " looking at disposition or some other field, but looking at the catalog there's no explicit \"original\" flag"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": ". Maybe \"ORIG\" construct? Or maybe I need to look at disposition?)\n  "
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": "\nWait, looking at the catalog more carefully:\n- `disposition` axis has values: acquisition, scanner_derived, reformat, working_scan, scout,"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " excluded\n- `construct` has ORIG which might mean original\n\nActually, the rules say \""
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": "an original over a derived\" - this suggests the disposition field. An acquisition would be original, and scanner_derived would be derived.\n\nLet me think"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " about this more carefully. The rules applied one at a time means:\n1. Filter to only original (disposition ="
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " acquisition) if there are both original and derived, keep original\n2. If still tied, pick most slices ("
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": "n_instances)\n3. If still tied, pick longest echo (echo_time)\n\n\n4. If still tied, pick latest (day)\n\nFor the pick"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " structure, I need to define role as a field to group by, then apply these sorting rules in sequence."
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " The disposition field will distinguish original acquisitions from derived ones, and I'll sort by slice count, echo time, and date in that"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " order. Then I'll output the session, role, and stack fields in a table format.\n\nThe sorting rules need"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " to be applied in the right sequence: original (disposition = acquisition) before derived (disposition = scanner_derived), followed"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " by slice count descending, echo time descending, and finally date descending. This ensures the most recent and highest quality"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " acquisitions are prioritized at each step.\n\nFor each session, I need to group stacks by role, then apply these ordering rules to"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " select the best one per role. The role appears to be a field in the stack data rather than an axis, so I'll"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " use that to partition the results. The \"original over derived\" rule likely refers to the disposition field—keeping"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " acquisition data over scanner_derived when there's overlap.\n\nFor the session filtering, I should use the session"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " grain with a cohort reference rather than filtering from subject. This keeps the"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " grain cleaner and avoids unnecessary joins. My approach: start with the ms-cohort-a cohort, pull all sessions from it, then for each session"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": "-stack combination, apply the ordering rules to pick the best stack per role. I need to reconsider the stack grain approach."
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " Rather than nesting pick inside a stack grain definition, I should structure it as a separate stack set that applies the ordering rules directly, then filter down to one"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " per role using a subject set with grouping. Let me simplify the document structure:\n\n```"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": "json\n{\n  \"ast_version\": 1,\n  \"sets\": {\n    \"scope\": { \"grain\": \"cohort\", \"where\": [[\"=\", {}, [\"field\", {}, \"name"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": "\"], \"ms-cohort-a\"]] },\n    \"sessions\": { \"grain\": \"session\", \"of\": \"scope\" },\n    \"stacks\": { \"grain\": \"stack\", \"of"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": "\": \"sessions\" },\n    \"answer\": {\n      \"grain\": \"session\",\n      \"from\": \"sessions\",\n      \"has\": [{"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " \"set\": \"stacks\", \"min\": 1 }]\n    }\n  },\n  \"out\": {\n    \"set\": \"answer\",\n    \"level"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": "\": \"record\"\n  }\n}\n```\n\nThe key is understanding how the role axis works with stack sets. Each role (t"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": "1w, flair, etc.) represents a category of stacks, so I need to filter and select within those groupings rather than treating"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " all stacks uniformly. to work with, where each stack's role is determined by its value in the role axis. The"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " filtering happens based on which role we want, then the ordering rules pick the best stack from that filtered set.\n\nMy approach: define a stack"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " set for each role, apply the ordering rules within each, then use attach to combine them back to the session"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": ". This way I can pick the best stack per role without needing group by functionality. I can define"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " multiple stack sets within a single attach clause, each with its own ordering rules. So I could have separate"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " stack sets for each role (t1w and flair) and attach"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " both to the session in one operation. Each stack set would apply its own ordering rules to select the best stack for that role.\n\nThe output"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " would then include columns for the session, role, and the selected stack ID. I need to clarify how `has` works"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": "—it counts sessions that contain at least one stack matching the criteria. If I attach both t1w and flair stacks to a session, `"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": "has` only validates that *some* stack exists, not that both"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " roles are present. So a session with only a t1w stack would still count as having"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " a stack, even though it's missing flair.\n\nI should structure this differently: define a cohort, pull sessions from it, then create"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " two separate stack sets with different role filters—one for t1w and one for flair. This"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " way I can attach each role-specific stack to the session independently, ensuring both roles"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " are actually present in the data. }\n    ]\n  },\n  out: {\n    set: answer,\n    level: record,\n    columns: [["
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": "field, {}, code], [field, {}, role], [field, {}, stack_id]]\n  }\n}\n```\n\nI realize the session needs to be returned with both stacks attached"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": ". Rather than using `has`, I should use `near` with `attach` to pull"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " the best matching stack for each role directly onto the session. The `near` clause can specify multiple stack sets with their own ordering"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " rules, and `attach` will associate both stacks with the session record.\n\nThe final output would include the session code, role"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": ", and the best stack ID for each role. Since `near` can attach multiple sets, I can define"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " both `t1w` and `flair` stacks within a single clause, each with their own ordering criteria"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": ". I'm reconsidering whether `near` can handle multiple sets in one clause or if I need separate ones. Let me simplify by"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " using `has` to filter sessions and then attach each stack set individually through separate `attach` operations. This"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " keeps the logic clearer: filter for sessions with both required stacks, then pull the best t1w and flair images per session with their own"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " ordering rules applied. \"value\": [\n              [\"field\", {}, \"disposition\"],"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": "\n              \"acquisition\"\n            ]\n          },\n          \"acquisition\"\n        ]\n      ]\n    ],\n    \"order\": [\n      [\n        [\"case\", {},\n          [\"when"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": "\", {}, [\"=\", {}, [\"field\", {}, \"disposition\"], \"acquisition\"], 1],\n          [\"when\", {}, [\"=\", {}, [\"field\", {}, \""
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": "disposition\"], \"scanner_derived\"], 2],\n          3\n        ],\n        \"asc\"\n      ],\n      [\n        [\"field\", {}, \"n_instances\"],\n        \"desc\"\n      ],\n      [\n       "
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " [\"field\", {}, \"echo_time\"],\n        \"desc\"\n      ],\n      [\n        [\"field\", {}, \"day\"],\n        \"desc\"\n      ]\n    ]\n  },\n  \"out\": {\n    \"set\": \"answer\",\n    \"level\": \"record\",\n    \""
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": "columns\": [\n      [\"field\", {}, \"code\"],\n      [\"field\", {}, \"role\"],\n      [\"field\", {}, \"stack_id\"]\n    ],\n    \"order\": [\n      [\n        [\"field\", {}, \"code\"],\n        \""
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": "asc\"\n      ],\n      [\n        [\"field\", {}, \"role\"],\n        \"asc\"\n      ]\n    ]\n  }\n}\n```\n\nI'm realizing I need to reconsider the grain structure. The \"one"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " stack per role\" requirement means each row should represent a single stack, so the grain should be at the"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " stack level, not session. This way I can properly select the best stack for each role across all sessions.\n\nI'll restructure this"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " by defining session as the source, then using attach to pull in both the t1w and flair stacks with"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " their respective ordering rules. The answer set will then output at stack grain"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": ", which gives me one row per stack with the session code and role for context. The ordering rules need to be applied at"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " the pick level rather than the set definition. When I specify `pick: {per: session, by: [...], limit"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": ": 1}`, the engine applies those ordering criteria to select the best result per session, then returns"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " individual rows at the stack grain level. This way, for each session, I get the single best"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " stack that matches the ordering rules, and those become my output rows."
+        },
+        {
+          "type": "thinking_end",
+          "contentIndex": 0,
+          "content": "The user wants to build a document that:\n1. Looks at sessions of cohort \"ms-cohort-a\"\n2. For each session, picks one stack per role using rules applied in order:\n   - First: prefer original over derived\n   - Second: most slices\n   - Third: longest echo\n   - Fourth: latest\n\nLet me build this step by step:\n\n1. First, define the cohort set: ms-cohort-a\n2. Then get the sessions of that cohort\n3. Then get stacks per session\n4. For each session/role combination, apply the picking rules\n\nThe output should be a table with session, role, and stack.\n\nLet me think about the structure:\n- `scope`: cohort ms-cohort-a\n- `sessions`: sessions of scope\n- `stacks`: stacks of sessions\n- `role`: axis value for role\n- Pick one stack per session per role using the rules:\n  - Original over derived (I need to figure out how to detect original vs derived - likely looking at disposition or some other field, but looking at the catalog there's no explicit \"original\" flag. Maybe \"ORIG\" construct? Or maybe I need to look at disposition?)\n  \nWait, looking at the catalog more carefully:\n- `disposition` axis has values: acquisition, scanner_derived, reformat, working_scan, scout, excluded\n- `construct` has ORIG which might mean original\n\nActually, the rules say \"an original over a derived\" - this suggests the disposition field. An acquisition would be original, and scanner_derived would be derived.\n\nLet me think about this more carefully. The rules applied one at a time means:\n1. Filter to only original (disposition = acquisition) if there are both original and derived, keep original\n2. If still tied, pick most slices (n_instances)\n3. If still tied, pick longest echo (echo_time)\n\n\n4. If still tied, pick latest (day)\n\nFor the pick structure, I need to define role as a field to group by, then apply these sorting rules in sequence. The disposition field will distinguish original acquisitions from derived ones, and I'll sort by slice count, echo time, and date in that order. Then I'll output the session, role, and stack fields in a table format.\n\nThe sorting rules need to be applied in the right sequence: original (disposition = acquisition) before derived (disposition = scanner_derived), followed by slice count descending, echo time descending, and finally date descending. This ensures the most recent and highest quality acquisitions are prioritized at each step.\n\nFor each session, I need to group stacks by role, then apply these ordering rules to select the best one per role. The role appears to be a field in the stack data rather than an axis, so I'll use that to partition the results. The \"original over derived\" rule likely refers to the disposition field—keeping acquisition data over scanner_derived when there's overlap.\n\nFor the session filtering, I should use the session grain with a cohort reference rather than filtering from subject. This keeps the grain cleaner and avoids unnecessary joins. My approach: start with the ms-cohort-a cohort, pull all sessions from it, then for each session-stack combination, apply the ordering rules to pick the best stack per role. I need to reconsider the stack grain approach. Rather than nesting pick inside a stack grain definition, I should structure it as a separate stack set that applies the ordering rules directly, then filter down to one per role using a subject set with grouping. Let me simplify the document structure:\n\n```json\n{\n  \"ast_version\": 1,\n  \"sets\": {\n    \"scope\": { \"grain\": \"cohort\", \"where\": [[\"=\", {}, [\"field\", {}, \"name\"], \"ms-cohort-a\"]] },\n    \"sessions\": { \"grain\": \"session\", \"of\": \"scope\" },\n    \"stacks\": { \"grain\": \"stack\", \"of\": \"sessions\" },\n    \"answer\": {\n      \"grain\": \"session\",\n      \"from\": \"sessions\",\n      \"has\": [{ \"set\": \"stacks\", \"min\": 1 }]\n    }\n  },\n  \"out\": {\n    \"set\": \"answer\",\n    \"level\": \"record\"\n  }\n}\n```\n\nThe key is understanding how the role axis works with stack sets. Each role (t1w, flair, etc.) represents a category of stacks, so I need to filter and select within those groupings rather than treating all stacks uniformly. to work with, where each stack's role is determined by its value in the role axis. The filtering happens based on which role we want, then the ordering rules pick the best stack from that filtered set.\n\nMy approach: define a stack set for each role, apply the ordering rules within each, then use attach to combine them back to the session. This way I can pick the best stack per role without needing group by functionality. I can define multiple stack sets within a single attach clause, each with its own ordering rules. So I could have separate stack sets for each role (t1w and flair) and attach both to the session in one operation. Each stack set would apply its own ordering rules to select the best stack for that role.\n\nThe output would then include columns for the session, role, and the selected stack ID. I need to clarify how `has` works—it counts sessions that contain at least one stack matching the criteria. If I attach both t1w and flair stacks to a session, `has` only validates that *some* stack exists, not that both roles are present. So a session with only a t1w stack would still count as having a stack, even though it's missing flair.\n\nI should structure this differently: define a cohort, pull sessions from it, then create two separate stack sets with different role filters—one for t1w and one for flair. This way I can attach each role-specific stack to the session independently, ensuring both roles are actually present in the data. }\n    ]\n  },\n  out: {\n    set: answer,\n    level: record,\n    columns: [[field, {}, code], [field, {}, role], [field, {}, stack_id]]\n  }\n}\n```\n\nI realize the session needs to be returned with both stacks attached. Rather than using `has`, I should use `near` with `attach` to pull the best matching stack for each role directly onto the session. The `near` clause can specify multiple stack sets with their own ordering rules, and `attach` will associate both stacks with the session record.\n\nThe final output would include the session code, role, and the best stack ID for each role. Since `near` can attach multiple sets, I can define both `t1w` and `flair` stacks within a single clause, each with their own ordering criteria. I'm reconsidering whether `near` can handle multiple sets in one clause or if I need separate ones. Let me simplify by using `has` to filter sessions and then attach each stack set individually through separate `attach` operations. This keeps the logic clearer: filter for sessions with both required stacks, then pull the best t1w and flair images per session with their own ordering rules applied. \"value\": [\n              [\"field\", {}, \"disposition\"],\n              \"acquisition\"\n            ]\n          },\n          \"acquisition\"\n        ]\n      ]\n    ],\n    \"order\": [\n      [\n        [\"case\", {},\n          [\"when\", {}, [\"=\", {}, [\"field\", {}, \"disposition\"], \"acquisition\"], 1],\n          [\"when\", {}, [\"=\", {}, [\"field\", {}, \"disposition\"], \"scanner_derived\"], 2],\n          3\n        ],\n        \"asc\"\n      ],\n      [\n        [\"field\", {}, \"n_instances\"],\n        \"desc\"\n      ],\n      [\n        [\"field\", {}, \"echo_time\"],\n        \"desc\"\n      ],\n      [\n        [\"field\", {}, \"day\"],\n        \"desc\"\n      ]\n    ]\n  },\n  \"out\": {\n    \"set\": \"answer\",\n    \"level\": \"record\",\n    \"columns\": [\n      [\"field\", {}, \"code\"],\n      [\"field\", {}, \"role\"],\n      [\"field\", {}, \"stack_id\"]\n    ],\n    \"order\": [\n      [\n        [\"field\", {}, \"code\"],\n        \"asc\"\n      ],\n      [\n        [\"field\", {}, \"role\"],\n        \"asc\"\n      ]\n    ]\n  }\n}\n```\n\nI'm realizing I need to reconsider the grain structure. The \"one stack per role\" requirement means each row should represent a single stack, so the grain should be at the stack level, not session. This way I can properly select the best stack for each role across all sessions.\n\nI'll restructure this by defining session as the source, then using attach to pull in both the t1w and flair stacks with their respective ordering rules. The answer set will then output at stack grain, which gives me one row per stack with the session code and role for context. The ordering rules need to be applied at the pick level rather than the set definition. When I specify `pick: {per: session, by: [...], limit: 1}`, the engine applies those ordering criteria to select the best result per session, then returns individual rows at the stack grain level. This way, for each session, I get the single best stack that matches the ordering rules, and those become my output rows.",
+          "contentSignature": "bd64ca9db37a284fba10c589fb840a6a009928e8de699df1e5aae75fbea34634"
+        },
+        {
+          "type": "text_start",
+          "contentIndex": 1
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 1,
+          "delta": "{\"ast_version\": 1, \"sets\": {\"scope\": {\"grain\": \"cohort\", \"where\": [[\"=\", {}, [\"field\", {}, \"name\"], \"ms-cohort-a\"]]}, \"sessions\": {\"grain"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 1,
+          "delta": "\": \"session\", \"of\": \"scope\"}, \"t1w\": {\"grain\": \"stack\", \"of\": \"sessions\", \"where\": [[\"=\", {}, [\"axis\", {}, \"role\"], \"t"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 1,
+          "delta": "1w\"]], \"pick\": {\"per\": \"session\", \"by\": [[[\"case\", {}, [\"when\", {}, [\"=\", {}, [\"field\", {}, \"disposition\"], \"acquisition\"], 1"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 1,
+          "delta": "], [\"when\", {}, [\"=\", {}, [\"field\", {}, \"disposition\"], \"scanner_derived\"], 2], 3], \"asc\"], [[\"field\", {}, \"n_instances\"], \"desc\"], [[\"field\", {}, \"echo_time"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 1,
+          "delta": "\"], \"desc\"], [[\"field\", {}, \"day\"], \"desc\"]], \"limit\": 1}}, \"flair\": {\"grain\": \"stack\", \"of\": \"sessions\", \"where\": [[\"=\", {}, [\"axis\", {}, \"role\"], \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 1,
+          "delta": "flair\"]], \"pick\": {\"per\": \"session\", \"by\": [[[\"case\", {}, [\"when\", {}, [\"=\", {}, [\"field\", {}, \"disposition\"], \"acquisition\"], 1], [\"when\", {}, [\"=\", {}, [\"field\", {}, \"dis"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 1,
+          "delta": "position\"], \"scanner_derived\"], 2], 3], \"asc\"], [[\"field\", {}, \"n_instances\"], \"desc\"], [[\"field\", {}, \"echo_time\"], \"desc\"], [[\"field\", {}, \"day\"], \"desc\"]], \"limit\": 1"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 1,
+          "delta": "}}, \"answer\": {\"grain\": \"stack\", \"from\": [\"t1w\", \"flair\"]}}, \"out\": {\"set\": \"answer\", \"level\": \"record\", \"columns\": [[\""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 1,
+          "delta": "field\", {}, \"session.code\"], [\"axis\", {}, \"role\"], [\"field\", {}, \"id\"]], \"order\": [[[\"field\", {}, \"session.code\"], \"asc\"], [[\""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 1,
+          "delta": "axis\", {}, \"role\"], \"asc\"]]}}"
+        },
+        {
+          "type": "text_end",
+          "contentIndex": 1,
+          "content": "{\"ast_version\": 1, \"sets\": {\"scope\": {\"grain\": \"cohort\", \"where\": [[\"=\", {}, [\"field\", {}, \"name\"], \"ms-cohort-a\"]]}, \"sessions\": {\"grain\": \"session\", \"of\": \"scope\"}, \"t1w\": {\"grain\": \"stack\", \"of\": \"sessions\", \"where\": [[\"=\", {}, [\"axis\", {}, \"role\"], \"t1w\"]], \"pick\": {\"per\": \"session\", \"by\": [[[\"case\", {}, [\"when\", {}, [\"=\", {}, [\"field\", {}, \"disposition\"], \"acquisition\"], 1], [\"when\", {}, [\"=\", {}, [\"field\", {}, \"disposition\"], \"scanner_derived\"], 2], 3], \"asc\"], [[\"field\", {}, \"n_instances\"], \"desc\"], [[\"field\", {}, \"echo_time\"], \"desc\"], [[\"field\", {}, \"day\"], \"desc\"]], \"limit\": 1}}, \"flair\": {\"grain\": \"stack\", \"of\": \"sessions\", \"where\": [[\"=\", {}, [\"axis\", {}, \"role\"], \"flair\"]], \"pick\": {\"per\": \"session\", \"by\": [[[\"case\", {}, [\"when\", {}, [\"=\", {}, [\"field\", {}, \"disposition\"], \"acquisition\"], 1], [\"when\", {}, [\"=\", {}, [\"field\", {}, \"disposition\"], \"scanner_derived\"], 2], 3], \"asc\"], [[\"field\", {}, \"n_instances\"], \"desc\"], [[\"field\", {}, \"echo_time\"], \"desc\"], [[\"field\", {}, \"day\"], \"desc\"]], \"limit\": 1}}, \"answer\": {\"grain\": \"stack\", \"from\": [\"t1w\", \"flair\"]}}, \"out\": {\"set\": \"answer\", \"level\": \"record\", \"columns\": [[\"field\", {}, \"session.code\"], [\"axis\", {}, \"role\"], [\"field\", {}, \"id\"]], \"order\": [[[\"field\", {}, \"session.code\"], \"asc\"], [[\"axis\", {}, \"role\"], \"asc\"]]}}"
+        },
+        {
+          "type": "done",
+          "reason": "stop",
+          "usage": {
+            "input": 0,
+            "output": 2381,
+            "cacheRead": 4169,
+            "cacheWrite": 58,
+            "totalTokens": 6608,
+            "cost": {
+              "input": 0,
+              "output": 0.0028572,
+              "cacheRead": 0.00012507,
+              "cacheWrite": 0,
+              "total": 0.00298227
+            },
+            "cacheWrite1h": 0,
+            "reasoning": 1943
+          },
+          "responseId": "06f0097404cd966d836ea106bdedf76c"
+        }
+      ]
+    }
+  ]
+}

@@ -216,21 +216,6 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": " ["
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "         "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
           "delta": " \"=\","
         },
         {
@@ -241,7 +226,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "         "
+          "delta": "       "
         },
         {
           "type": "text_delta",
@@ -256,7 +241,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "         "
+          "delta": "       "
         },
         {
           "type": "text_delta",
@@ -271,7 +256,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "           "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -296,7 +281,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "           "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -311,7 +296,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "           "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -336,7 +321,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "         "
+          "delta": "       "
         },
         {
           "type": "text_delta",
@@ -351,7 +336,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "         "
+          "delta": "       "
         },
         {
           "type": "text_delta",
@@ -382,21 +367,6 @@
           "type": "text_delta",
           "contentIndex": 0,
           "delta": "\""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "       "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ]"
         },
         {
           "type": "text_delta",
@@ -871,21 +841,6 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": " ["
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "         "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
           "delta": " \""
         },
         {
@@ -906,7 +861,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "         "
+          "delta": "       "
         },
         {
           "type": "text_delta",
@@ -921,7 +876,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "         "
+          "delta": "       "
         },
         {
           "type": "text_delta",
@@ -936,7 +891,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "           "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -951,7 +906,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "           "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -966,7 +921,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "           "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -981,7 +936,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "             "
+          "delta": "           "
         },
         {
           "type": "text_delta",
@@ -1006,7 +961,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "             "
+          "delta": "           "
         },
         {
           "type": "text_delta",
@@ -1021,7 +976,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "             "
+          "delta": "           "
         },
         {
           "type": "text_delta",
@@ -1046,7 +1001,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "           "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -1061,7 +1016,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "           "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -1096,7 +1051,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "         "
+          "delta": "       "
         },
         {
           "type": "text_delta",
@@ -1111,6 +1066,51 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ["
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "         "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \"=\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "         "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {},"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
           "delta": "         "
         },
         {
@@ -1127,51 +1127,6 @@
           "type": "text_delta",
           "contentIndex": 0,
           "delta": "           "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \"=\","
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "           "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " {},"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "           "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ["
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "             "
         },
         {
           "type": "text_delta",
@@ -1196,7 +1151,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "             "
+          "delta": "           "
         },
         {
           "type": "text_delta",
@@ -1211,7 +1166,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "             "
+          "delta": "           "
         },
         {
           "type": "text_delta",
@@ -1246,7 +1201,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "           "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -1261,7 +1216,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "           "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -1291,7 +1246,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "         "
+          "delta": "       "
         },
         {
           "type": "text_delta",
@@ -1306,6 +1261,51 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ["
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "         "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \"=\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "         "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {},"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
           "delta": "         "
         },
         {
@@ -1322,51 +1322,6 @@
           "type": "text_delta",
           "contentIndex": 0,
           "delta": "           "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \"=\","
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "           "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " {},"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "           "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ["
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "             "
         },
         {
           "type": "text_delta",
@@ -1391,7 +1346,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "             "
+          "delta": "           "
         },
         {
           "type": "text_delta",
@@ -1406,7 +1361,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "             "
+          "delta": "           "
         },
         {
           "type": "text_delta",
@@ -1441,7 +1396,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "           "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -1456,7 +1411,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "           "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -1486,7 +1441,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "         "
+          "delta": "       "
         },
         {
           "type": "text_delta",
@@ -1501,6 +1456,51 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ["
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "         "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \"=\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "         "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {},"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
           "delta": "         "
         },
         {
@@ -1517,51 +1517,6 @@
           "type": "text_delta",
           "contentIndex": 0,
           "delta": "           "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \"=\","
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "           "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " {},"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "           "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ["
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "             "
         },
         {
           "type": "text_delta",
@@ -1586,7 +1541,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "             "
+          "delta": "           "
         },
         {
           "type": "text_delta",
@@ -1601,7 +1556,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "             "
+          "delta": "           "
         },
         {
           "type": "text_delta",
@@ -1631,7 +1586,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "           "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -1646,7 +1601,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "           "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -1667,21 +1622,6 @@
           "type": "text_delta",
           "contentIndex": 0,
           "delta": "5"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "         "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ]"
         },
         {
           "type": "text_delta",
@@ -2506,156 +2446,6 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "code"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "       "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ],"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "       "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "asc"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "     "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ],"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "     "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ["
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "       "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ["
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "         "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "field"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\","
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "         "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " {},"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "         "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
           "delta": "first"
         },
         {
@@ -2761,18 +2551,18 @@
         {
           "type": "text_end",
           "contentIndex": 0,
-          "content": "{\n  \"ast_version\": 1,\n  \"sets\": {\n    \"scope\": {\n      \"grain\": \"cohort\",\n      \"where\": [\n        [\n          \"=\",\n          {},\n          [\n            \"field\",\n            {},\n            \"name\"\n          ],\n          \"ms-cohort-a\"\n        ]\n      ]\n    },\n    \"people\": {\n      \"grain\": \"subject\",\n      \"of\": \"scope\"\n    },\n    \"visits\": {\n      \"grain\": \"session\",\n      \"of\": \"people\"\n    },\n    \"t2_stacks\": {\n      \"grain\": \"stack\",\n      \"of\": \"visits\",\n      \"where\": [\n        [\n          \"and\",\n          {},\n          [\n            \"=\",\n            {},\n            [\n              \"axis\",\n              {},\n              \"base\"\n            ],\n            \"T2w\"\n          ],\n          [\n            \"=\",\n            {},\n            [\n              \"field\",\n              {},\n              \"pixel_spacing_row\"\n            ],\n            0.5\n          ],\n          [\n            \"=\",\n            {},\n            [\n              \"field\",\n              {},\n              \"pixel_spacing_col\"\n            ],\n            0.5\n          ],\n          [\n            \"=\",\n            {},\n            [\n              \"field\",\n              {},\n              \"slice_thickness\"\n            ],\n            0.5\n          ]\n        ]\n      ]\n    },\n    \"answer\": {\n      \"grain\": \"session\",\n      \"from\": \"visits\",\n      \"has\": [\n        {\n          \"set\": \"t2_stacks\",\n          \"min\": 1\n        }\n      ]\n    }\n  },\n  \"out\": {\n    \"set\": \"answer\",\n    \"level\": \"record\",\n    \"columns\": [\n      [\n        \"field\",\n        {},\n        \"code\"\n      ],\n      [\n        \"field\",\n        {},\n        \"first\"\n      ]\n    ],\n    \"order\": [\n      [\n        [\n          \"field\",\n          {},\n          \"code\"\n        ],\n        \"asc\"\n      ],\n      [\n        [\n          \"field\",\n          {},\n          \"first\"\n        ],\n        \"asc\"\n      ]\n    ]\n  }\n}"
+          "content": "{\n  \"ast_version\": 1,\n  \"sets\": {\n    \"scope\": {\n      \"grain\": \"cohort\",\n      \"where\": [\n        \"=\",\n        {},\n        [\n          \"field\",\n          {},\n          \"name\"\n        ],\n        \"ms-cohort-a\"\n      ]\n    },\n    \"people\": {\n      \"grain\": \"subject\",\n      \"of\": \"scope\"\n    },\n    \"visits\": {\n      \"grain\": \"session\",\n      \"of\": \"people\"\n    },\n    \"t2_stacks\": {\n      \"grain\": \"stack\",\n      \"of\": \"visits\",\n      \"where\": [\n        \"and\",\n        {},\n        [\n          \"=\",\n          {},\n          [\n            \"axis\",\n            {},\n            \"base\"\n          ],\n          \"T2w\"\n        ],\n        [\n          \"=\",\n          {},\n          [\n            \"field\",\n            {},\n            \"pixel_spacing_row\"\n          ],\n          0.5\n        ],\n        [\n          \"=\",\n          {},\n          [\n            \"field\",\n            {},\n            \"pixel_spacing_col\"\n          ],\n          0.5\n        ],\n        [\n          \"=\",\n          {},\n          [\n            \"field\",\n            {},\n            \"slice_thickness\"\n          ],\n          0.5\n        ]\n      ]\n    },\n    \"answer\": {\n      \"grain\": \"session\",\n      \"from\": \"visits\",\n      \"has\": [\n        {\n          \"set\": \"t2_stacks\",\n          \"min\": 1\n        }\n      ]\n    }\n  },\n  \"out\": {\n    \"set\": \"answer\",\n    \"level\": \"record\",\n    \"columns\": [\n      [\n        \"field\",\n        {},\n        \"code\"\n      ],\n      [\n        \"field\",\n        {},\n        \"first\"\n      ]\n    ],\n    \"order\": [\n      [\n        [\n          \"field\",\n          {},\n          \"first\"\n        ],\n        \"asc\"\n      ]\n    ]\n  }\n}"
         },
         {
           "type": "done",
           "reason": "stop",
           "usage": {
-            "input": 11625,
-            "output": 550,
+            "input": 4149,
+            "output": 508,
             "cacheRead": 0,
             "cacheWrite": 0,
             "reasoning": 0,
-            "totalTokens": 12175,
+            "totalTokens": 4657,
             "cost": {
               "input": 0,
               "output": 0,
@@ -2781,7 +2571,7 @@
               "total": 0
             }
           },
-          "responseId": "1393909016a746ff8c7b7a268bb52234"
+          "responseId": "402158b506fd4b65bea319e04b505486"
         }
       ]
     }

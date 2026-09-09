@@ -14,11 +14,23 @@ import { Runs } from "./host/runs.ts";
 import { kvasirProvider, readCatalog } from "./providers/kvasir.ts";
 import { registerStation, stationList, theLedger, tokens } from "./seam/for.ts";
 import { Echo } from "./stations/echo.ts";
+import { loadManifests } from "./stations/manifest.ts";
 
 const c = config();
 const runs = new Runs();
 
-// the stations of D2: one; D3 loads manifests from c.stationDirs
+// the manifests the configuration lists (section 4.4): each is validated at start, its brief's hash checked;
+// a station's code registers against its manifest's id (D4 onwards). D2's echo station has none.
+const manifests = loadManifests(c.stationDirs);
+for (const m of manifests.values())
+  registerStation({
+    id: m.id,
+    version: c.version,
+    grant: m.grant,
+    ceiling: m.ceiling,
+    content: m.content,
+    model: process.env.ASSISTANT_MODEL ?? "qwen38-27b-fast",
+  });
 registerStation({
   id: "echo",
   version: c.version,

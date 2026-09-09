@@ -221,21 +221,6 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": " ["
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "         "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
           "delta": " \""
         },
         {
@@ -256,7 +241,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "         "
+          "delta": "       "
         },
         {
           "type": "text_delta",
@@ -271,7 +256,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "         "
+          "delta": "       "
         },
         {
           "type": "text_delta",
@@ -286,7 +271,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "           "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -311,7 +296,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "           "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -326,7 +311,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "           "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -351,7 +336,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "         "
+          "delta": "       "
         },
         {
           "type": "text_delta",
@@ -366,7 +351,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "         "
+          "delta": "       "
         },
         {
           "type": "text_delta",
@@ -381,7 +366,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "           "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -421,7 +406,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "           "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -452,21 +437,6 @@
           "type": "text_delta",
           "contentIndex": 0,
           "delta": "\""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "         "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ]"
         },
         {
           "type": "text_delta",
@@ -966,6 +936,46 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "and"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {},"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
           "delta": " ["
         },
         {
@@ -986,7 +996,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "and"
+          "delta": "contains"
         },
         {
           "type": "text_delta",
@@ -1032,76 +1042,6 @@
           "type": "text_delta",
           "contentIndex": 0,
           "delta": "           "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ["
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "             "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "in"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\","
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "             "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " {},"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "             "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ["
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "               "
         },
         {
           "type": "text_delta",
@@ -1126,7 +1066,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "               "
+          "delta": "           "
         },
         {
           "type": "text_delta",
@@ -1141,7 +1081,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "               "
+          "delta": "           "
         },
         {
           "type": "text_delta",
@@ -1151,7 +1091,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "role"
+          "delta": "modifier"
         },
         {
           "type": "text_delta",
@@ -1166,7 +1106,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "             "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -1181,22 +1121,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "             "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ["
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "               "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -1206,12 +1131,12 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "fl"
+          "delta": "FL"
         },
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "air"
+          "delta": "AIR"
         },
         {
           "type": "text_delta",
@@ -1226,22 +1151,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "             "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ]"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "           "
+          "delta": "       "
         },
         {
           "type": "text_delta",
@@ -1256,7 +1166,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "           "
+          "delta": "       "
         },
         {
           "type": "text_delta",
@@ -1271,7 +1181,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "             "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -1286,7 +1196,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "             "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -1301,7 +1211,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "             "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -1316,7 +1226,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "               "
+          "delta": "           "
         },
         {
           "type": "text_delta",
@@ -1341,7 +1251,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "               "
+          "delta": "           "
         },
         {
           "type": "text_delta",
@@ -1356,7 +1266,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "               "
+          "delta": "           "
         },
         {
           "type": "text_delta",
@@ -1386,7 +1296,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "             "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -1401,7 +1311,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "             "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -1422,36 +1332,6 @@
           "type": "text_delta",
           "contentIndex": 0,
           "delta": "\""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "           "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ]"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "         "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ]"
         },
         {
           "type": "text_delta",
@@ -1516,12 +1396,17 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "mpr"
+          "delta": "mp"
         },
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "age"
+          "delta": "2"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "rage"
         },
         {
           "type": "text_delta",
@@ -1666,21 +1551,6 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": " ["
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "         "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
           "delta": " \"=\","
         },
         {
@@ -1691,7 +1561,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "         "
+          "delta": "       "
         },
         {
           "type": "text_delta",
@@ -1706,7 +1576,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "         "
+          "delta": "       "
         },
         {
           "type": "text_delta",
@@ -1721,7 +1591,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "           "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -1746,7 +1616,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "           "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -1761,7 +1631,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "           "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -1791,7 +1661,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "         "
+          "delta": "       "
         },
         {
           "type": "text_delta",
@@ -1806,7 +1676,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "         "
+          "delta": "       "
         },
         {
           "type": "text_delta",
@@ -1837,21 +1707,6 @@
           "type": "text_delta",
           "contentIndex": 0,
           "delta": "\""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "       "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ]"
         },
         {
           "type": "text_delta",
@@ -2211,12 +2066,17 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "mpr"
+          "delta": "mp"
         },
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "age"
+          "delta": "2"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "rage"
         },
         {
           "type": "text_delta",
@@ -2322,6 +2182,16 @@
           "type": "text_delta",
           "contentIndex": 0,
           "delta": "answer"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "_subject"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "s"
         },
         {
           "type": "text_delta",
@@ -2546,61 +2416,6 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": ","
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "         "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "as"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\":"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "_good"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "_sessions"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
           "delta": "\n"
         },
         {
@@ -2726,6 +2541,16 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
+          "delta": "_subject"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "s"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
           "delta": "\","
         },
         {
@@ -2761,7 +2586,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "record"
+          "delta": "count"
         },
         {
           "type": "text_delta",
@@ -2891,306 +2716,6 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": " ],"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "     "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ["
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "       "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "field"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\","
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "       "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " {},"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "       "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "_good"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "_sessions"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "     "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ]"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "   "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ],"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "   "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "order"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\":"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ["
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "     "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ["
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "       "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ["
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "         "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "field"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\","
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "         "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " {},"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "         "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "code"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "       "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ],"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "       "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "asc"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "     "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
           "delta": " ]"
         },
         {
@@ -3236,18 +2761,18 @@
         {
           "type": "text_end",
           "contentIndex": 0,
-          "content": "{\n  \"ast_version\": 1,\n  \"sets\": {\n    \"cohorts\": {\n      \"grain\": \"cohort\",\n      \"where\": [\n        [\n          \"in\",\n          {},\n          [\n            \"field\",\n            {},\n            \"name\"\n          ],\n          [\n            \"ms-cohort-a\",\n            \"ms-cohort-b\"\n          ]\n        ]\n      ]\n    },\n    \"people\": {\n      \"grain\": \"subject\",\n      \"of\": \"cohorts\"\n    },\n    \"visits\": {\n      \"grain\": \"session\",\n      \"of\": \"people\"\n    },\n    \"flair_3d\": {\n      \"grain\": \"stack\",\n      \"of\": \"visits\",\n      \"where\": [\n        [\n          \"and\",\n          {},\n          [\n            [\n              \"in\",\n              {},\n              [\n                \"axis\",\n                {},\n                \"role\"\n              ],\n              [\n                \"flair\"\n              ]\n            ],\n            [\n              \"=\",\n              {},\n              [\n                \"derived\",\n                {},\n                \"acquisition_type\"\n              ],\n              \"3D\"\n            ]\n          ]\n        ]\n      ]\n    },\n    \"mprage\": {\n      \"grain\": \"stack\",\n      \"of\": \"visits\",\n      \"where\": [\n        [\n          \"=\",\n          {},\n          [\n            \"axis\",\n            {},\n            \"technique\"\n          ],\n          \"MP2RAGE\"\n        ]\n      ]\n    },\n    \"good_sessions\": {\n      \"grain\": \"session\",\n      \"from\": \"visits\",\n      \"has\": [\n        {\n          \"set\": \"flair_3d\",\n          \"min\": 1\n        },\n        {\n          \"set\": \"mprage\",\n          \"min\": 1\n        }\n      ]\n    },\n    \"answer\": {\n      \"grain\": \"subject\",\n      \"from\": \"people\",\n      \"has\": [\n        {\n          \"set\": \"good_sessions\",\n          \"min\": 1,\n          \"as\": \"n_good_sessions\"\n        }\n      ]\n    }\n  },\n  \"out\": {\n    \"set\": \"answer\",\n    \"level\": \"record\",\n    \"columns\": [\n      [\n        \"field\",\n        {},\n        \"code\"\n      ],\n      [\n        \"field\",\n        {},\n        \"n_good_sessions\"\n      ]\n    ],\n    \"order\": [\n      [\n        [\n          \"field\",\n          {},\n          \"code\"\n        ],\n        \"asc\"\n      ]\n    ]\n  }\n}"
+          "content": "{\n  \"ast_version\": 1,\n  \"sets\": {\n    \"cohorts\": {\n      \"grain\": \"cohort\",\n      \"where\": [\n        \"in\",\n        {},\n        [\n          \"field\",\n          {},\n          \"name\"\n        ],\n        [\n          \"ms-cohort-a\",\n          \"ms-cohort-b\"\n        ]\n      ]\n    },\n    \"people\": {\n      \"grain\": \"subject\",\n      \"of\": \"cohorts\"\n    },\n    \"visits\": {\n      \"grain\": \"session\",\n      \"of\": \"people\"\n    },\n    \"flair_3d\": {\n      \"grain\": \"stack\",\n      \"of\": \"visits\",\n      \"where\": [\n        \"and\",\n        {},\n        [\n          \"contains\",\n          {},\n          [\n            \"axis\",\n            {},\n            \"modifier\"\n          ],\n          \"FLAIR\"\n        ],\n        [\n          \"=\",\n          {},\n          [\n            \"derived\",\n            {},\n            \"acquisition_type\"\n          ],\n          \"3D\"\n        ]\n      ]\n    },\n    \"mp2rage\": {\n      \"grain\": \"stack\",\n      \"of\": \"visits\",\n      \"where\": [\n        \"=\",\n        {},\n        [\n          \"axis\",\n          {},\n          \"technique\"\n        ],\n        \"MP2RAGE\"\n      ]\n    },\n    \"good_sessions\": {\n      \"grain\": \"session\",\n      \"from\": \"visits\",\n      \"has\": [\n        {\n          \"set\": \"flair_3d\",\n          \"min\": 1\n        },\n        {\n          \"set\": \"mp2rage\",\n          \"min\": 1\n        }\n      ]\n    },\n    \"answer_subjects\": {\n      \"grain\": \"subject\",\n      \"from\": \"people\",\n      \"has\": [\n        {\n          \"set\": \"good_sessions\",\n          \"min\": 1\n        }\n      ]\n    }\n  },\n  \"out\": {\n    \"set\": \"answer_subjects\",\n    \"level\": \"count\",\n    \"columns\": [\n      [\n        \"field\",\n        {},\n        \"code\"\n      ]\n    ]\n  }\n}"
         },
         {
           "type": "done",
           "reason": "stop",
           "usage": {
-            "input": 11618,
-            "output": 645,
+            "input": 4142,
+            "output": 550,
             "cacheRead": 0,
             "cacheWrite": 0,
             "reasoning": 0,
-            "totalTokens": 12263,
+            "totalTokens": 4692,
             "cost": {
               "input": 0,
               "output": 0,
@@ -3256,7 +2781,7 @@
               "total": 0
             }
           },
-          "responseId": "62367d693b30442a827885d8b8df1395"
+          "responseId": "33cc2765821945c4903d7011a3202ce2"
         }
       ]
     }
