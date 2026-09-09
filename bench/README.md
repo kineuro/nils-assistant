@@ -18,3 +18,14 @@ KVASIR_URL=... KVASIR_TOKEN=... npm run bench:baseline # the one-shot baseline t
 ```
 
 The baseline is one shot: the model reads the engine's guide and the question, writes an ask document, the engine runs it, and the content hash is compared to the gold. The number published beside the prototype's 17.9 percent is that fraction on the rebased corpus; the provider's answers are recorded into `gate/fixtures/` so the number is reproducible from the repository alone.
+
+## The baseline, 2026-09-09
+
+The prototype's frozen gate passed 17.9 percent one shot on the best model of its day, against the live archive. On the rebased corpus (eighteen shapes with a gold answer, registry epoch 2, pack mri 0.1.1), one shot with the engine's guide, the worked examples and a catalog slice in the prompt, temperature 0:
+
+| model | through | passed | loop split | held-out split | recording |
+|---|---|---|---|---|---|
+| the organisation's commercial model, Anthropic shape (reasoning on) | Kvasir, purpose `assistant.title` | 1 of 18 (5.6 percent) | 1/11 | 0/7 | `gate/baseline-minimax-m2.7-anthropic.json` |
+| the local 27B model, thinking off by the chat template, 4,096 output tokens | Kvasir, the admitted `card0-fast` profile | 1 of 18 (5.6 percent) | 0/11 | 1/7 | `gate/baseline-qwen38-27b-fast.json` |
+
+The failures are the grammar's, not the registry's: an unknown field copied from the prompt, a clause written as a string rather than `[op, {opts}, ...args]`, a missing options map, a wrapper object around the document. The local model with thinking on spent its whole output budget thinking (sixteen thousand tokens on the first shape) and was not scored. These are the numbers a station must beat, on both splits, before any harness edit counts.

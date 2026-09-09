@@ -5,12 +5,15 @@
 // id and nothing else.
 
 import { config } from "../config.ts";
+import type { Verdict } from "../stations/verdict.ts";
 import { Seam, type Station } from "./client.ts";
 import { Ledger } from "./ledger.ts";
 import { Tokens } from "./tokens.ts";
 
 let ledger: Ledger | null = null;
 export const tokens = new Tokens();
+/** The settled verdict of a conversation, for the host to answer beside the run; the record log keeps it durably. */
+export const verdicts = new Map<string, Verdict>();
 const stations = new Map<string, Station>();
 const seams = new Map<string, Seam>();
 

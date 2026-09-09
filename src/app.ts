@@ -12,7 +12,8 @@ import { config } from "./config.ts";
 import { capabilities } from "./host/capabilities.ts";
 import { Runs } from "./host/runs.ts";
 import { kvasirProvider, readCatalog } from "./providers/kvasir.ts";
-import { registerStation, stationList, theLedger, tokens } from "./seam/for.ts";
+import { registerStation, stationList, theLedger, tokens, verdicts } from "./seam/for.ts";
+import { AskHelp } from "./stations/ask-help-agent.ts";
 import { Echo } from "./stations/echo.ts";
 import { loadManifests } from "./stations/manifest.ts";
 
@@ -22,6 +23,7 @@ const runs = new Runs();
 // the manifests the configuration lists (section 4.4): each is validated at start, its brief's hash checked;
 // a station's code registers against its manifest's id (D4 onwards). D2's echo station has none.
 const manifests = loadManifests(c.stationDirs);
+const model = process.env.ASSISTANT_MODEL ?? "qwen38-27b-fast";
 for (const m of manifests.values())
   registerStation({
     id: m.id,
@@ -29,15 +31,19 @@ for (const m of manifests.values())
     grant: m.grant,
     ceiling: m.ceiling,
     content: m.content,
-    model: process.env.ASSISTANT_MODEL ?? "qwen38-27b-fast",
+    model,
   });
+// the station code, by manifest id, each a 'use agent' module the build scanned; a manifest without code is listed and refused at run time
+const agents = new Map<string, Parameters<typeof createAgentRouter>[0]>();
+if (manifests.has("ask-help")) agents.set("ask-help", AskHelp);
+agents.set("echo", Echo);
 registerStation({
   id: "echo",
   version: c.version,
   grant: { describe: { calls: 4 }, capabilities: {} },
   ceiling: "reader",
   content: "catalog",
-  model: process.env.ASSISTANT_MODEL ?? "qwen38-27b-fast",
+  model,
 });
 
 // Kvasir, one provider per station, the app's minted key; registered before any agent runs
@@ -63,16 +69,19 @@ app.get("/capabilities", (ctx) =>
   ctx.json(
     capabilities(
       c,
-      stationList().map((s) => ({
-        id: s.id,
-        app: "nils-assistant",
-        purpose: `assistant.${s.id}`,
-        content: s.content,
-        ceiling: s.ceiling,
-        brief: { path: "", hash: "" },
-        budget: {},
-        writes: [],
-      })),
+      stationList().map((s) => {
+        const m = manifests.get(s.id);
+        return {
+          id: s.id,
+          app: m?.app ?? "nils-assistant",
+          purpose: m?.purpose ?? `assistant.${s.id}`,
+          content: s.content,
+          ceiling: s.ceiling,
+          brief: m?.brief ?? { path: "", hash: "" },
+          budget: m ? { ...m.budget } : {},
+          writes: m?.writes ?? [],
+        };
+      }),
       { teaching_open: false, conversations: 0 },
     ),
   ),
@@ -89,14 +98,22 @@ app.post("/conversations/:id/token", async (ctx) => {
 /** A headless station run (§9.2). */
 app.post("/stations/:id/runs", async (ctx) => {
   const station = ctx.req.param("id");
-  if (station !== "echo") return ctx.json({ error: `no station ${station}` }, 404);
+  const agent = agents.get(station);
+  if (!agent) return ctx.json({ error: `no station ${station}` }, 404);
   const body = (await ctx.req.json().catch(() => ({}))) as { message?: string; conversation?: string };
   if (!body.message) return ctx.json({ error: "message" }, 400);
   const conversation = body.conversation ?? `run-${Date.now().toString(36)}`;
   const auth = ctx.req.header("authorization") ?? "";
   if (auth.startsWith("Bearer ")) tokens.put(conversation, auth.slice(7));
-  const run = runs.start(station, Echo, body.message, conversation);
+  const run = runs.start(station, agent, body.message, conversation);
   return ctx.json({ run: run.id, conversation, state: run.state }, 202);
+});
+
+app.get("/runs/:id/verdict", (ctx) => {
+  const run = runs.get(ctx.req.param("id"));
+  if (!run) return ctx.json({ error: `no run ${ctx.req.param("id")}` }, 404);
+  const v = verdicts.get(run.conversation);
+  return v ? ctx.json(v) : ctx.json({ error: "the run has not settled" }, 404);
 });
 
 app.get("/runs/:id", (ctx) => {
@@ -128,6 +145,6 @@ app.post("/conversations/:id/feedback", async (ctx) => {
 
 app.get("/ledger/:id", (ctx) => ctx.json({ rows: theLedger().rows(ctx.req.param("id")) }));
 
-app.route("/agents/echo", createAgentRouter(Echo));
+for (const [id, agent] of agents) app.route(`/agents/${id}`, createAgentRouter(agent));
 
 export default app;

@@ -1,0 +1,21 @@
+{
+  "at": "2026-09-09T03:52:21.010Z",
+  "results": [
+    {
+      "id": "shape-01",
+      "passed": false,
+      "why": "no verdict (failed)",
+      "document": null,
+      "seconds": 3,
+      "terminal": "failed"
+    }
+  ],
+  "loop": {
+    "passed": 0,
+    "of": 0
+  },
+  "held_out": {
+    "passed": 0,
+    "of": 1
+  }
+}

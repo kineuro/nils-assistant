@@ -20,7 +20,7 @@ import {
 import * as v from "valibot";
 import { providerId } from "../providers/kvasir.ts";
 import type { Seam } from "../seam/client.ts";
-import { seamFor } from "../seam/for.ts";
+import { seamFor, verdicts } from "../seam/for.ts";
 import { initialState, Machine, type RunState } from "./machine.ts";
 import type { Manifest, TerminalReason } from "./manifest.ts";
 import { toValibot } from "./schema.ts";
@@ -215,6 +215,7 @@ export function stationAgent(
         machine.end("settled");
         commit();
         setSettled({ verdict });
+        verdicts.set(id, verdict);
         return { output: { settled: true, sentence: data.sentence }, terminate: true };
       },
     });
