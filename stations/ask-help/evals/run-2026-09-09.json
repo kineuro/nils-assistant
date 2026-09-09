@@ -1,148 +1,148 @@
 {
-  "at": "2026-09-09T04:44:50.131Z",
+  "at": "2026-09-09T05:54:52.026Z",
   "results": [
     {
       "id": "shape-01",
       "passed": false,
-      "why": "no verdict (failed)",
-      "document": null,
-      "seconds": 3,
-      "terminal": "failed"
+      "why": "the engine refused document 42: out.columns[2]: a cohort counts its subjects through the membership edge; count a subject set with o",
+      "document": 42,
+      "seconds": 171,
+      "terminal": "settled"
     },
     {
       "id": "shape-02",
       "passed": false,
-      "why": "no verdict (failed)",
-      "document": null,
-      "seconds": 3,
-      "terminal": "failed"
+      "why": "document 46: 7 rows, the gold has 7; Seven subjects are current members of both ms-cohort-a and ms-cohort-b — SYN0027, SYN0033, SYN0035, ",
+      "document": 46,
+      "seconds": 60,
+      "terminal": "settled"
     },
     {
       "id": "shape-03",
       "passed": false,
-      "why": "no verdict (failed)",
+      "why": "no verdict (budget_wall_clock: I've loaded the guide, catalog, and skill. Now I'll work through the phases.\n\n**)",
       "document": null,
-      "seconds": 3,
-      "terminal": "failed"
+      "seconds": 186,
+      "terminal": "budget_wall_clock"
     },
     {
       "id": "shape-04",
       "passed": false,
-      "why": "no verdict (failed)",
+      "why": "no verdict (budget_wall_clock)",
       "document": null,
-      "seconds": 3,
-      "terminal": "failed"
+      "seconds": 183,
+      "terminal": "budget_wall_clock"
     },
     {
       "id": "shape-05",
       "passed": false,
-      "why": "no verdict (failed)",
+      "why": "no verdict (budget_wall_clock: \n\n\nAll names resolved: `sex` at subject grain, `code`, `birth_date`, `deceased_a)",
       "document": null,
-      "seconds": 3,
-      "terminal": "failed"
+      "seconds": 207,
+      "terminal": "budget_wall_clock"
     },
     {
       "id": "shape-09",
       "passed": false,
-      "why": "no verdict (failed)",
+      "why": "no verdict (budget_wall_clock: I've resolved the key names: \"diagnosed\" maps to event kind \"Diagnosis\" (id 3, p)",
       "document": null,
-      "seconds": 3,
-      "terminal": "failed"
+      "seconds": 186,
+      "terminal": "budget_wall_clock"
     },
     {
       "id": "shape-10",
       "passed": false,
-      "why": "no verdict (failed)",
+      "why": "no verdict (budget_wall_clock: I'll start by checking the ask-help skill for context, then explore the catalog )",
       "document": null,
-      "seconds": 3,
-      "terminal": "failed"
+      "seconds": 201,
+      "terminal": "budget_wall_clock"
     },
     {
       "id": "shape-11",
       "passed": false,
-      "why": "no verdict (failed)",
+      "why": "no verdict (budget_wall_clock: \n\n\n\n\n\n\nNow shaping. The closest worked example is the \"at least three sessions w)",
       "document": null,
-      "seconds": 3,
-      "terminal": "failed"
+      "seconds": 198,
+      "terminal": "budget_wall_clock"
     },
     {
       "id": "shape-12",
       "passed": false,
-      "why": "no verdict (failed)",
-      "document": null,
-      "seconds": 3,
-      "terminal": "failed"
+      "why": "document 76: 1 rows, the gold has 1; The most common resolution among T2-weighted stacks is 480 × 480 × 3.0 mm, found in 183 of the 345 T",
+      "document": 76,
+      "seconds": 111,
+      "terminal": "settled"
     },
     {
       "id": "shape-13",
       "passed": false,
-      "why": "no verdict (failed)",
+      "why": "no verdict (loop_stopped: \n\n\nI've loaded the guide and catalog. Resolving the names: cohort **ms-cohort-a*)",
       "document": null,
-      "seconds": 3,
-      "terminal": "failed"
+      "seconds": 87,
+      "terminal": "loop_stopped"
     },
     {
       "id": "shape-14",
       "passed": false,
-      "why": "no verdict (failed)",
+      "why": "no verdict (budget_wall_clock: \n\n\nResolved \"cohort A\" → the catalog lists `ms-cohort-a` (id 1, 38 members; `ms-)",
       "document": null,
-      "seconds": 3,
-      "terminal": "failed"
+      "seconds": 192,
+      "terminal": "budget_wall_clock"
     },
     {
       "id": "shape-15",
       "passed": false,
       "why": "no verdict (failed)",
       "document": null,
-      "seconds": 3,
+      "seconds": 132,
       "terminal": "failed"
     },
     {
       "id": "shape-18",
       "passed": false,
-      "why": "no verdict (failed)",
+      "why": "no verdict (budget_wall_clock: I've read the guide and the catalog. Before I resolve anything further, this que)",
       "document": null,
-      "seconds": 3,
-      "terminal": "failed"
+      "seconds": 192,
+      "terminal": "budget_wall_clock"
     },
     {
       "id": "shape-20",
       "passed": false,
-      "why": "no verdict (failed)",
+      "why": "no verdict (budget_wall_clock: \n\n\n\n\n\nResolution looks clean so far — let me check the Diagnosis event values be)",
       "document": null,
-      "seconds": 3,
-      "terminal": "failed"
+      "seconds": 195,
+      "terminal": "budget_wall_clock"
     },
     {
       "id": "shape-22",
       "passed": false,
       "why": "no verdict (failed)",
       "document": null,
-      "seconds": 3,
+      "seconds": 132,
       "terminal": "failed"
     },
     {
       "id": "shape-23",
       "passed": false,
-      "why": "no verdict (failed)",
-      "document": null,
-      "seconds": 3,
-      "terminal": "failed"
+      "why": "document 97: 1 rows, the gold has 1; In cohorts ms-cohort-a and ms-cohort-b together, 0 subjects and 0 unique subject-sessions have both ",
+      "document": 97,
+      "seconds": 165,
+      "terminal": "settled"
     },
     {
       "id": "shape-24",
       "passed": false,
-      "why": "no verdict (failed)",
+      "why": "no verdict (budget_wall_clock: The phrase \"of those sessions\" points at a base I don't hold. Before building an)",
       "document": null,
-      "seconds": 3,
-      "terminal": "failed"
+      "seconds": 183,
+      "terminal": "budget_wall_clock"
     },
     {
       "id": "shape-25",
       "passed": false,
       "why": "no verdict (failed)",
       "document": null,
-      "seconds": 3,
+      "seconds": 123,
       "terminal": "failed"
     }
   ],

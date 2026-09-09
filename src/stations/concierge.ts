@@ -181,7 +181,9 @@ export function conciergeChecks(): Record<string, Check> {
       if (document === undefined || document === null) return null;
       const conversation = String((ctx as { conversation?: string }).conversation ?? "");
       const settled = delegationsOf(conversation).filter((d) => d.state === "settled" && d.verdict);
-      return settled.some((d) => d.verdict !== null && (d.verdict.result as { document?: unknown }).document === document)
+      return settled.some(
+        (d) => d.verdict !== null && (d.verdict.result as { document?: unknown }).document === document,
+      )
         ? null
         : `document ${String(document)} is not what any settled delegate found`;
     },
