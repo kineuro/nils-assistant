@@ -211,13 +211,13 @@ shapes:
     question: "List every session of cohort B with the subject code and the session date, ordered by subject and then by date."
     constructs: [record, order by two columns]
     gold: sessions-of-b.ask.yml
-  - id: auth-hiv-status-a
-    title: subjects of cohort A with an HIV status
+  - id: auth-reformats-a
+    title: reformats in cohort A
     difficulty: easy
-    grain: subject
-    question: "How many subjects in cohort A have an HIV status recorded?"
-    constructs: [count, an event kind the registry lists but holds none of]
-    gold: hiv-status-a.ask.yml
+    grain: stack
+    question: "How many stacks in cohort A are reformats?"
+    constructs: [count, a disposition the registry lists but holds none of]
+    gold: reformats-a.ask.yml
   - id: auth-most-slices-mprage-a
     title: the MPRAGE with the most slices per session in cohort A
     difficulty: medium

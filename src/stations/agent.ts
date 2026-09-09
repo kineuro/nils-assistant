@@ -162,20 +162,15 @@ export function stationAgent(
         if (text) ctx.append({ kind: "signal", type: "registry", body: text });
       });
     }
-    // the delivered message, for the examples of this turn (a bare render outside the runtime has none)
+    // the worked examples for this turn, chosen from the delivered message in the render and placed at the tail of the instructions: the head stays the same across turns and conversations for a runtime's prefix cache, and the examples read as plain text, never inside a signal's tag (a model reading YAML inside a tag writes its operators back as entities)
+    let examplesText = "";
     if (def.examples) {
-      let delivered = "";
       try {
         const d = useDelivery() as { body?: unknown };
-        delivered = typeof d.body === "string" ? d.body : "";
+        examplesText = typeof d.body === "string" ? (def.examples(d.body) ?? "") : "";
       } catch {
-        delivered = "";
+        examplesText = "";
       }
-      useAgentStart((ctx) => {
-        if (!delivered) return;
-        const text = def.examples?.(delivered) ?? "";
-        if (text) ctx.append({ kind: "signal", type: "examples", body: text });
-      });
     }
     // the desk seam (section 9.8): the closed union of typed parts, one data part named `part`, never a desk call
     // one named data part per kind, so a conversation's history keeps the last of each and the live stream sees every write
@@ -328,12 +323,10 @@ export function stationAgent(
           try {
             result = await def.complete(result, { seam, conversation: id, state: machine.state });
           } catch (e) {
-            return {
-              output: {
-                refused: true,
-                why: `the result could not be completed: ${e instanceof Error ? e.message : String(e)}`,
-              } as JsonValue,
-            };
+            const why = `the result could not be completed: ${e instanceof Error ? e.message : String(e)}`;
+            machine.refuse("settle", why);
+            commit();
+            return { output: { refused: true, why } as JsonValue };
           }
         }
         const verdict: Verdict = {
@@ -353,7 +346,11 @@ export function stationAgent(
           checks: [],
         };
         const rows = evidenceOnly(verdict);
-        if (rows) return { output: { refused: true, why: rows } };
+        if (rows) {
+          machine.refuse("settle", rows);
+          commit();
+          return { output: { refused: true, why: rows } };
+        }
         const checked = await runChecks(verdict, def.checks, m.checks, { seam, conversation: id });
         verdict.checks = checked.results;
         if (!checked.passed) {
@@ -454,7 +451,7 @@ export function stationAgent(
       if (heldMemory === null) setHeldMemory(memoryText);
     });
     // the instructions are the same on every render of every conversation of this person: the station's own text, the brief, the registry, the standing sentence; what varies (feedback, memory) comes last, so a runtime's prefix cache serves the rest
-    return `${def.instructions}${def.briefInline ? `\n\n${def.brief}` : ""}${warm ? `\n\n${warm}` : ""}\n\nYou are the ${m.id} station of ${m.app}, at the ${m.ceiling} ceiling. The phases: ${m.phases.initial}${m.phases.transitions.map((t) => ` then ${t.to}`).join("")}. ${def.advance === false ? "A tool moves the run to its phase." : "Move with advance."} End with settle.${feedbackText}${memoryText}`;
+    return `${def.instructions}${def.briefInline ? `\n\n${def.brief}` : ""}${warm ? `\n\n${warm}` : ""}\n\nYou are the ${m.id} station of ${m.app}, at the ${m.ceiling} ceiling. The phases: ${m.phases.initial}${m.phases.transitions.map((t) => ` then ${t.to}`).join("")}. ${def.advance === false ? "A tool moves the run to its phase." : "Move with advance."} End with settle.${examplesText ? `\n\n${examplesText}` : ""}${feedbackText}${memoryText}`;
   };
   return Object.assign(agent, { agentName: m.id });
 }

@@ -26,6 +26,16 @@ const documentOf = (a: Answer): number[] =>
     ? [(a.body as { document: number }).document]
     : [];
 
+/** A small model writing YAML inside a tool call sometimes escapes its comparison operators as HTML entities (`&gt;=`); the language has no use for an entity, so they are undone before the engine reads the text. */
+export function unescapeEntities(text: string): string {
+  return text
+    .replace(/&gt;/gu, ">")
+    .replace(/&lt;/gu, "<")
+    .replace(/&quot;/gu, '"')
+    .replace(/&#39;/gu, "'")
+    .replace(/&amp;/gu, "&");
+}
+
 /** The preview compacted for a small model: the level, the columns and the first rows without the technical columns, never the declaration block. */
 export function compactPreview(body: unknown): JsonValue {
   const b = body as {
@@ -88,7 +98,7 @@ export function askHelpTools(): StationTool[] {
         const drafted = await ctx.seam.door(
           "/api/ask/draft",
           "POST",
-          { text: args.text },
+          { text: unescapeEntities(String(args.text)) },
           { toolCallId: ctx.toolCallId, phase: ctx.state.phase },
         );
         const output = toolResult(drafted).output;
@@ -245,7 +255,7 @@ export async function completeResult(
   ctx: { seam: Seam; conversation: string },
 ): Promise<Record<string, unknown>> {
   // a refusal (section 9.11): no document, but the choices a person can take (the closest listed names); anything else needs a stored document
-  if (result.document === undefined || result.document === null) {
+  if (result.document === undefined || result.document === null || result.document === 0) {
     const choices = Array.isArray(result.choices) ? result.choices : [];
     if (choices.length === 0)
       throw new Error("document is the handle of a stored document; a refusal without one names the choices");
