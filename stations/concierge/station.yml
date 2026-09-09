@@ -36,9 +36,28 @@ result:
       description: the base the delegate refined, when there was one
     choices:
       type: array
+      maxItems: 1
       items:
         type: object
-      description: the one typed choice open to the person, with the count each option would produce
+        required:
+        - question
+        - axis
+        - options
+        properties:
+          question:
+            type: string
+          axis:
+            type: string
+            enum:
+            - pick
+            - scope
+            - grain
+            description: what the choice decides; a clarification fires at nothing else (section 9.12)
+          options:
+            type: array
+            items:
+              type: object
+      description: the one typed choice open to the person, at a pick, a scope or a grain, with the count each option would produce
     delegations:
       type: array
       items:
@@ -48,6 +67,7 @@ checks:
 - no_sql
 - no_identifier_value
 - from_a_delegate
+- clarification_axis
 budget:
   turns: 6
   tool_calls: 12

@@ -57,6 +57,18 @@ describe("the concierge", () => {
     expect(
       checks.from_a_delegate(verdict({ sentence: "done", document: 9 }), { conversation: "c2" }),
     ).toMatch(/document 9 is not what any settled delegate found/u);
+    expect(
+      checks.clarification_axis(
+        verdict({ sentence: "which", choices: [{ question: "which cohort", axis: "scope", options: [] }] }),
+        {},
+      ),
+    ).toBeNull();
+    expect(
+      checks.clarification_axis(
+        verdict({ sentence: "which", choices: [{ question: "what colour", axis: "style", options: [] }] }),
+        {},
+      ),
+    ).toMatch(/pick, a scope or a grain/u);
     expect(checks.no_sql(verdict({ sentence: "select * from subjects" }), {})).toMatch(/SQL/u);
     expect(checks.no_identifier_value(verdict({ sentence: "19800101-1234" }), {})).toMatch(/identifier/u);
   });

@@ -165,6 +165,16 @@ export function conciergeChecks(): Record<string, Check> {
         ? "the verdict carries an identifier value"
         : null;
     },
+    /** A clarification fires only at a pick, a scope or a grain (section 9.12); the schema says so too, this check says it in words. */
+    clarification_axis: (verdict: Verdict) => {
+      const choices = Array.isArray(verdict.result.choices)
+        ? (verdict.result.choices as { axis?: unknown }[])
+        : [];
+      const bad = choices.find((c) => !["pick", "scope", "grain"].includes(String(c.axis)));
+      return bad
+        ? `a clarification fires only at a pick, a scope or a grain, not at ${JSON.stringify(bad.axis ?? null).slice(0, 40)}`
+        : null;
+    },
     /** A document the concierge names came from a delegate's settled verdict, never from its own hand. */
     from_a_delegate: (verdict: Verdict, ctx) => {
       const document = verdict.result.document;
