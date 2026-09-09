@@ -94,11 +94,11 @@ describe("the grant", () => {
     expect(operationOf("POST", "/api/review/12/apply")).toBe("review/{id}/apply");
     for (const f of FORBIDDEN) expect(() => new GrantKeeper({ [f]: {} })).toThrow(/a person's/u);
     // a follow-up turn starts the counts over
-    const k = new GrantKeeper({ describe: { calls: 1 } });
-    expect(k.decide("POST", "/api/ask/describe").allowed).toBe(true);
-    expect(k.decide("POST", "/api/ask/describe").allowed).toBe(false);
-    k.reset();
-    expect(k.decide("POST", "/api/ask/describe").allowed).toBe(true);
+    const again = new GrantKeeper({ describe: { calls: 1 } });
+    expect(again.decide("POST", "/api/ask/describe").allowed).toBe(true);
+    expect(again.decide("POST", "/api/ask/describe").allowed).toBe(false);
+    again.reset();
+    expect(again.decide("POST", "/api/ask/describe").allowed).toBe(true);
     const k = new GrantKeeper({ describe: { calls: 1 }, "handles/{id}/rows": { rows: 50 } });
     expect(k.decide("POST", "/api/ask/describe").allowed).toBe(true);
     expect(k.decide("POST", "/api/ask/describe")).toMatchObject({
