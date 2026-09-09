@@ -172,12 +172,15 @@ export function askHelpTools(): StationTool[] {
   ];
 }
 
-const SQL = /\b(select|from|where|join)\b[\s\S]*\b(select|from|where|join)\b/iu;
+const SQL =
+  /\bselect\b[\s\S]{0,600}?\bfrom\b|\b(?:insert\s+into|delete\s+from|update\s+\w+\s+set|create\s+table|drop\s+table)\b/iu;
 
 /** The five checks of the manifest. */
 export function askHelpChecks(): Record<string, Check> {
   return {
     validate_clean: async (verdict: Verdict, ctx) => {
+      // a refusal carries no document to validate
+      if (verdict.result.document === null || verdict.result.document === undefined) return null;
       const seam = ctx.seam as Seam;
       const a = await seam.call({
         method: "POST",
@@ -196,6 +199,7 @@ export function askHelpChecks(): Record<string, Check> {
       return null;
     },
     declaration_full: (verdict: Verdict) => {
+      if (verdict.result.document === null || verdict.result.document === undefined) return null;
       const d = verdict.result.declaration as Record<string, unknown> | undefined;
       const need = [
         "grain",
@@ -240,6 +244,13 @@ export async function completeResult(
   result: Record<string, unknown>,
   ctx: { seam: Seam; conversation: string },
 ): Promise<Record<string, unknown>> {
+  // a refusal (section 9.11): no document, but the choices a person can take (the closest listed names); anything else needs a stored document
+  if (result.document === undefined || result.document === null) {
+    const choices = Array.isArray(result.choices) ? result.choices : [];
+    if (choices.length === 0)
+      throw new Error("document is the handle of a stored document; a refusal without one names the choices");
+    return { ...result, document: null, hash: null, declaration: null };
+  }
   const document = Number(result.document);
   if (!Number.isInteger(document)) throw new Error("document is the handle of a stored document");
   const validated = await ctx.seam.call({
@@ -311,7 +322,7 @@ export function askHelp(manifest: Manifest, brief: string, model: string): Retur
       "You are ask-help. Your brief follows, then the registry: its grains, the fields of each level, the axes and their values, the event kinds, the cohorts, the derived fields, and the engine's grounding. The worked examples closest to the question arrive with the question. Never SQL, never rows in your words, never a name the registry does not list.",
     tools: askHelpTools(),
     checks: askHelpChecks(),
-    settle: { phases: ["check", "finish"] },
+    settle: { phases: ["shape", "check", "finish"] },
     advance: false,
     briefInline: true,
     complete: completeResult,

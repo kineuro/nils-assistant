@@ -13,7 +13,7 @@ grant:
   catalog/{level}:
     calls: 12
   catalog/{level}/{field}/values:
-    calls: 12
+    calls: 4
     rows: 50
   validate:
     calls: 10
@@ -43,16 +43,17 @@ grant:
     calls: 6
 brief:
   path: SKILL.md
-  hash: 18ad2acf899fcc4528b22d3f20cd87052a95403b1544682b5accb7e9161421bd
+  hash: d25061983a6470867e8c01b37dcd586cb42cba1cb98751cf47a47b1fc4220810
 result:
   type: object
   required:
-  - document
   - sentence
   properties:
     document:
-      type: integer
-      description: the document handle the run leaves
+      type:
+      - integer
+      - 'null'
+      description: the document handle the run leaves; null only for a refusal, which names its choices
     hash:
       type: string
       description: the document's content hash, as validate answered it

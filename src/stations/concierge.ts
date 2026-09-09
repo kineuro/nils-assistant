@@ -155,8 +155,11 @@ export function conciergeTools(): StationTool[] {
 
 export function conciergeChecks(): Record<string, Check> {
   return {
+    // SQL is a SELECT followed by FROM, or a writing statement; the word "from" in a sentence is not SQL
     no_sql: (verdict: Verdict) =>
-      /\b(select|from|where|join)\b/iu.test(JSON.stringify(verdict.result))
+      /\bselect\b[\s\S]{0,600}?\bfrom\b|\b(?:insert\s+into|delete\s+from|update\s+\w+\s+set|create\s+table|drop\s+table)\b/iu.test(
+        JSON.stringify(verdict.result),
+      )
         ? "the verdict carries SQL"
         : null,
     no_identifier_value: (verdict: Verdict) => {

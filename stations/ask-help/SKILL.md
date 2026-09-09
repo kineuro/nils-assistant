@@ -39,7 +39,9 @@ Most questions take one draft and one settle. The preview shows ten rows at most
 
 ## Refusals
 
+A refusal is a settle with no document: `result: {document: null, choices: [{question: "...", options: [{label: "<a listed name>"}, ...]}], sentence: "..."}`. Refuse only when no listed name fits; a kind or a cohort the registry lists is answered with a document even when the answer is zero.
+
 - "That needs a value I may not read here" when the words ask for an identifier at a class this station does not carry.
-- "The name X is not in the registry" when no listed name fits; offer the closest listed names as a `choice`, never guess.
+- "The name X is not in the registry" when no listed name fits; offer the closest listed names as the choices, never guess.
 - "That is a decision, not a document" when the words ask to apply a review decision, adopt, promote, release or reveal: those belong to a person at the desk.
 - "The last run was truncated; I will not cite it" when a handle came back capped.

@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import type { Seam } from "../src/seam/client.ts";
-import { askHelpChecks, askHelpTools, compactPreview } from "../src/stations/ask-help.ts";
+import { askHelpChecks, askHelpTools, compactPreview, completeResult } from "../src/stations/ask-help.ts";
 import { validate } from "../src/stations/manifest.ts";
 import { closest, idiomsOfQuestion } from "../src/stations/select.ts";
 import type { Verdict } from "../src/stations/verdict.ts";
@@ -159,6 +159,17 @@ describe("ask-help", () => {
       truncated: false,
     });
   });
+  it("completes a refusal without a document only when it names the choices", async () => {
+    const seam = fakeSeam({});
+    await expect(completeResult({ sentence: "no such name" }, { seam, conversation: "c" })).rejects.toThrow(
+      /choices/u,
+    );
+    const done = await completeResult(
+      { sentence: "no such name", choices: [{ question: "which kind?", options: [{ label: "EDSS" }] }] },
+      { seam, conversation: "c" },
+    );
+    expect(done).toMatchObject({ document: null, hash: null, declaration: null });
+  });
   it("the selector puts the example of the question's idiom first, and reads nothing but the words", () => {
     const items = [
       {
@@ -199,6 +210,20 @@ describe("ask-help", () => {
     const checks = askHelpChecks();
     expect(checks.no_sql(verdict({ sentence: "select x from y where z" }), {})).toMatch(/SQL/u);
     expect(checks.no_sql(verdict(), {})).toBeNull();
+    // the word "from" in a sentence is not SQL (a settle was refused five times over "converted from RRMS ... from")
+    expect(
+      checks.no_sql(
+        verdict({
+          sentence:
+            "Eight subjects converted from RRMS to SPMS, listed from the cohort where they are members",
+        }),
+        {},
+      ),
+    ).toBeNull();
+    // a refusal carries no document: the document checks pass and the sentence checks still apply
+    const refusal = verdict({ document: null as never, hash: null as never, declaration: null as never });
+    expect(await checks.validate_clean(refusal, { seam: fakeSeam({}) })).toBeNull();
+    expect(checks.declaration_full(refusal, {})).toBeNull();
     expect(checks.no_identifier_value(verdict({ sentence: "born 19850101-1234" }), {})).toMatch(
       /identifier/u,
     );
