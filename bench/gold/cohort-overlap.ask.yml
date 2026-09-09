@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# shape-02: the subjects in both cohorts, with what is known about them
+ast_version: 1
+name: subjects in both cohorts
+scheme: default
+params:
+  cohorts: {type: list, value: [ms-cohort-a, ms-cohort-b]}
+sets:
+  scope:  {grain: cohort,  where: [["in", {}, ["field", {}, "name"], ["param", {}, "cohorts"]]]}
+  people: {grain: subject, of: scope}
+  both:
+    grain: subject
+    from: people
+    bind:
+      n_cohorts: ["count", {set: people}]
+    where: [[">=", {}, ["field", {}, "n_cohorts"], 2]]
+keep: [both]
+out:
+  set: both
+  level: record
+  columns:
+    - ["field", {}, "code"]
+    - ["field", {}, "sex"]
+    - ["field", {}, "birth_date"]
+    - ["field", {}, "n_cohorts"]
+  order: [[["field", {}, "code"], asc]]

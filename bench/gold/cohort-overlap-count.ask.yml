@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# shape-03: how many subjects are in more than one cohort
+ast_version: 1
+name: subjects in more than one cohort
+scheme: default
+params:
+  cohorts: {type: list, value: [ms-cohort-a, ms-cohort-b]}
+sets:
+  scope:  {grain: cohort,  where: [["in", {}, ["field", {}, "name"], ["param", {}, "cohorts"]]]}
+  people: {grain: subject, of: scope}
+  both:
+    grain: subject
+    from: people
+    bind:
+      n_cohorts: ["count", {set: people}]
+    where: [[">", {}, ["field", {}, "n_cohorts"], 1]]
+keep: [both]
+out: {set: both, level: count}

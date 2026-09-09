@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# shape-24: how many of those sessions share one FLAIR protocol, the same meaning the physics and the resolution
+ast_version: 1
+name: protocol homogeneity of the FLAIR across sessions
+scheme: default
+params:
+  cohorts: {type: list, value: [ms-cohort-a, ms-cohort-b]}
+  level:   {type: level, value: strict}
+sets:
+  scope:   {grain: cohort,  where: [["in", {}, ["field", {}, "name"], ["param", {}, "cohorts"]]]}
+  people:  {grain: subject, of: scope}
+  visits:  {grain: session, of: people}
+  flair:
+    grain: stack
+    of: visits
+    where:
+      - ["=",   {}, ["axis", {}, "base"], "T2w"]
+      - ["has", {}, ["axis", {}, "modifier"], "FLAIR"]
+    bind:
+      sig: ["derived", {level: ["param", {}, "level"]}, "signature"]
+  by_sig:
+    grain: group
+    group: {of: flair, by: [["field", {}, "sig"]]}
+    bind:
+      n_sessions: ["distinct", {set: flair}, ["field", {}, "session.id"]]
+keep: [by_sig]
+out:
+  set: by_sig
+  level: aggregate
+  columns:
+    - ["field", {}, "sig"]
+    - ["field", {}, "n_sessions"]
+  order: [[["field", {}, "n_sessions"], desc], [["field", {}, "sig"], asc]]

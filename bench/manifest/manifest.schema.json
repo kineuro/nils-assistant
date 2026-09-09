@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "A change manifest of the bench",
+  "description": "Every edit to a prompt, a brief, a tool description or a check is one of these, written before the edit runs, judged after by the nine-state matrix of matrix.ts.",
+  "type": "object",
+  "required": ["id", "component", "predicted_flips", "predicted", "change"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^m-[0-9]{4}$" },
+    "component": {
+      "enum": [
+        "domain_knowledge",
+        "tool_description",
+        "prompt",
+        "control_flow",
+        "tool_behaviour",
+        "configuration",
+        "delegation"
+      ]
+    },
+    "predicted_flips": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "shape or chain ids predicted to flip from fail to pass"
+    },
+    "predicted": {
+      "type": "object",
+      "required": ["loop", "held_out"],
+      "properties": {
+        "loop": { "enum": ["improve", "same", "regress"] },
+        "held_out": { "enum": ["improve", "same", "regress"] }
+      }
+    },
+    "change": { "type": "string" }
+  }
+}

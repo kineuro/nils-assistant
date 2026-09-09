@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# shape-13: sessions of one cohort with a T2-weighted image at exactly one resolution
+ast_version: 1
+name: sessions with a T2 at half a millimetre
+scheme: default
+params:
+  cohort: {type: cohort, value: ms-cohort-a}
+  mm:     {type: number, value: 0.5}
+  tol:    {type: number, value: 0.01}
+sets:
+  scope:  {grain: cohort,  where: [["=", {}, ["field", {}, "name"], ["param", {}, "cohort"]]]}
+  people: {grain: subject, of: scope}
+  visits: {grain: session, of: people}
+  t2:
+    grain: stack
+    of: visits
+    where:
+      - ["=",  {}, ["axis", {}, "base"], "T2w"]
+      - ["~=", {tol: ["param", {}, "tol"]}, ["field", {}, "pixel_spacing_row"], ["param", {}, "mm"]]
+      - ["~=", {tol: ["param", {}, "tol"]}, ["field", {}, "pixel_spacing_col"], ["param", {}, "mm"]]
+      - ["~=", {tol: ["param", {}, "tol"]}, ["field", {}, "slice_thickness"], ["param", {}, "mm"]]
+  found:
+    grain: session
+    from: visits
+    has: [{set: t2, min: 1}]
+keep: [found]
+out:
+  set: found
+  level: record
+  columns:
+    - ["field", {}, "subject.code"]
+    - ["field", {}, "first"]
+  order: [[["field", {}, "subject.code"], asc], [["field", {}, "first"], asc]]
