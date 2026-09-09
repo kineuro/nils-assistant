@@ -59,9 +59,9 @@ describe("ask-help", () => {
     expect(manifest.ceiling).toBe("reviewer");
     expect(manifest.content).toBe("rows");
     expect(manifest.budget).toEqual({
-      turns: 12,
+      turns: 16,
       tool_calls: 40,
-      wall_clock_seconds: 180,
+      wall_clock_seconds: 300,
       input_tokens: 250000,
     });
     expect(manifest.writes).toEqual(["document_version"]);
