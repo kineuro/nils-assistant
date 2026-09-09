@@ -364,10 +364,12 @@ if (stableShape?.rebased.gold && expect[stableShape.rebased.gold]?.content_hash)
   };
 }
 
+// a run of the stability check alone is written under its own name, never over the chains' file
+const kind = (out.chains as unknown[]).length === 0 && out.stability ? "stability" : "chains";
 writeFileSync(
   join(
     process.env.EVALS_OUT ?? join(root, "stations", "ask-help", "evals"),
-    `chains-${new Date().toISOString().slice(0, 10)}.json`,
+    `${kind}-${new Date().toISOString().slice(0, 10)}.json`,
   ),
   `${JSON.stringify(out, null, 2)}\n`,
 );

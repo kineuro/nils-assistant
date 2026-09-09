@@ -1,0 +1,1067 @@
+{
+  "at": "2026-09-09T17:25:54.337Z",
+  "corpus": "authored",
+  "summary": {
+    "authored": {
+      "of": 36,
+      "strict": 21,
+      "same_answer": 26,
+      "loop": {
+        "strict": {
+          "passed": 15,
+          "of": 28
+        },
+        "same_answer": {
+          "passed": 19,
+          "of": 28
+        }
+      },
+      "held_out": {
+        "strict": {
+          "passed": 6,
+          "of": 8
+        },
+        "same_answer": {
+          "passed": 7,
+          "of": 8
+        }
+      },
+      "median_seconds": 36,
+      "median_turns": 1,
+      "median_tool_calls": 5,
+      "refused_calls": 39,
+      "drafts": 65,
+      "draft_refusals": 27,
+      "by_budget": 0
+    }
+  },
+  "results": [
+    {
+      "id": "auth-cohort-b-size",
+      "corpus": "authored",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 73,
+      "seconds": 21,
+      "terminal": "settled",
+      "conversation": "eval-auth-cohort-b-size-mtucc8z8",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 5,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_diagnose",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "auth-cohort-a-sessions",
+      "corpus": "authored",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 75,
+      "seconds": 27,
+      "terminal": "settled",
+      "conversation": "eval-auth-cohort-a-sessions-mtuccpal",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 5,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_diagnose",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "auth-only-in-a",
+      "corpus": "authored",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 77,
+      "seconds": 54,
+      "terminal": "settled",
+      "conversation": "eval-auth-only-in-a-mtucda67",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 7,
+        "refused": 0,
+        "drafts": 2,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_diagnose",
+          "nils_options",
+          "nils_draft",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "auth-four-sessions",
+      "corpus": "authored",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 71,
+      "seconds": 30,
+      "terminal": "settled",
+      "conversation": "eval-auth-four-sessions-mtucefx0",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 4,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "auth-sessions-per-subject-b",
+      "corpus": "authored",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 78,
+      "seconds": 33,
+      "terminal": "settled",
+      "conversation": "eval-auth-sessions-per-subject-b-mtucf349",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 5,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_diagnose",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "auth-diagnosed-count",
+      "corpus": "authored",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 79,
+      "seconds": 24,
+      "terminal": "settled",
+      "conversation": "eval-auth-diagnosed-count-mtucfsn0",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 5,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_diagnose",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "auth-rrms-to-spms",
+      "corpus": "authored",
+      "passed": false,
+      "selection": null,
+      "why": "no verdict (loop_stopped)",
+      "document": null,
+      "seconds": 42,
+      "terminal": "loop_stopped",
+      "conversation": "eval-auth-rrms-to-spms-mtucgb7d",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 9,
+        "refused": 5,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 5,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_diagnose",
+          "nils_preview",
+          "settle",
+          "settle",
+          "settle",
+          "settle",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "auth-latest-edss-b",
+      "corpus": "authored",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 81,
+      "seconds": 30,
+      "terminal": "settled",
+      "conversation": "eval-auth-latest-edss-b-mtuch7o8",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 4,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "auth-edss-at-first-session",
+      "corpus": "authored",
+      "passed": false,
+      "selection": true,
+      "why": "document 83: 132 rows, the gold has 38, the same answer; 132 sessions of cohort A's 38 subjects each sit within six months of an EDSS score; the table gives ",
+      "document": 83,
+      "seconds": 63,
+      "terminal": "settled",
+      "conversation": "eval-auth-edss-at-first-session-mtuchuvn",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 7,
+        "refused": 1,
+        "drafts": 3,
+        "draft_refusals": 2,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_draft",
+          "nils_draft",
+          "nils_diagnose",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "auth-age-at-first-session-b",
+      "corpus": "authored",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 90,
+      "seconds": 33,
+      "terminal": "settled",
+      "conversation": "eval-auth-age-at-first-session-b-mtucj7nb",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 4,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "auth-diagnosed-before-thirty",
+      "corpus": "authored",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 92,
+      "seconds": 24,
+      "terminal": "settled",
+      "conversation": "eval-auth-diagnosed-before-thirty-mtucjx63",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 5,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_diagnose",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "auth-after-transition",
+      "corpus": "authored",
+      "passed": false,
+      "selection": false,
+      "why": "document 93: 6 rows, the gold has 12; Six sessions of four subjects (SYN0006, SYN0024, SYN0025, SYN0045) took place within three months af",
+      "document": 93,
+      "seconds": 30,
+      "terminal": "settled",
+      "conversation": "eval-auth-after-transition-mtuckfq5",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 4,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "auth-first-to-second-gap-b",
+      "corpus": "authored",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 96,
+      "seconds": 27,
+      "terminal": "settled",
+      "conversation": "eval-auth-first-to-second-gap-b-mtucl2z0",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 4,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "auth-mprage-1mm-sessions-a",
+      "corpus": "authored",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 97,
+      "seconds": 27,
+      "terminal": "settled",
+      "conversation": "eval-auth-mprage-1mm-sessions-a-mtuclnuj",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 5,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_diagnose",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "auth-low-field-subjects-b",
+      "corpus": "authored",
+      "passed": false,
+      "selection": true,
+      "why": "document 98: 2 rows, the gold has 2, the same answer; Two of cohort B's twelve subjects have been scanned at 1.5 tesla: SYN0025 and SYN0033, both female.",
+      "document": 98,
+      "seconds": 30,
+      "terminal": "settled",
+      "conversation": "eval-auth-low-field-subjects-b-mtucm8px",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 5,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_diagnose",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "auth-stacks-at-15t",
+      "corpus": "authored",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 99,
+      "seconds": 21,
+      "terminal": "settled",
+      "conversation": "eval-auth-stacks-at-15t-mtucmvyg",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 5,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_diagnose",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "auth-tse-without-flair",
+      "corpus": "authored",
+      "passed": false,
+      "selection": false,
+      "why": "document 100: 191 rows, the gold has 16; All 191 sessions across both cohorts that have a T2-weighted TSE stack also have a FLAIR stack, so n",
+      "document": 100,
+      "seconds": 36,
+      "terminal": "settled",
+      "conversation": "eval-auth-tse-without-flair-mtucnc7h",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 4,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "auth-thinnest-t2-a",
+      "corpus": "authored",
+      "passed": false,
+      "selection": false,
+      "why": "document 101: 1 rows, the gold has 1; The thinnest slice thickness among the T2-weighted stacks of cohort A is 0.5 mm, carried by 124 of t",
+      "document": 101,
+      "seconds": 66,
+      "terminal": "settled",
+      "conversation": "eval-auth-thinnest-t2-a-mtuco43c",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 8,
+        "refused": 1,
+        "drafts": 4,
+        "draft_refusals": 3,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_draft",
+          "nils_draft",
+          "nils_draft",
+          "nils_diagnose",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "auth-scouts-a",
+      "corpus": "authored",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 102,
+      "seconds": 27,
+      "terminal": "settled",
+      "conversation": "eval-auth-scouts-a-mtucpj5u",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 5,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_diagnose",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "auth-per-cohort-sessions",
+      "corpus": "authored",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 103,
+      "seconds": 36,
+      "terminal": "settled",
+      "conversation": "eval-auth-per-cohort-sessions-mtucq41o",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 5,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_diagnose",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "auth-per-sex-age-a",
+      "corpus": "authored",
+      "passed": false,
+      "selection": null,
+      "why": "no verdict (loop_stopped: I'll build this from the per-cohort summary example (12), adding a per-subject f)",
+      "document": null,
+      "seconds": 99,
+      "terminal": "loop_stopped",
+      "conversation": "eval-auth-per-sex-age-a-mtucqvvy",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 23,
+        "refused": 3,
+        "drafts": 3,
+        "draft_refusals": 3,
+        "settles": 0,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_draft",
+          "nils_draft",
+          "nils_options",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values"
+        ]
+      }
+    },
+    {
+      "id": "auth-sessions-per-year",
+      "corpus": "authored",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 104,
+      "seconds": 51,
+      "terminal": "settled",
+      "conversation": "eval-auth-sessions-per-year-mtuct0f8",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 8,
+        "refused": 1,
+        "drafts": 3,
+        "draft_refusals": 2,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_draft",
+          "nils_options",
+          "nils_draft",
+          "nils_diagnose",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "auth-edss-and-sdmt-a",
+      "corpus": "authored",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 105,
+      "seconds": 33,
+      "terminal": "settled",
+      "conversation": "eval-auth-edss-and-sdmt-a-mtucu3uv",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 4,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "auth-dark-fluid-sessions",
+      "corpus": "authored",
+      "passed": false,
+      "selection": null,
+      "why": "no verdict (loop_stopped)",
+      "document": null,
+      "seconds": 84,
+      "terminal": "loop_stopped",
+      "conversation": "eval-auth-dark-fluid-sessions-mtucutds",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 37,
+        "refused": 12,
+        "drafts": 0,
+        "draft_refusals": 0,
+        "settles": 0,
+        "tools": [
+          "activate_skill",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values"
+        ]
+      }
+    },
+    {
+      "id": "auth-both-field-strengths",
+      "corpus": "authored",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 106,
+      "seconds": 51,
+      "terminal": "settled",
+      "conversation": "eval-auth-both-field-strengths-mtucwmbi",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 5,
+        "refused": 0,
+        "drafts": 2,
+        "draft_refusals": 1,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_draft",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "auth-female-share-a",
+      "corpus": "authored",
+      "passed": false,
+      "selection": false,
+      "why": "document 107: 2 rows, the gold has 2; 31 of the 38 subjects in cohort A are female — about 81.6%.",
+      "document": 107,
+      "seconds": 63,
+      "terminal": "settled",
+      "conversation": "eval-auth-female-share-a-mtucxprm",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 10,
+        "refused": 0,
+        "drafts": 4,
+        "draft_refusals": 3,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_draft",
+          "nils_draft",
+          "nils_values",
+          "nils_values",
+          "nils_draft",
+          "nils_diagnose",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "auth-mean-edss-first-a",
+      "corpus": "authored",
+      "passed": false,
+      "selection": null,
+      "why": "no verdict (loop_stopped: I'll build this from the closest worked example (Example 4: sessions near an eve)",
+      "document": null,
+      "seconds": 210,
+      "terminal": "loop_stopped",
+      "conversation": "eval-auth-mean-edss-first-a-mtucz2il",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 18,
+        "refused": 3,
+        "drafts": 10,
+        "draft_refusals": 5,
+        "settles": 0,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_draft",
+          "nils_values",
+          "nils_values",
+          "nils_draft",
+          "nils_preview",
+          "nils_diagnose",
+          "nils_draft",
+          "nils_draft",
+          "nils_options",
+          "nils_options",
+          "nils_draft",
+          "nils_options",
+          "nils_draft",
+          "nils_draft",
+          "nils_draft",
+          "nils_draft"
+        ]
+      }
+    },
+    {
+      "id": "auth-edss-six-or-more",
+      "corpus": "authored",
+      "passed": false,
+      "selection": true,
+      "why": "document 110: 37 rows, the gold has 37, the same answer; Thirty-two subjects have ever recorded an EDSS of 6 or more, listed with their code, sex and birth d",
+      "document": 110,
+      "seconds": 36,
+      "terminal": "settled",
+      "conversation": "eval-auth-edss-six-or-more-mtud3kul",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 6,
+        "refused": 0,
+        "drafts": 2,
+        "draft_refusals": 1,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_draft",
+          "nils_diagnose",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "auth-sessions-of-b",
+      "corpus": "authored",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 111,
+      "seconds": 27,
+      "terminal": "settled",
+      "conversation": "eval-auth-sessions-of-b-mtud4cq8",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 5,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_diagnose",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "auth-hiv-status-a",
+      "corpus": "authored",
+      "passed": false,
+      "selection": false,
+      "why": "document 112: 1 rows, the gold has 1; The name 'HIV status' is not in the registry — the subject level carries only code, sex, birth_date ",
+      "document": 112,
+      "seconds": 117,
+      "terminal": "settled",
+      "conversation": "eval-auth-hiv-status-a-mtud4xm7",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 10,
+        "refused": 4,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 5,
+        "tools": [
+          "activate_skill",
+          "nils_catalog",
+          "nils_catalog",
+          "nils_values",
+          "settle",
+          "settle",
+          "settle",
+          "nils_draft",
+          "settle",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "auth-most-slices-mprage-a",
+      "corpus": "authored",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 113,
+      "seconds": 36,
+      "terminal": "settled",
+      "conversation": "eval-auth-most-slices-mprage-a-mtud7g3p",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 5,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_diagnose",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "auth-isotropic-flair-a",
+      "corpus": "authored",
+      "passed": false,
+      "selection": true,
+      "why": "document 114: 3 rows, the gold has 3, the same answer; Three subjects of cohort A have a session with a 3D FLAIR at one millimetre isotropic: SYN0021, SYN0",
+      "document": 114,
+      "seconds": 39,
+      "terminal": "settled",
+      "conversation": "eval-auth-isotropic-flair-a-mtud87xv",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 4,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "auth-first-session-before-2005",
+      "corpus": "authored",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 115,
+      "seconds": 33,
+      "terminal": "settled",
+      "conversation": "eval-auth-first-session-before-2005-mtud9259",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 5,
+        "refused": 0,
+        "drafts": 2,
+        "draft_refusals": 1,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_draft",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "auth-edss-count-and-max-b",
+      "corpus": "authored",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 116,
+      "seconds": 42,
+      "terminal": "settled",
+      "conversation": "eval-auth-edss-count-and-max-b-mtud9rnt",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 5,
+        "refused": 0,
+        "drafts": 2,
+        "draft_refusals": 1,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_draft",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "auth-two-sessions-one-year",
+      "corpus": "authored",
+      "passed": false,
+      "selection": null,
+      "why": "no verdict (loop_stopped: I'll build this from the worked examples: a group over sessions, keyed by subjec)",
+      "document": null,
+      "seconds": 84,
+      "terminal": "loop_stopped",
+      "conversation": "eval-auth-two-sessions-one-year-mtudao51",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 15,
+        "refused": 8,
+        "drafts": 4,
+        "draft_refusals": 4,
+        "settles": 0,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_draft",
+          "nils_draft",
+          "nils_values",
+          "nils_draft",
+          "nils_options",
+          "nils_guide",
+          "nils_catalog",
+          "nils_catalog",
+          "nils_options",
+          "nils_options",
+          "nils_options",
+          "nils_options",
+          "nils_options"
+        ]
+      }
+    },
+    {
+      "id": "auth-fifty-at-latest-a",
+      "corpus": "authored",
+      "passed": false,
+      "selection": true,
+      "why": "document 117: 1 rows, the gold has 1, the same answer; One subject of cohort A was 50 or older at their latest session: SYN0018.",
+      "document": 117,
+      "seconds": 54,
+      "terminal": "settled",
+      "conversation": "eval-auth-fifty-at-latest-a-mtudch2v",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 6,
+        "refused": 1,
+        "drafts": 2,
+        "draft_refusals": 1,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_options",
+          "nils_draft",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    }
+  ]
+}

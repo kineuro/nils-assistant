@@ -1,0 +1,60 @@
+{
+  "at": "2026-09-09T19:55:39.273Z",
+  "host": "http://127.0.0.1:7310",
+  "chains": [],
+  "stability": {
+    "shape": "shape-23",
+    "times": 5,
+    "runs": [
+      {
+        "document": 260,
+        "terminal": "settled",
+        "content_hash": "fcfe0bdf87113984fe6d4f961b5f3f8c11e6e3fd4b383ac95f37cd8a62a4faf7",
+        "row_count": 1,
+        "digest": "37f53eb14839513e00f3f54494f1601b",
+        "seconds": 18,
+        "tool_calls": 2
+      },
+      {
+        "document": 261,
+        "terminal": "settled",
+        "content_hash": "fcfe0bdf87113984fe6d4f961b5f3f8c11e6e3fd4b383ac95f37cd8a62a4faf7",
+        "row_count": 1,
+        "digest": "37f53eb14839513e00f3f54494f1601b",
+        "seconds": 21,
+        "tool_calls": 2
+      },
+      {
+        "document": 261,
+        "terminal": "settled",
+        "content_hash": "fcfe0bdf87113984fe6d4f961b5f3f8c11e6e3fd4b383ac95f37cd8a62a4faf7",
+        "row_count": 1,
+        "digest": "37f53eb14839513e00f3f54494f1601b",
+        "seconds": 21,
+        "tool_calls": 2
+      },
+      {
+        "document": 226,
+        "terminal": "settled",
+        "content_hash": "fcfe0bdf87113984fe6d4f961b5f3f8c11e6e3fd4b383ac95f37cd8a62a4faf7",
+        "row_count": 1,
+        "digest": "37f53eb14839513e00f3f54494f1601b",
+        "seconds": 18,
+        "tool_calls": 2
+      },
+      {
+        "document": 262,
+        "terminal": "settled",
+        "content_hash": "fcfe0bdf87113984fe6d4f961b5f3f8c11e6e3fd4b383ac95f37cd8a62a4faf7",
+        "row_count": 1,
+        "digest": "37f53eb14839513e00f3f54494f1601b",
+        "seconds": 18,
+        "tool_calls": 2
+      }
+    ],
+    "matched_gold": 5,
+    "distinct_answers": 1,
+    "distinct_digests": 1,
+    "stable": true
+  }
+}
