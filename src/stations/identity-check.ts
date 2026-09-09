@@ -56,6 +56,24 @@ export function carriesValue(text: string): string | null {
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
+/** What is wrong with a rule's shape, in the words the engine would use, or null. */
+export function ruleComplaint(r: Record<string, unknown>): string | null {
+  if (typeof r.id_type !== "string" || !/^[a-z][a-z0-9-]*$/u.test(r.id_type))
+    return 'id_type is a name of lowercase letters, digits and hyphens, such as "patient-id" or "subject-code"';
+  if (r.code !== undefined && r.code !== "verbatim") return 'code is "verbatim" or absent';
+  if (!Array.isArray(r.from) || r.from.length === 0) return "from is a list of one source or more";
+  for (const [i, src] of (r.from as Record<string, unknown>[]).entries()) {
+    const hasField = typeof src?.field === "string";
+    const seg = (src?.path as { segment?: unknown } | undefined)?.segment;
+    const hasPath = typeof seg === "number" && Number.isInteger(seg) && seg >= 1;
+    if (hasField === hasPath)
+      return `from[${i}] is {"field": "<DICOM keyword>"} or {"path": {"segment": n}}, one of the two`;
+    if (src.pattern !== undefined && (typeof src.pattern !== "string" || !src.pattern.includes("(?<id>")))
+      return `from[${i}].pattern needs the named group (?<id>...) around the identifier`;
+  }
+  return null;
+}
+
 export function identityCheckTools(): StationTool[] {
   return [
     {
@@ -85,16 +103,21 @@ export function identityCheckTools(): StationTool[] {
     {
       name: "nils_probe",
       description:
-        "Probe candidate identity rules side by side over a bounded sample of a registered location, as a job: the engine validates every rule, reads the sample once and traces each rule over it, and answers per candidate the shape histogram of each source, whether the identity is constant, the subject and study counts, never a value. Give the current rule first and the candidate second. A rule is {id_type, code?: verbatim, from: [{field: DICOM keyword, pattern?} | {path: {segment: n}, pattern?}]}.",
+        'Probe candidate identity rules side by side over a bounded sample of a registered location, as a job: the engine validates every rule, reads the sample once and traces each rule over it, and answers per candidate the shape histogram of each source, whether the identity is constant, the subject and study counts, never a value. Give the current rule first and the candidate second. A rule is an object {"id_type": a lowercase-and-hyphens name such as "patient-id" or "subject-code", "code": "verbatim" when the value is the subject code itself, "from": [sources tried in order]}; a source is {"field": "PatientID"} (a DICOM keyword) or {"path": {"segment": 1}} (the nth directory under the location, counted from one), each with an optional "pattern", a regular expression whose named group (?<id>...) is the identifier, for example "^(?<id>[A-Z]{3}[0-9]{3})$". The default rule is {"id_type": "patient-id", "from": [{"field": "PatientID"}]}.',
       input: v.object({
         location: v.string(),
         rules: v.array(v.record(v.string(), v.unknown())),
         sample: v.optional(v.number()),
       }),
       phases: ["diagnose"],
-      salient: ["location"],
+      salient: ["location", "rules"],
       async run(args, ctx) {
         const rules = args.rules as Record<string, unknown>[];
+        for (const [i, r] of rules.entries()) {
+          // the grammar, checked here so a malformed rule spends no call of the grant; the engine's validator is still the one that counts
+          const bad = ruleComplaint(r);
+          if (bad) return { output: { refused: true, why: `rules[${i}]: ${bad}` } as JsonValue };
+        }
         if (rules.length < 2)
           return {
             output: {

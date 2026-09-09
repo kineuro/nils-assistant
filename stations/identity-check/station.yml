@@ -9,7 +9,7 @@ grant:
   capabilities:
     calls: 2
   ingest/probe:
-    calls: 3
+    calls: 4
   jobs/{id}:
     calls: 30
 brief:

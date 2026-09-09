@@ -2,7 +2,12 @@
 // identity-check (Wave 4c D7): the manifest, the path question, and that a value never passes as a shape.
 
 import { describe, expect, it } from "vitest";
-import { carriesValue, identityCheckChecks, usesPath } from "../src/stations/identity-check.ts";
+import {
+  carriesValue,
+  identityCheckChecks,
+  ruleComplaint,
+  usesPath,
+} from "../src/stations/identity-check.ts";
 import { loadManifests } from "../src/stations/manifest.ts";
 import type { Verdict } from "../src/stations/verdict.ts";
 
@@ -29,6 +34,23 @@ describe("identity-check", () => {
     expect(carriesValue("born 19840110-1234")).toBe("19840110-1234");
     expect(usesPath({ id_type: "subject-code", from: [{ path: { segment: 1 } }] })).toBe(true);
     expect(usesPath({ id_type: "patient-id", from: [{ field: "PatientID" }] })).toBe(false);
+  });
+
+  it("says what is wrong with a rule before the grant is spent", () => {
+    expect(ruleComplaint({ id_type: "patient-id", from: [{ field: "PatientID" }] })).toBeNull();
+    expect(
+      ruleComplaint({
+        id_type: "subject-code",
+        code: "verbatim",
+        from: [{ path: { segment: 1 }, pattern: "^(?<id>[A-Z]{3}[0-9]{3})$" }],
+      }),
+    ).toBeNull();
+    expect(ruleComplaint({ id_type: "PatientID", from: [{ field: "PatientID" }] })).toMatch(/lowercase/u);
+    expect(ruleComplaint({ id_type: "patient-id" })).toMatch(/from is a list/u);
+    expect(
+      ruleComplaint({ id_type: "subject", from: [{ path: { segment: 1 }, pattern: "[A-Z]{3}[0-9]{3}" }] }),
+    ).toMatch(/named group/u);
+    expect(ruleComplaint({ id_type: "subject", from: [{ segment: 1 }] })).toMatch(/one of the two/u);
   });
 
   it("refuses a verdict that names no source, no shapes, or a value", () => {
