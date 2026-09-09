@@ -16,7 +16,7 @@ grant:
     calls: 12
     rows: 50
   validate:
-    calls: 8
+    calls: 10
   describe:
     calls: 8
   options:
@@ -24,12 +24,12 @@ grant:
   apply:
     calls: 12
   diagnose:
-    calls: 6
+    calls: 8
   preview:
-    calls: 6
+    calls: 8
     rows: 10
   draft:
-    calls: 4
+    calls: 10
   diff:
     calls: 4
   handles/{id}:
@@ -38,12 +38,12 @@ grant:
     calls: 4
     rows: 50
   documents:
-    calls: 6
+    calls: 8
   documents/{id}:
     calls: 6
 brief:
   path: SKILL.md
-  hash: 975aaa5322892a45b14b7075d9a2cd4beeef648a9942c8ab1eaad130e310e521
+  hash: 7706d7fed10853f7fdc48ae6ede992529b33b6fd576e9cc99e202fea42d7c0c1
 result:
   type: object
   required:
@@ -74,9 +74,9 @@ checks:
 - no_truncated_handle
 - no_identifier_value
 budget:
-  turns: 12
+  turns: 16
   tool_calls: 40
-  wall_clock_seconds: 180
+  wall_clock_seconds: 300
   input_tokens: 250000
 writes:
 - document_version
