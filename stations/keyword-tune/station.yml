@@ -1,0 +1,83 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# keyword-tune (Wave 4c section 9.13), as contracts/suite/v1/station.schema.json fixes a manifest.
+id: keyword-tune
+app: nils-assistant
+purpose: assistant.keyword-tune
+content: rows
+ceiling: reviewer
+grant:
+  classify/signals:
+    calls: 6
+  classify/try:
+    calls: 6
+  review:
+    calls: 4
+  review/{id}:
+    calls: 8
+  overlays:
+    calls: 2
+  overlays/{id}:
+    calls: 2
+brief:
+  path: SKILL.md
+  hash: 6dff01f3cffb3dcd9bfbe231dc7a685704d0b1a18f617baa9210ff80c02b82ef
+result:
+  type: object
+  required:
+  - axis
+  - bucket
+  - sentence
+  - diff
+  properties:
+    axis:
+      type: string
+    bucket:
+      type: string
+    overlay:
+      type: object
+      description: the overlay document rehearsed, one bucket of one pack
+    prediction:
+      type: object
+      description: the hypothesis as written before the rehearsal
+    rehearsal:
+      type: object
+      description: what try answered, the moves per axis and the review items that would close and open
+    diff:
+      type: string
+      enum:
+      - keep
+      - partial
+      - revert
+    proposal:
+      type: object
+      description: the overlay id and the review item beside it, when one was proposed
+    sentence:
+      type: string
+checks:
+- one_file
+- prediction_before_rehearsal
+- rehearsal_wrote_nothing
+- groups_exist
+budget:
+  turns: 10
+  tool_calls: 30
+  wall_clock_seconds: 180
+  input_tokens: 200000
+writes:
+- overlay
+- review_decision
+phases:
+  initial: survey
+  follow_up: hypothesise
+  transitions:
+  - from: survey
+    to: hypothesise
+  - from: hypothesise
+    to: rehearse
+  - from: rehearse
+    to: check
+  - from: check
+    to: hypothesise
+  - from: check
+    to: finish
+evals: evals
