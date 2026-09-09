@@ -22,7 +22,7 @@ import {
 import * as v from "valibot";
 import { providerId } from "../providers/kvasir.ts";
 import type { Seam } from "../seam/client.ts";
-import { feedbackOf, seamFor, verdicts } from "../seam/for.ts";
+import { feedbackOf, seamFor, subjectOfConversation, theNotes, verdicts } from "../seam/for.ts";
 import { initialState, Machine, type RunState } from "./machine.ts";
 import type { Manifest, TerminalReason } from "./manifest.ts";
 import { toValibot } from "./schema.ts";
@@ -315,6 +315,14 @@ export function stationAgent(
         commit();
         setSettled({ verdict });
         verdicts.set(id, verdict);
+        // a study note for the person's later threads: the document and the sentence, never a row
+        if (typeof result.document === "number")
+          theNotes().add({
+            subject,
+            kind: "study",
+            station: m.id,
+            text: `document ${result.document}: ${data.sentence}`,
+          });
         // what the desk renders: a document version as a move proposal on a scratch handle, the choices, the handles read, the status
         for (const p of proposals) {
           if (p.kind === "document_version")
@@ -373,7 +381,18 @@ export function stationAgent(
       fb.rejected.length + fb.accepted.length === 0
         ? ""
         : `\n\nThe person's feedback on earlier proposals:${fb.accepted.map((f) => `\n- accepted document ${f.document}${f.sentence ? ` (${f.sentence})` : ""}: it is the base now`).join("")}${fb.rejected.map((f) => `\n- rejected document ${f.document}${f.sentence ? ` (${f.sentence})` : ""}: do not propose it or the same change again`).join("")}`;
-    return `${def.instructions}${feedbackText}\n\nYou are the ${m.id} station of ${m.app}, at the ${m.ceiling} ceiling, in the ${machine.state.phase} phase. The phases: ${m.phases.initial}${m.phases.transitions.map((t) => ` then ${t.to}`).join("")}. Move with advance. End with settle.`;
+    // memory across threads (section 9.9): the person's own index, five lines at most, and the group's structural corrections
+    const subject = subjectOfConversation(id);
+    const index = theNotes().index(subject);
+    const corrections = theNotes().institutional(m.id);
+    const memoryText =
+      (index.length
+        ? `\n\nWhat you know of this person's earlier threads (their own notes, newest first):${index.map((l) => `\n- ${l}`).join("")}`
+        : "") +
+      (corrections.length
+        ? `\n\nCorrections the group accepted for this station: ${corrections.map((c) => `on ${c.axis}, the check ${c.check} would now catch it`).join("; ")}.`
+        : "");
+    return `${def.instructions}${feedbackText}${memoryText}\n\nYou are the ${m.id} station of ${m.app}, at the ${m.ceiling} ceiling, in the ${machine.state.phase} phase. The phases: ${m.phases.initial}${m.phases.transitions.map((t) => ` then ${t.to}`).join("")}. Move with advance. End with settle.`;
   };
   return Object.assign(agent, { agentName: m.id });
 }

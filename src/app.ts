@@ -12,17 +12,21 @@ import { config } from "./config.ts";
 import { capabilities } from "./host/capabilities.ts";
 import { Runs } from "./host/runs.ts";
 import { kvasirProvider, readCatalog } from "./providers/kvasir.ts";
+import { agentIds, delegationsOf, delegationView, registerAgent } from "./seam/delegations.ts";
 import {
   feedbackOf,
   probeEngineAuth,
   recordFeedback,
   registerStation,
   stationList,
+  subjectOfConversation,
   theLedger,
+  theNotes,
   tokens,
   verdicts,
 } from "./seam/for.ts";
 import { AskHelp } from "./stations/ask-help-agent.ts";
+import { Concierge } from "./stations/concierge-agent.ts";
 import { Echo } from "./stations/echo.ts";
 import { loadManifests } from "./stations/manifest.ts";
 
@@ -45,7 +49,10 @@ for (const m of manifests.values())
 // the station code, by manifest id, each a 'use agent' module the build scanned; a manifest without code is listed and refused at run time
 const agents = new Map<string, Parameters<typeof createAgentRouter>[0]>();
 if (manifests.has("ask-help")) agents.set("ask-help", AskHelp);
+if (manifests.has("concierge")) agents.set("concierge", Concierge);
 agents.set("echo", Echo);
+// the stations a concierge may delegate to, by id (section 9.12)
+for (const [id, a] of agents) registerAgent(id, a);
 registerStation({
   id: "echo",
   version: c.version,
@@ -160,6 +167,46 @@ app.post("/conversations/:id/feedback", async (ctx) => {
 });
 
 app.get("/conversations/:id/feedback", (ctx) => ctx.json(feedbackOf(ctx.req.param("id"))));
+
+/** The delegations of a conversation, from the store (section 9.12): the desk renders a delegate's verdict from here, never from the concierge's words. */
+app.get("/conversations/:id/delegations", (ctx) =>
+  ctx.json({ stations: agentIds(), tasks: delegationsOf(ctx.req.param("id")).map(delegationView) }),
+);
+
+/** Memory (section 9.9): a person's own notes, read and deleted by the subject the desk's token names for the conversation. */
+app.get("/conversations/:id/notes", (ctx) => {
+  const subject = subjectOfConversation(ctx.req.param("id"));
+  return ctx.json({ subject, notes: theNotes().list(subject) });
+});
+app.delete("/conversations/:id/notes", (ctx) => {
+  const subject = subjectOfConversation(ctx.req.param("id"));
+  return ctx.json({ subject, deleted: theNotes().deleteSubject(subject) });
+});
+/** Institutional corrections: structural only, accepted by a named person; the row has no field a value fits. */
+app.get("/notes/institutional", (ctx) =>
+  ctx.json({ corrections: theNotes().institutional(ctx.req.query("station") || undefined) }),
+);
+app.post("/notes/institutional", async (ctx) => {
+  const body = (await ctx.req.json().catch(() => ({}))) as {
+    station?: string;
+    axis?: string;
+    check?: string;
+    accepted_by?: string;
+  };
+  try {
+    return ctx.json(
+      theNotes().accept({
+        station: String(body.station ?? ""),
+        axis: String(body.axis ?? ""),
+        check: String(body.check ?? ""),
+        accepted_by: String(body.accepted_by ?? ""),
+      }),
+      201,
+    );
+  } catch (e) {
+    return ctx.json({ error: e instanceof Error ? e.message : String(e) }, 400);
+  }
+});
 
 app.get("/ledger/:id", (ctx) => ctx.json({ rows: theLedger().rows(ctx.req.param("id")) }));
 

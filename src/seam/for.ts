@@ -5,6 +5,7 @@
 // id and nothing else.
 
 import { config } from "../config.ts";
+import { Notes, subjectOf } from "../host/notes.ts";
 import type { Verdict } from "../stations/verdict.ts";
 import { Seam, type Station } from "./client.ts";
 import { Ledger } from "./ledger.ts";
@@ -47,9 +48,20 @@ export function recordFeedback(
         : [];
     });
   const cur = feedback.get(conversation) ?? { accepted: [], rejected: [] };
-  cur.accepted.push(...rows(body.accepted));
-  cur.rejected.push(...rows(body.rejected));
+  const accepted = rows(body.accepted);
+  const rejected = rows(body.rejected);
+  cur.accepted.push(...accepted);
+  cur.rejected.push(...rejected);
   feedback.set(conversation, cur);
+  // a correction the person made, kept for their later threads (section 9.9); the id, never the rows
+  const subject = subjectOfConversation(conversation);
+  for (const r of rejected)
+    theNotes().add({
+      subject,
+      kind: "correction",
+      station: "desk",
+      text: `rejected document ${r.document}${r.sentence ? `: ${r.sentence}` : ""}`,
+    });
 }
 
 export function feedbackOf(conversation: string): { accepted: Feedback[]; rejected: Feedback[] } {
@@ -64,6 +76,16 @@ export function registerStation(s: Station): void {
 
 export function stationList(): Station[] {
   return [...stations.values()];
+}
+
+let notes: Notes | null = null;
+export function theNotes(): Notes {
+  if (!notes) notes = new Notes(config().notes);
+  return notes;
+}
+/** The person a conversation belongs to, from the token the desk handed. */
+export function subjectOfConversation(conversation: string): string {
+  return subjectOf(tokens.get(conversation));
 }
 
 export function theLedger(): Ledger {

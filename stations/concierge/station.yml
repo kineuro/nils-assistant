@@ -1,0 +1,83 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# The concierge (Wave 4c section 9.12), as contracts/suite/v1/station.schema.json fixes a manifest.
+id: concierge
+app: nils-assistant
+purpose: assistant.concierge
+content: rows
+ceiling: reader
+grant:
+  capabilities:
+    calls: 2
+  describe:
+    calls: 6
+  handles/{id}:
+    calls: 6
+  handles/{id}/rows:
+    calls: 3
+    rows: 20
+  jobs:
+    calls: 2
+brief:
+  path: SKILL.md
+  hash: 53e9148c408006d448bd85851d576575739821b9184182c7a0d4d5d1a5f87edd
+result:
+  type: object
+  required:
+  - sentence
+  properties:
+    sentence:
+      type: string
+      description: one sentence a person reads, status or what a delegate found
+    document:
+      type: integer
+      description: the document a settled delegate found, never one of the concierge's own
+    parent:
+      type: integer
+      description: the base the delegate refined, when there was one
+    choices:
+      type: array
+      maxItems: 1
+      items:
+        type: object
+        required:
+        - question
+        - axis
+        - options
+        properties:
+          question:
+            type: string
+          axis:
+            type: string
+            enum:
+            - pick
+            - scope
+            - grain
+            description: what the choice decides; a clarification fires at nothing else (section 9.12)
+          options:
+            type: array
+            items:
+              type: object
+      description: the one typed choice open to the person, at a pick, a scope or a grain, with the count each option would produce
+    delegations:
+      type: array
+      items:
+        type: object
+      description: every task of this conversation with its state
+checks:
+- no_sql
+- no_identifier_value
+- from_a_delegate
+- clarification_axis
+budget:
+  turns: 6
+  tool_calls: 12
+  wall_clock_seconds: 120
+  input_tokens: 100000
+writes: []
+phases:
+  initial: hold
+  follow_up: hold
+  transitions:
+  - from: hold
+    to: finish
+evals: evals
