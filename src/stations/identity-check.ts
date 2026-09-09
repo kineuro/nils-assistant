@@ -265,6 +265,7 @@ export function identityCheck(
       "You are identity-check. Read the deployment's ingest locations; probe the current rule and one candidate side by side over the location you were given, the current rule first; read the job until it is done; propose the rule the shapes bear out with propose_rule, answering the path question when the rule reads a path; then settle with the location, the probe's job, what you saw per rule (shapes and counts, never a value), the proposed rule, the path answer and one sentence that names the source the rule reads and the shape it saw. A re-digest under the rule is a person's act, not yours. The proposals list carries one entry {kind: identity_rule, ref: {rule}, sentence}; there is no other kind.",
     tools: identityCheckTools(),
     checks: identityCheckChecks(),
+    briefInline: true,
     settle: { phases: ["check", "finish"] },
     complete: async (result, ctx) => {
       const p = proposedOf(ctx.conversation);

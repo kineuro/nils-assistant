@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: Which subjects of cohort A have a session with a 3D FLAIR at one millimetre isotropic?
+ast_version: 1
+name: subjects of cohort A with a 1 mm isotropic 3D FLAIR
+scheme: default
+sets:
+  scope:  {grain: cohort, where: [["=", {}, ["field", {}, "name"], "ms-cohort-a"]]}
+  people: {grain: subject, of: scope}
+  visits: {grain: session, of: people}
+  flair:
+    grain: stack
+    of: visits
+    where:
+      - ["=",   {}, ["axis", {}, "base"], "T2w"]
+      - ["has", {}, ["axis", {}, "modifier"], "FLAIR"]
+      - ["=",   {}, ["derived", {}, "acquisition_type"], "3D"]
+      - ["~=",  {tol: 0.05}, ["derived", {third: slice_thickness}, "voxel"], 1.0]
+  found:
+    grain: subject
+    from: people
+    has: [{set: flair, min: 1}]
+keep: [found]
+out:
+  set: found
+  level: record
+  columns: [["field", {}, "code"]]
+  order: [[["field", {}, "code"], asc]]

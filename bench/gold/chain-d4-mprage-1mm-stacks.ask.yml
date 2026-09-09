@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: Show the stacks themselves instead: one row per MPRAGE stack of those sessions, with the subject, the date, the stack id and its slice thickness.
+ast_version: 1
+name: the 1 mm MPRAGE stacks of cohort A from 2008 on
+scheme: default
+sets:
+  scope:  {grain: cohort, where: [["=", {}, ["field", {}, "name"], "ms-cohort-a"]]}
+  people: {grain: subject, of: scope}
+  visits:
+    grain: session
+    of: people
+    bind: {year: ["part", {unit: year}, ["field", {}, "first"]]}
+  recent:
+    grain: session
+    from: visits
+    where: [[">=", {}, ["field", {}, "year"], 2008]]
+  mprage:
+    grain: stack
+    of: recent
+    where:
+      - ["=", {}, ["axis", {}, "technique"], "MPRAGE"]
+      - ["~=", {tol: 0.05}, ["field", {}, "slice_thickness"], 1.0]
+keep: [mprage]
+out:
+  set: mprage
+  level: record
+  columns: [["field", {}, "subject.code"], ["field", {}, "session.first"], ["field", {}, "id"], ["field", {}, "slice_thickness"]]
+  order: [[["field", {}, "subject.code"], asc], [["field", {}, "session.first"], asc], [["field", {}, "id"], asc]]

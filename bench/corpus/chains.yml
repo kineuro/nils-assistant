@@ -8,15 +8,16 @@
 # all threads, and the bench scores a station on how many it needs.
 chains:
   - id: chain-a
+    # rebased like shape-23 (2026-09-09): the synthetic registry holds no MP2RAGE, so its MPRAGE stands in, in every turn that names it
     title: composition, homogeneity, then one stack per role
     shape: shape-23
     turns:
       - kind: opening
-        text: "In cohort A and cohort B together, how many subjects and unique subject-sessions have both a 3D FLAIR and an MP2RAGE?"
+        text: "In cohort A and cohort B together, how many subjects and unique subject-sessions have both a 3D FLAIR and an MPRAGE?"
       - kind: correction
         text: "Count a subject once even when it is in both cohorts."
       - kind: addition
-        text: "Of those sessions, how many have the same protocol on the FLAIR and the MP2RAGE, compared across sessions?"
+        text: "Of those sessions, how many have the same protocol on the FLAIR and the MPRAGE, compared across sessions?"
       - kind: correction
         text: "Not within a session; across sessions, for each sequence on its own."
       - kind: correction
@@ -24,7 +25,7 @@ chains:
       - kind: meta
         text: "Try again."
       - kind: addition
-        text: "Now a table with one FLAIR and one MP2RAGE per session, with the stack ids."
+        text: "Now a table with one FLAIR and one MPRAGE per session, with the stack ids."
       - kind: correction
         text: "Some sessions have two FLAIR reconstructions of one acquisition; keep the original over the derived."
       - kind: addition
@@ -108,3 +109,21 @@ chains:
       - kind: meta
         text: "Give me both counts on one screen."
     corrections: 4
+
+  # --- authored for NILS v1 (2026-09-09): every turn carries its own gold, so the follow-up path is scored turn by turn; nothing is held back
+  - id: chain-d
+    title: a count that becomes a list, then narrows, then changes grain
+    corrections: 0
+    turns:
+      - {kind: opening, text: "How many sessions in cohort A have an MPRAGE with one millimetre slices?", gold: chain-d1-mprage-1mm-count.ask.yml}
+      - {kind: addition, text: "List them, with the subject code and the session date.", gold: chain-d2-mprage-1mm-list.ask.yml}
+      - {kind: addition, text: "Only the sessions from 2008 onwards.", gold: chain-d3-mprage-1mm-2008.ask.yml}
+      - {kind: addition, text: "Show the stacks themselves instead: one row per MPRAGE stack of those sessions, with the subject, the date, the stack id and its slice thickness.", gold: chain-d4-mprage-1mm-stacks.ask.yml}
+  - id: chain-e
+    title: a pick per subject that is filtered, widened by a column, then counted
+    corrections: 0
+    turns:
+      - {kind: opening, text: "What is the latest EDSS score of each subject in cohort B, with its date?", gold: chain-e1-latest-edss.ask.yml}
+      - {kind: addition, text: "Keep only the subjects whose latest score is 4 or more.", gold: chain-e2-latest-edss-high.ask.yml}
+      - {kind: addition, text: "Add the subject's age at that score.", gold: chain-e3-latest-edss-high-age.ask.yml}
+      - {kind: addition, text: "How many subjects is that?", gold: chain-e4-latest-edss-high-count.ask.yml}

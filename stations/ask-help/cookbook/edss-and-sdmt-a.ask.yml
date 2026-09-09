@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: Which subjects of cohort A have both an EDSS and an SDMT within a month of the same session?
+ast_version: 1
+name: an EDSS and an SDMT around one session
+scheme: default
+sets:
+  scope:  {grain: cohort, where: [["=", {}, ["field", {}, "name"], "ms-cohort-a"]]}
+  people: {grain: subject, of: scope}
+  edss:   {grain: event, where: [["=", {}, ["field", {}, "kind"], "EDSS"]]}
+  sdmt:   {grain: event, where: [["=", {}, ["field", {}, "kind"], "SDMT"]]}
+  scored:
+    grain: session
+    of: people
+    near:
+      - {as: e, set: edss, window: {from: -1, to: 1, unit: month}, policy: nearest, tie: earlier}
+      - {as: s, set: sdmt, window: {from: -1, to: 1, unit: month}, policy: nearest, tie: earlier}
+  found:
+    grain: subject
+    from: people
+    has: [{set: scored, min: 1}]
+keep: [found]
+out:
+  set: found
+  level: record
+  columns: [["field", {}, "code"]]
+  order: [[["field", {}, "code"], asc]]

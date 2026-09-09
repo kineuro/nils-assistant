@@ -1,0 +1,334 @@
+{
+  "at": "2026-09-09T19:21:19.638Z",
+  "host": "http://127.0.0.1:7310",
+  "chains": [
+    {
+      "id": "chain-d",
+      "authored": true,
+      "turns_reached": 4,
+      "turns_scored": 4,
+      "turns": [
+        {
+          "kind": "opening",
+          "text": "How many sessions in cohort A have an MPRAGE with one millimetre slices?",
+          "document": 66,
+          "terminal": "settled",
+          "seconds": 15,
+          "tool_calls": 2,
+          "refused": 0,
+          "matched": true
+        },
+        {
+          "kind": "addition",
+          "text": "List them, with the subject code and the session date.",
+          "document": 84,
+          "terminal": "settled",
+          "seconds": 27,
+          "tool_calls": 3,
+          "refused": 0,
+          "matched": true
+        },
+        {
+          "kind": "addition",
+          "text": "Only the sessions from 2008 onwards.",
+          "document": 234,
+          "terminal": "settled",
+          "seconds": 21,
+          "tool_calls": 2,
+          "refused": 0,
+          "matched": true
+        },
+        {
+          "kind": "addition",
+          "text": "Show the stacks themselves instead: one row per MPRAGE stack of those sessions, with the subject, the date, the stack id and its slice thickness.",
+          "document": 235,
+          "terminal": "settled",
+          "seconds": 30,
+          "tool_calls": 2,
+          "refused": 0,
+          "matched": true
+        }
+      ]
+    },
+    {
+      "id": "chain-e",
+      "authored": true,
+      "turns_reached": 4,
+      "turns_scored": 4,
+      "turns": [
+        {
+          "kind": "opening",
+          "text": "What is the latest EDSS score of each subject in cohort B, with its date?",
+          "document": 34,
+          "terminal": "settled",
+          "seconds": 18,
+          "tool_calls": 2,
+          "refused": 0,
+          "matched": true
+        },
+        {
+          "kind": "addition",
+          "text": "Keep only the subjects whose latest score is 4 or more.",
+          "document": 236,
+          "terminal": "settled",
+          "seconds": 27,
+          "tool_calls": 2,
+          "refused": 0,
+          "matched": true
+        },
+        {
+          "kind": "addition",
+          "text": "Add the subject's age at that score.",
+          "document": 237,
+          "terminal": "settled",
+          "seconds": 30,
+          "tool_calls": 2,
+          "refused": 0,
+          "matched": true
+        },
+        {
+          "kind": "addition",
+          "text": "How many subjects is that?",
+          "document": 238,
+          "terminal": "settled",
+          "seconds": 15,
+          "tool_calls": 2,
+          "refused": 0,
+          "matched": true
+        }
+      ]
+    },
+    {
+      "id": "chain-a",
+      "shape": "shape-23",
+      "reached": true,
+      "corrections_needed": 0,
+      "corrections_given": 5,
+      "follow_ups_with_a_document": 8,
+      "follow_ups": 8,
+      "turns": [
+        {
+          "kind": "opening",
+          "text": "In cohort A and cohort B together, how many subjects and unique subject-sessions have both a 3D FLAIR and an MPRAGE?",
+          "document": 239,
+          "terminal": "settled",
+          "seconds": 18,
+          "tool_calls": 2,
+          "refused": 0,
+          "matched": true
+        },
+        {
+          "kind": "addition",
+          "text": "Of those sessions, how many have the same protocol on the FLAIR and the MPRAGE, compared across sessions?",
+          "document": 242,
+          "terminal": "settled",
+          "seconds": 87,
+          "tool_calls": 6,
+          "refused": 1,
+          "matched": false
+        },
+        {
+          "kind": "addition",
+          "text": "Now a table with one FLAIR and one MPRAGE per session, with the stack ids.",
+          "document": 242,
+          "terminal": "loop_stopped",
+          "seconds": 156,
+          "tool_calls": 7,
+          "refused": 1,
+          "matched": false
+        },
+        {
+          "kind": "addition",
+          "text": "When both are originals keep the one with the most slices.",
+          "document": 242,
+          "terminal": "loop_stopped",
+          "seconds": 141,
+          "tool_calls": 5,
+          "refused": 1,
+          "matched": false
+        },
+        {
+          "kind": "addition",
+          "text": "Then the longest echo, then the latest series.",
+          "document": 242,
+          "terminal": "loop_stopped",
+          "seconds": 141,
+          "tool_calls": 5,
+          "refused": 1,
+          "matched": false
+        },
+        {
+          "kind": "addition",
+          "text": "Add the SWI to the same table, magnitude of the last echo.",
+          "document": 242,
+          "terminal": "loop_stopped",
+          "seconds": 144,
+          "tool_calls": 5,
+          "refused": 1,
+          "matched": false
+        },
+        {
+          "kind": "addition",
+          "text": "Add the subject's cohort identifier and the session date.",
+          "document": 242,
+          "terminal": "loop_stopped",
+          "seconds": 147,
+          "tool_calls": 5,
+          "refused": 1,
+          "matched": false
+        },
+        {
+          "kind": "addition",
+          "text": "Add the slice count and the resolution.",
+          "document": 242,
+          "terminal": "loop_stopped",
+          "seconds": 150,
+          "tool_calls": 5,
+          "refused": 1,
+          "matched": false
+        },
+        {
+          "kind": "addition",
+          "text": "Add the sex, the birth date and the age at the session.",
+          "document": 242,
+          "terminal": "loop_stopped",
+          "seconds": 204,
+          "tool_calls": 5,
+          "refused": 1,
+          "matched": false
+        }
+      ]
+    },
+    {
+      "id": "chain-b",
+      "shape": "shape-15",
+      "reached": true,
+      "corrections_needed": 0,
+      "corrections_given": 5,
+      "follow_ups_with_a_document": 7,
+      "follow_ups": 7,
+      "turns": [
+        {
+          "kind": "opening",
+          "text": "The sessions of cohort A that have both a main T1-weighted MPRAGE and a main T2-weighted FLAIR, both 3D, as two stack rows per session with eight named columns.",
+          "document": 248,
+          "terminal": "settled",
+          "seconds": 66,
+          "tool_calls": 3,
+          "refused": 0,
+          "matched": true
+        },
+        {
+          "kind": "addition",
+          "text": "The T1-weighted may also be a VIBE.",
+          "document": 249,
+          "terminal": "settled",
+          "seconds": 39,
+          "tool_calls": 2,
+          "refused": 0,
+          "matched": false
+        },
+        {
+          "kind": "addition",
+          "text": "Add the slice count and the resolution.",
+          "document": 250,
+          "terminal": "settled",
+          "seconds": 39,
+          "tool_calls": 2,
+          "refused": 0,
+          "matched": false
+        },
+        {
+          "kind": "addition",
+          "text": "Same table for the T2-weighted TSE, axial, as a new role.",
+          "document": 250,
+          "terminal": "loop_stopped",
+          "seconds": 258,
+          "tool_calls": 9,
+          "refused": 2,
+          "matched": false
+        },
+        {
+          "kind": "addition",
+          "text": "Add the sex, the birth date and the age at the session.",
+          "document": 254,
+          "terminal": "settled",
+          "seconds": 57,
+          "tool_calls": 2,
+          "refused": 0,
+          "matched": false
+        },
+        {
+          "kind": "addition",
+          "text": "Same table without the FLAIR role.",
+          "document": 255,
+          "terminal": "settled",
+          "seconds": 42,
+          "tool_calls": 2,
+          "refused": 0,
+          "matched": false
+        },
+        {
+          "kind": "addition",
+          "text": "Same table for cohort B.",
+          "document": 256,
+          "terminal": "settled",
+          "seconds": 48,
+          "tool_calls": 2,
+          "refused": 0,
+          "matched": false
+        },
+        {
+          "kind": "addition",
+          "text": "Name the file for the version and keep the previous one.",
+          "document": 256,
+          "terminal": "settled",
+          "seconds": 24,
+          "tool_calls": 1,
+          "refused": 0,
+          "matched": false
+        }
+      ]
+    },
+    {
+      "id": "chain-c",
+      "shape": "shape-11",
+      "reached": true,
+      "corrections_needed": 0,
+      "corrections_given": 4,
+      "follow_ups_with_a_document": 1,
+      "follow_ups": 1,
+      "turns": [
+        {
+          "kind": "opening",
+          "text": "Split cohort A into converters and non-converters under the baseline and follow-up criteria, as one table.",
+          "document": 257,
+          "terminal": "settled",
+          "seconds": 36,
+          "tool_calls": 2,
+          "refused": 0,
+          "matched": true
+        },
+        {
+          "kind": "addition",
+          "text": "Transition dates may be at year precision; treat them as their whole year.",
+          "document": 259,
+          "terminal": "settled",
+          "seconds": 75,
+          "tool_calls": 5,
+          "refused": 1,
+          "matched": false
+        }
+      ]
+    }
+  ],
+  "stability": {
+    "shape": "shape-23",
+    "times": 0,
+    "runs": [],
+    "matched_gold": 0,
+    "distinct_answers": 0,
+    "distinct_digests": 0,
+    "stable": false
+  }
+}

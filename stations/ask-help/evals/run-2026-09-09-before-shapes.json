@@ -1,0 +1,538 @@
+{
+  "at": "2026-09-09T17:43:22.818Z",
+  "corpus": "shapes",
+  "summary": {
+    "shapes": {
+      "of": 18,
+      "strict": 12,
+      "same_answer": 14,
+      "loop": {
+        "strict": {
+          "passed": 9,
+          "of": 11
+        },
+        "same_answer": {
+          "passed": 10,
+          "of": 11
+        }
+      },
+      "held_out": {
+        "strict": {
+          "passed": 3,
+          "of": 7
+        },
+        "same_answer": {
+          "passed": 4,
+          "of": 7
+        }
+      },
+      "median_seconds": 33,
+      "median_turns": 1,
+      "median_tool_calls": 5,
+      "refused_calls": 15,
+      "drafts": 33,
+      "draft_refusals": 8,
+      "by_budget": 0
+    }
+  },
+  "results": [
+    {
+      "id": "shape-01",
+      "corpus": "shapes",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 118,
+      "seconds": 27,
+      "terminal": "settled",
+      "conversation": "eval-shape-01-mtuddqps",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 5,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_diagnose",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "shape-02",
+      "corpus": "shapes",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 119,
+      "seconds": 33,
+      "terminal": "settled",
+      "conversation": "eval-shape-02-mtudeboe",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 5,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_diagnose",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "shape-03",
+      "corpus": "shapes",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 120,
+      "seconds": 27,
+      "terminal": "settled",
+      "conversation": "eval-shape-03-mtudf171",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 5,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_diagnose",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "shape-04",
+      "corpus": "shapes",
+      "passed": false,
+      "selection": null,
+      "why": "no verdict (loop_stopped: I'll write the document, starting from the per-cohort summary example (12) and a)",
+      "document": null,
+      "seconds": 129,
+      "terminal": "loop_stopped",
+      "conversation": "eval-shape-04-mtudfm2x",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 14,
+        "refused": 5,
+        "drafts": 6,
+        "draft_refusals": 5,
+        "settles": 0,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_values",
+          "nils_draft",
+          "nils_diagnose",
+          "nils_preview",
+          "nils_values",
+          "nils_values",
+          "nils_draft",
+          "nils_guide",
+          "nils_values",
+          "nils_draft",
+          "nils_draft",
+          "nils_draft"
+        ]
+      }
+    },
+    {
+      "id": "shape-05",
+      "corpus": "shapes",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 3,
+      "seconds": 27,
+      "terminal": "settled",
+      "conversation": "eval-shape-05-mtudids3",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 4,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "shape-09",
+      "corpus": "shapes",
+      "passed": false,
+      "selection": true,
+      "why": "document 124: 3 rows, the gold has 3, the same answer; Two subjects have more than three sessions and were diagnosed at forty or older: SYN0025 (4 sessions",
+      "document": 124,
+      "seconds": 75,
+      "terminal": "settled",
+      "conversation": "eval-shape-09-mtudiyo0",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 8,
+        "refused": 0,
+        "drafts": 3,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_preview",
+          "nils_draft",
+          "nils_preview",
+          "nils_draft",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "shape-10",
+      "corpus": "shapes",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 125,
+      "seconds": 42,
+      "terminal": "settled",
+      "conversation": "eval-shape-10-mtudkkpq",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 4,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "shape-11",
+      "corpus": "shapes",
+      "passed": false,
+      "selection": false,
+      "why": "document 126: 1 rows, the gold has 2; Cohort A splits into 0 converters and 38 non-converters: no subject has a baseline session with a FL",
+      "document": 126,
+      "seconds": 93,
+      "terminal": "settled",
+      "conversation": "eval-shape-11-mtudlh7c",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 7,
+        "refused": 1,
+        "drafts": 2,
+        "draft_refusals": 1,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_draft",
+          "nils_preview",
+          "nils_values",
+          "nils_diagnose",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "shape-12",
+      "corpus": "shapes",
+      "passed": false,
+      "selection": false,
+      "why": "document 128: 1 rows, the gold has 1; The most common resolution of the T2-weighted images is 50x50x300, carried by 205 of the 380 T2-weig",
+      "document": 128,
+      "seconds": 27,
+      "terminal": "settled",
+      "conversation": "eval-shape-12-mtudnh5u",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 5,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_diagnose",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "shape-13",
+      "corpus": "shapes",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 130,
+      "seconds": 39,
+      "terminal": "settled",
+      "conversation": "eval-shape-13-mtudo235",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 5,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_diagnose",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "shape-14",
+      "corpus": "shapes",
+      "passed": false,
+      "selection": true,
+      "why": "document 131: 2 rows, the gold has 2, the same answer; Two subjects in cohort A were under thirty at their first session — SYN0027 (female, born 1984-01-10",
+      "document": 131,
+      "seconds": 66,
+      "terminal": "settled",
+      "conversation": "eval-shape-14-mtudow8v",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 9,
+        "refused": 3,
+        "drafts": 2,
+        "draft_refusals": 1,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_catalog",
+          "nils_draft",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "shape-15",
+      "corpus": "shapes",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 133,
+      "seconds": 45,
+      "terminal": "settled",
+      "conversation": "eval-shape-15-mtudqbbt",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 4,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "shape-18",
+      "corpus": "shapes",
+      "passed": false,
+      "selection": null,
+      "why": "no verdict (loop_stopped)",
+      "document": null,
+      "seconds": 246,
+      "terminal": "loop_stopped",
+      "conversation": "eval-shape-18-mtudra4m",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 22,
+        "refused": 6,
+        "drafts": 7,
+        "draft_refusals": 1,
+        "settles": 5,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_draft",
+          "nils_preview",
+          "nils_draft",
+          "nils_draft",
+          "nils_draft",
+          "nils_draft",
+          "nils_preview",
+          "nils_draft",
+          "settle",
+          "settle",
+          "settle",
+          "settle",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "shape-20",
+      "corpus": "shapes",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 137,
+      "seconds": 33,
+      "terminal": "settled",
+      "conversation": "eval-shape-20-mtudwkal",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 4,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "shape-22",
+      "corpus": "shapes",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 138,
+      "seconds": 33,
+      "terminal": "settled",
+      "conversation": "eval-shape-22-mtudx9ti",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 5,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_diagnose",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "shape-23",
+      "corpus": "shapes",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 139,
+      "seconds": 33,
+      "terminal": "settled",
+      "conversation": "eval-shape-23-mtudxzcb",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 4,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "shape-24",
+      "corpus": "shapes",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 140,
+      "seconds": 39,
+      "terminal": "settled",
+      "conversation": "eval-shape-24-mtudyov4",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 5,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_diagnose",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "shape-25",
+      "corpus": "shapes",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 9,
+      "seconds": 27,
+      "terminal": "settled",
+      "conversation": "eval-shape-25-mtudzj0t",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 5,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": [
+          "activate_skill",
+          "nils_draft",
+          "nils_diagnose",
+          "nils_preview",
+          "settle"
+        ]
+      }
+    }
+  ]
+}

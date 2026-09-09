@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: For the subjects of cohort B, how many days passed between their first and their second session?
+ast_version: 1
+name: days from the first to the second session in cohort B
+scheme: default
+sets:
+  scope:  {grain: cohort, where: [["=", {}, ["field", {}, "name"], "ms-cohort-b"]]}
+  people: {grain: subject, of: scope}
+  visits:
+    grain: session
+    of: people
+    bind:
+      n:   ["ordinal", {}]
+      gap: ["days_between", {}, ["field", {}, "first"], ["prev", {}, ["field", {}, "first"]]]
+  second:
+    grain: session
+    from: visits
+    where: [["=", {}, ["field", {}, "n"], 2]]
+keep: [second]
+out:
+  set: second
+  level: record
+  columns: [["field", {}, "subject.code"], ["field", {}, "first"], ["field", {}, "gap"]]
+  order: [[["field", {}, "subject.code"], asc]]

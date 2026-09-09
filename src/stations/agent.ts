@@ -13,6 +13,7 @@ import {
   useAgentFinish,
   useAgentStart,
   useDataWriter,
+  useDelivery,
   useModel,
   usePersistentState,
   useResponseFinish,
@@ -25,6 +26,7 @@ import type { Seam } from "../seam/client.ts";
 import { feedbackOf, seamFor, subjectOfConversation, theNotes, verdicts } from "../seam/for.ts";
 import { initialState, Machine, type RunState } from "./machine.ts";
 import type { Manifest, TerminalReason } from "./manifest.ts";
+import { preludeOf } from "./prelude.ts";
 import { toValibot } from "./schema.ts";
 import {
   type Check,
@@ -101,6 +103,10 @@ export interface StationDefinition {
   settle: { phases: string[] };
   /** The general context of a run (the catalog, the names, the guide), fetched through the seam and carried on every render; the local model reads it instead of paging for it. */
   context?: (seam: Seam, ctx: { conversation: string; toolCallId: string; phase: string }) => Promise<string>;
+  /** The brief inside the instructions rather than a skill the model activates: one round trip fewer, and the model has read it before its first word (the local-model rule). */
+  briefInline?: boolean;
+  /** Worked examples chosen for the words of each delivered message, appended as a signal that joins the response, so the instructions stay the same across turns and conversations and a runtime's prefix cache serves them. */
+  examples?: (message: string) => string;
   /** What the station fills into the result mechanically before the checks run: a hash, a declaration, never a judgement. */
   complete?: (
     result: Record<string, unknown>,
@@ -128,17 +134,19 @@ export function stationAgent(
 
   const agent = ({ id }: { id: string }) => {
     useModel(`${providerId(m.id)}/${def.model}`);
-    useSkill(skill);
+    if (!def.briefInline) useSkill(skill);
     const [state, setState] = usePersistentState<RunState>("run", initialState(m));
     const [settled, setSettled] = usePersistentState<Settled | null>("settled", null);
     const machine = new Machine(m, structuredClone(state));
     const commit = () => setState(structuredClone(machine.state));
     const seam = seamFor(m.id, id);
-    // the general context (the rework for the local model): fetched at the first delivery and appended as a signal that joins the first response, so the model reads it before its first answer; it stays in the conversation from then on
-    const [prelude, setPrelude] = usePersistentState<string | null>("prelude", null);
+    // the general context (the rework for the local model): in the instructions when the host warmed it before the first turn, so every render of every conversation of this person carries the same text and a runtime's prefix cache serves it; when the render finds it cold, the first delivery fetches it and appends it as a signal that joins the first response, and the conversation keeps to the signal from then on
+    const subject = subjectOfConversation(id);
+    const [signalled, setSignalled] = usePersistentState<boolean>("prelude_signalled", false);
+    const warm = def.context && !signalled ? preludeOf(subject) : null;
     if (def.context) {
       useAgentStart(async (ctx) => {
-        if (prelude !== null) return;
+        if (signalled || warm !== null) return;
         let text = "";
         try {
           text =
@@ -150,9 +158,19 @@ export function stationAgent(
         } catch (e) {
           console.error(`${m.id}: the prelude did not load: ${e instanceof Error ? e.message : String(e)}`);
         }
-        setPrelude(text);
+        setSignalled(true);
         if (text) ctx.append({ kind: "signal", type: "registry", body: text });
       });
+    }
+    // the worked examples for this turn, chosen from the delivered message in the render and placed at the tail of the instructions: the head stays the same across turns and conversations for a runtime's prefix cache, and the examples read as plain text, never inside a signal's tag (a model reading YAML inside a tag writes its operators back as entities)
+    let examplesText = "";
+    if (def.examples) {
+      try {
+        const d = useDelivery() as { body?: unknown };
+        examplesText = typeof d.body === "string" ? (def.examples(d.body) ?? "") : "";
+      } catch {
+        examplesText = "";
+      }
     }
     // the desk seam (section 9.8): the closed union of typed parts, one data part named `part`, never a desk call
     // one named data part per kind, so a conversation's history keeps the last of each and the live stream sees every write
@@ -259,8 +277,10 @@ export function stationAgent(
         "End the run with the verdict: the result the station's schema names, the proposals, and one sentence. Refused until every check passes.",
       input: v.object({
         result: resultSchema as never,
-        proposals: v.array(
-          v.object({ kind: v.string(), ref: v.record(v.string(), v.unknown()), sentence: v.string() }),
+        proposals: v.optional(
+          v.array(
+            v.object({ kind: v.string(), ref: v.record(v.string(), v.unknown()), sentence: v.string() }),
+          ),
         ),
         sentence: v.string(),
       }),
@@ -283,7 +303,7 @@ export function stationAgent(
           };
         }
         const proposals: Proposal[] = [];
-        for (const p of data.proposals as {
+        for (const p of (data.proposals ?? []) as {
           kind: string;
           ref: Record<string, unknown>;
           sentence: string;
@@ -303,12 +323,10 @@ export function stationAgent(
           try {
             result = await def.complete(result, { seam, conversation: id, state: machine.state });
           } catch (e) {
-            return {
-              output: {
-                refused: true,
-                why: `the result could not be completed: ${e instanceof Error ? e.message : String(e)}`,
-              } as JsonValue,
-            };
+            const why = `the result could not be completed: ${e instanceof Error ? e.message : String(e)}`;
+            machine.refuse("settle", why);
+            commit();
+            return { output: { refused: true, why } as JsonValue };
           }
         }
         const verdict: Verdict = {
@@ -328,7 +346,11 @@ export function stationAgent(
           checks: [],
         };
         const rows = evidenceOnly(verdict);
-        if (rows) return { output: { refused: true, why: rows } };
+        if (rows) {
+          machine.refuse("settle", rows);
+          commit();
+          return { output: { refused: true, why: rows } };
+        }
         const checked = await runChecks(verdict, def.checks, m.checks, { seam, conversation: id });
         verdict.checks = checked.results;
         if (!checked.passed) {
@@ -409,18 +431,27 @@ export function stationAgent(
       fb.rejected.length + fb.accepted.length === 0
         ? ""
         : `\n\nThe person's feedback on earlier proposals:${fb.accepted.map((f) => `\n- accepted document ${f.document}${f.sentence ? ` (${f.sentence})` : ""}: it is the base now`).join("")}${fb.rejected.map((f) => `\n- rejected document ${f.document}${f.sentence ? ` (${f.sentence})` : ""}: do not propose it or the same change again`).join("")}`;
-    // memory across threads (section 9.9): the person's own index, five lines at most, and the group's structural corrections
-    const subject = subjectOfConversation(id);
-    const index = theNotes().index(subject);
-    const corrections = theNotes().institutional(m.id);
-    const memoryText =
-      (index.length
-        ? `\n\nWhat you know of this person's earlier threads (their own notes, newest first):${index.map((l) => `\n- ${l}`).join("")}`
-        : "") +
-      (corrections.length
-        ? `\n\nCorrections the group accepted for this station: ${corrections.map((c) => `on ${c.axis}, the check ${c.check} would now catch it`).join("; ")}.`
-        : "");
-    return `${def.instructions}${feedbackText}${memoryText}\n\nYou are the ${m.id} station of ${m.app}, at the ${m.ceiling} ceiling, in the ${machine.state.phase} phase. The phases: ${m.phases.initial}${m.phases.transitions.map((t) => ` then ${t.to}`).join("")}. Move with advance. End with settle.`;
+    // memory across threads (section 9.9): the person's own index, five lines at most, and the group's structural corrections; read once per conversation and held, so the note this very run leaves at settle does not change the instructions under it (a change would cost a model turn)
+    const [heldMemory, setHeldMemory] = usePersistentState<string | null>("memory", null);
+    const memoryNow = (): string => {
+      const index = theNotes().index(subject);
+      const corrections = theNotes().institutional(m.id);
+      return (
+        (index.length
+          ? `\n\nWhat you know of this person's earlier threads (their own notes, newest first):${index.map((l) => `\n- ${l}`).join("")}`
+          : "") +
+        (corrections.length
+          ? `\n\nCorrections the group accepted for this station: ${corrections.map((c) => `on ${c.axis}, the check ${c.check} would now catch it`).join("; ")}.`
+          : "")
+      );
+    };
+    // a render is a pure read: the text is held from the first delivery on, and read live until then
+    const memoryText = heldMemory ?? memoryNow();
+    useAgentStart(() => {
+      if (heldMemory === null) setHeldMemory(memoryText);
+    });
+    // the instructions are the same on every render of every conversation of this person: the station's own text, the brief, the registry, the standing sentence; what varies (feedback, memory) comes last, so a runtime's prefix cache serves the rest
+    return `${def.instructions}${def.briefInline ? `\n\n${def.brief}` : ""}${warm ? `\n\n${warm}` : ""}\n\nYou are the ${m.id} station of ${m.app}, at the ${m.ceiling} ceiling. The phases: ${m.phases.initial}${m.phases.transitions.map((t) => ` then ${t.to}`).join("")}. ${def.advance === false ? "A tool moves the run to its phase." : "Move with advance."} End with settle.${examplesText ? `\n\n${examplesText}` : ""}${feedbackText}${memoryText}`;
   };
   return Object.assign(agent, { agentName: m.id });
 }

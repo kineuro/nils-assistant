@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: How many subjects have a diagnosis on record?
+ast_version: 1
+name: subjects with a diagnosis
+scheme: default
+sets:
+  scope:  {grain: cohort}
+  people: {grain: subject, of: scope}
+  dx:     {grain: event, of: people, where: [["=", {}, ["field", {}, "kind"], "Diagnosis"]]}
+  found:
+    grain: subject
+    from: people
+    has: [{set: dx, min: 1}]
+keep: [found]
+out: {set: found, level: count}

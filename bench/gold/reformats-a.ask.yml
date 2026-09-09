@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: How many stacks in cohort A are reformats?
+ast_version: 1
+name: reformats in cohort A
+scheme: default
+sets:
+  scope:  {grain: cohort, where: [["=", {}, ["field", {}, "name"], "ms-cohort-a"]]}
+  people: {grain: subject, of: scope}
+  visits: {grain: session, of: people}
+  reformats:
+    grain: stack
+    of: visits
+    where: [["=", {}, ["axis", {}, "disposition"], "reformat"]]
+keep: [reformats]
+out: {set: reformats, level: count}

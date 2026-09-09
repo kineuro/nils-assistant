@@ -1,0 +1,111 @@
+{
+  "at": "2026-09-09T18:51:00.218Z",
+  "host": "http://127.0.0.1:7300",
+  "chains": [
+    {
+      "id": "chain-d",
+      "authored": true,
+      "turns_reached": 4,
+      "turns_scored": 4,
+      "turns": [
+        {
+          "kind": "opening",
+          "text": "How many sessions in cohort A have an MPRAGE with one millimetre slices?",
+          "document": 97,
+          "terminal": "settled",
+          "seconds": 30,
+          "tool_calls": 5,
+          "refused": 0,
+          "matched": true
+        },
+        {
+          "kind": "addition",
+          "text": "List them, with the subject code and the session date.",
+          "document": 203,
+          "terminal": "settled",
+          "seconds": 48,
+          "tool_calls": 5,
+          "refused": 0,
+          "matched": true
+        },
+        {
+          "kind": "addition",
+          "text": "Only the sessions from 2008 onwards.",
+          "document": 204,
+          "terminal": "settled",
+          "seconds": 42,
+          "tool_calls": 4,
+          "refused": 0,
+          "matched": true
+        },
+        {
+          "kind": "addition",
+          "text": "Show the stacks themselves instead: one row per MPRAGE stack of those sessions, with the subject, the date, the stack id and its slice thickness.",
+          "document": 205,
+          "terminal": "settled",
+          "seconds": 51,
+          "tool_calls": 4,
+          "refused": 0,
+          "matched": true
+        }
+      ]
+    },
+    {
+      "id": "chain-e",
+      "authored": true,
+      "turns_reached": 1,
+      "turns_scored": 4,
+      "turns": [
+        {
+          "kind": "opening",
+          "text": "What is the latest EDSS score of each subject in cohort B, with its date?",
+          "document": 81,
+          "terminal": "settled",
+          "seconds": 36,
+          "tool_calls": 7,
+          "refused": 0,
+          "matched": true
+        },
+        {
+          "kind": "addition",
+          "text": "Keep only the subjects whose latest score is 4 or more.",
+          "document": 206,
+          "terminal": "settled",
+          "seconds": 33,
+          "tool_calls": 5,
+          "refused": 0,
+          "matched": false
+        },
+        {
+          "kind": "addition",
+          "text": "Add the subject's age at that score.",
+          "document": 207,
+          "terminal": "settled",
+          "seconds": 39,
+          "tool_calls": 4,
+          "refused": 1,
+          "matched": false
+        },
+        {
+          "kind": "addition",
+          "text": "How many subjects is that?",
+          "document": 208,
+          "terminal": "settled",
+          "seconds": 27,
+          "tool_calls": 3,
+          "refused": 0,
+          "matched": false
+        }
+      ]
+    }
+  ],
+  "stability": {
+    "shape": "shape-23",
+    "times": 0,
+    "runs": [],
+    "matched_gold": 0,
+    "distinct_answers": 0,
+    "distinct_digests": 0,
+    "stable": false
+  }
+}

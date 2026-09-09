@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: What is the latest EDSS score of each subject in cohort B, with its date?
+ast_version: 1
+name: the latest EDSS per subject in cohort B
+scheme: default
+sets:
+  scope:  {grain: cohort, where: [["=", {}, ["field", {}, "name"], "ms-cohort-b"]]}
+  people: {grain: subject, of: scope}
+  edss:
+    grain: event
+    of: people
+    where: [["=", {}, ["field", {}, "kind"], "EDSS"]]
+    pick: {per: subject, n: 1, ties: report, by: [[["field", {}, "date"], desc], [["field", {}, "id"], desc]]}
+keep: [edss]
+out:
+  set: edss
+  level: record
+  columns: [["field", {}, "subject.code"], ["field", {}, "date"], ["field", {}, "number"]]
+  order: [[["field", {}, "subject.code"], asc]]

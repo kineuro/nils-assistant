@@ -18,6 +18,7 @@ import {
   probeEngineAuth,
   recordFeedback,
   registerStation,
+  seamFor,
   stationList,
   subjectOfConversation,
   theLedger,
@@ -31,6 +32,7 @@ import { Echo } from "./stations/echo.ts";
 import { IdentityCheck } from "./stations/identity-check-agent.ts";
 import { KeywordTune } from "./stations/keyword-tune-agent.ts";
 import { loadManifests } from "./stations/manifest.ts";
+import { warmPrelude } from "./stations/prelude.ts";
 
 const c = config();
 const runs = new Runs();
@@ -118,6 +120,8 @@ app.post("/conversations/:id/token", async (ctx) => {
   const body = (await ctx.req.json().catch(() => ({}))) as { token?: string };
   if (!body.token) return ctx.json({ error: "token" }, 400);
   const h = tokens.put(ctx.req.param("id"), body.token);
+  // the registry's context for this person, fetched now so the first render finds it in the instructions
+  void warmPrelude(seamFor("ask-help", ctx.req.param("id")), subjectOfConversation(ctx.req.param("id")));
   return ctx.json({ conversation: ctx.req.param("id"), expires_at: h.expiresAt });
 });
 
@@ -131,6 +135,8 @@ app.post("/stations/:id/runs", async (ctx) => {
   const conversation = body.conversation ?? `run-${Date.now().toString(36)}`;
   const auth = ctx.req.header("authorization") ?? "";
   if (auth.startsWith("Bearer ")) tokens.put(conversation, auth.slice(7));
+  // the registry's context for this person, fetched before the first render so it sits in the instructions
+  await warmPrelude(seamFor(station, conversation), subjectOfConversation(conversation));
   const run = runs.start(station, agent, body.message, conversation);
   return ctx.json({ run: run.id, conversation, state: run.state }, 202);
 });

@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: How many subjects is that?
+ast_version: 1
+name: subjects of cohort B whose latest EDSS is four or more, counted
+scheme: default
+sets:
+  scope:  {grain: cohort, where: [["=", {}, ["field", {}, "name"], "ms-cohort-b"]]}
+  people: {grain: subject, of: scope}
+  edss:
+    grain: event
+    of: people
+    where: [["=", {}, ["field", {}, "kind"], "EDSS"]]
+    pick: {per: subject, n: 1, ties: report, by: [[["field", {}, "date"], desc], [["field", {}, "id"], desc]]}
+  high:
+    grain: event
+    from: edss
+    where: [[">=", {}, ["field", {}, "number"], 4]]
+keep: [high]
+out: {set: high, level: count}
