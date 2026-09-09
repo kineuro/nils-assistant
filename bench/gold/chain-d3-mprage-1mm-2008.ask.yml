@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: Only the sessions from 2008 onwards.
+ast_version: 1
+name: sessions of cohort A with a 1 mm MPRAGE from 2008 on
+scheme: default
+sets:
+  scope:  {grain: cohort, where: [["=", {}, ["field", {}, "name"], "ms-cohort-a"]]}
+  people: {grain: subject, of: scope}
+  visits:
+    grain: session
+    of: people
+    bind: {year: ["part", {unit: year}, ["field", {}, "first"]]}
+  mprage:
+    grain: stack
+    of: visits
+    where:
+      - ["=", {}, ["axis", {}, "technique"], "MPRAGE"]
+      - ["~=", {tol: 0.05}, ["field", {}, "slice_thickness"], 1.0]
+  found:
+    grain: session
+    from: visits
+    has: [{set: mprage, min: 1}]
+    where: [[">=", {}, ["field", {}, "year"], 2008]]
+keep: [found]
+out:
+  set: found
+  level: record
+  columns: [["field", {}, "subject.code"], ["field", {}, "first"]]
+  order: [[["field", {}, "subject.code"], asc], [["field", {}, "first"], asc]]

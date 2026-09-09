@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: Keep only the subjects whose latest score is 4 or more.
+ast_version: 1
+name: the latest EDSS per subject in cohort B, four or more
+scheme: default
+sets:
+  scope:  {grain: cohort, where: [["=", {}, ["field", {}, "name"], "ms-cohort-b"]]}
+  people: {grain: subject, of: scope}
+  edss:
+    grain: event
+    of: people
+    where: [["=", {}, ["field", {}, "kind"], "EDSS"]]
+    pick: {per: subject, n: 1, ties: report, by: [[["field", {}, "date"], desc], [["field", {}, "id"], desc]]}
+  high:
+    grain: event
+    from: edss
+    where: [[">=", {}, ["field", {}, "number"], 4]]
+keep: [high]
+out:
+  set: high
+  level: record
+  columns: [["field", {}, "subject.code"], ["field", {}, "date"], ["field", {}, "number"]]
+  order: [[["field", {}, "subject.code"], asc]]

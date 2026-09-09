@@ -29,11 +29,14 @@ const root = process.cwd();
 interface Turn {
   kind: "opening" | "correction" | "addition" | "meta" | "verification";
   text: string;
+  /** An authored chain carries a gold for the turn: the document the turn should leave. */
+  gold?: string;
 }
 interface Chain {
   id: string;
   title: string;
-  shape: string;
+  /** The shape whose gold the opening is scored against; an authored chain names none and carries a gold per turn. */
+  shape?: string;
   turns: Turn[];
   corrections: number;
 }
@@ -136,6 +139,29 @@ async function run(
 
 const out: Record<string, unknown> = { at: new Date().toISOString(), host, chains: [], stability: null };
 
+/** A gold file drafted and stored now: its document, so the answers compare. */
+async function storeGold(file: string): Promise<number | null> {
+  const stored = await json(`${nils}/api/ask/draft`, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+    body: JSON.stringify({ text: readFileSync(join(root, "bench", "gold", file), "utf8") }),
+  });
+  return typeof stored.document === "number" ? stored.document : null;
+}
+
+/** The turn's document reached the gold: the same content hash, else the same answer. */
+async function reached(
+  document: number | null,
+  goldFile: string,
+  goldDocument: number | null,
+): Promise<boolean> {
+  if (document === null || goldDocument === null) return false;
+  const want = expect[goldFile];
+  const r = await run(document);
+  if (want?.content_hash && r.content_hash === want.content_hash) return true;
+  return same(document, goldDocument).catch(() => false);
+}
+
 /** The same answer as the gold: the set of subject codes when both carry one, else the one row of a count. */
 async function same(document: number, goldDocument: number): Promise<boolean> {
   const codes = async (id: number): Promise<{ codes: string[] | null; first: string; n: number }> => {
@@ -167,7 +193,44 @@ async function same(document: number, goldDocument: number): Promise<boolean> {
   return a.n === b.n && (a.n !== 1 || a.first === b.first);
 }
 
-for (const c of chains) {
+for (const c of chains.filter((c) => c.turns.some((t) => t.gold))) {
+  const conversation = `chain-${c.id}-${Date.now().toString(36)}`;
+  const sent: {
+    kind: string;
+    text: string;
+    document: number | null;
+    terminal: string;
+    seconds: number;
+    tool_calls: number;
+    refused: number;
+    matched: boolean;
+  }[] = [];
+  let hit = 0;
+  let scored = 0;
+  for (const t of c.turns) {
+    const r = await turn(conversation, t.text);
+    let matched = false;
+    if (t.gold) {
+      scored++;
+      matched = await reached(r.document, t.gold, await storeGold(t.gold));
+      if (matched) hit++;
+    }
+    sent.push({ kind: t.kind, text: t.text, ...r, matched });
+    console.log(
+      `${c.id} ${t.kind}: ${r.document === null ? `no document (${r.terminal})` : `document ${r.document}`} [${r.seconds} s, ${r.tool_calls} calls]${t.gold ? (matched ? " reached" : " missed") : ""}`,
+    );
+  }
+  console.log(`${c.id}: ${hit} of ${scored} turns reached their gold`);
+  (out.chains as unknown[]).push({
+    id: c.id,
+    authored: true,
+    turns_reached: hit,
+    turns_scored: scored,
+    turns: sent,
+  });
+}
+
+for (const c of chains.filter((c) => !c.turns.some((t) => t.gold))) {
   const shape = shapes.find((s) => s.id === c.shape);
   const want = shape?.rebased.gold ? expect[shape.rebased.gold] : undefined;
   if (!want?.content_hash || !shape?.rebased.gold) {

@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: Add the subject's age at that score.
+ast_version: 1
+name: the latest EDSS per subject in cohort B, four or more, with the age
+scheme: default
+sets:
+  scope:  {grain: cohort, where: [["=", {}, ["field", {}, "name"], "ms-cohort-b"]]}
+  people: {grain: subject, of: scope}
+  edss:
+    grain: event
+    of: people
+    where: [["=", {}, ["field", {}, "kind"], "EDSS"]]
+    bind: {age: ["age_at", {}, ["field", {}, "subject.birth_date"], ["field", {}, "date"]]}
+    pick: {per: subject, n: 1, ties: report, by: [[["field", {}, "date"], desc], [["field", {}, "id"], desc]]}
+  high:
+    grain: event
+    from: edss
+    where: [[">=", {}, ["field", {}, "number"], 4]]
+keep: [high]
+out:
+  set: high
+  level: record
+  columns: [["field", {}, "subject.code"], ["field", {}, "date"], ["field", {}, "number"], ["field", {}, "age"]]
+  order: [[["field", {}, "subject.code"], asc]]

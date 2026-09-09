@@ -84,13 +84,28 @@ describe("the corpus", () => {
       }
     }
   });
-  it("carries three chains whose correction counts match their turns", () => {
-    expect(chains).toHaveLength(3);
-    for (const c of chains) {
+  it("carries three paraphrased chains whose correction counts match their turns, and two authored chains with a gold per turn", () => {
+    const paraphrased = chains.filter(
+      (c) => !c.turns || !(c.turns as { gold?: string }[]).some((t) => t.gold),
+    );
+    const authored = chains.filter((c) => (c.turns as { gold?: string }[]).some((t) => t.gold));
+    expect(paraphrased).toHaveLength(3);
+    expect(authored).toHaveLength(2);
+    for (const c of paraphrased) {
       const turns = c.turns as { kind: string; text: string }[];
       expect(turns[0].kind).toBe("opening");
       expect(turns.filter((t) => t.kind === "correction")).toHaveLength(c.corrections as number);
       expect(shapes.some((s) => s.id === c.shape)).toBe(true);
+    }
+    for (const c of authored) {
+      const turns = c.turns as { kind: string; text: string; gold?: string }[];
+      expect(turns[0].kind).toBe("opening");
+      expect(c.corrections).toBe(0);
+      // every turn's gold is a document of the bench, recorded in expect.json
+      for (const t of turns) {
+        expect(t.gold, `${c.id}: ${t.text}`).toBeDefined();
+        expect(existsSync(join(root, "bench/gold", t.gold as string)), `${t.gold}`).toBe(true);
+      }
     }
   });
   it("holds no term from the source: no subject code, no identifier, no UID, no path", () => {
