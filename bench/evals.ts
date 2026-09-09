@@ -37,7 +37,8 @@ async function json(url: string, init?: RequestInit): Promise<Record<string, unk
 /** The values of one column of a handle, every page, as a sorted list; null when the handle has no such column. */
 async function column(handle: number, name: string): Promise<string[] | null> {
   const out: string[] = [];
-  for (let page = 1; page < 200; page++) {
+  // the rows door pages from zero
+  for (let page = 0; page < 200; page++) {
     const r = await json(`${nils}/api/ask/handles/${handle}/rows?page=${page}`, {
       headers: { authorization: `Bearer ${token}` },
     });
@@ -49,7 +50,7 @@ async function column(handle: number, name: string): Promise<string[] | null> {
     });
     if (i < 0) return null;
     for (const row of (r.rows as unknown[][] | undefined) ?? []) out.push(String(row[i]));
-    if (typeof r.pages !== "number" || page >= r.pages) break;
+    if (typeof r.pages !== "number" || page + 1 >= r.pages) break;
   }
   // the set of subjects, not the multiset of rows: a document that lists a subject twice still selected the same people
   return [...new Set(out)].sort();
