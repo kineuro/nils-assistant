@@ -52,14 +52,83 @@ export function recorded(fixture: Fixture): {
   };
 }
 
-/** The message a replayed stream ended with, or null when it ended in an error. */
+/**
+ * The message a replayed stream ended with, or null when it ended in an
+ * error. Two shapes are read: pi's internal events, whose `done` carries
+ * the message, and the pi-messages wire that Kvasir's door speaks, whose
+ * text and tool calls arrive as deltas and end blocks and whose `done`
+ * carries only the usage.
+ */
 export async function last(events: AsyncIterable<AssistantMessageEvent>): Promise<AssistantMessage | null> {
-  let out: AssistantMessage | null = null;
-  for await (const ev of events) {
-    if (ev.type === "done") out = ev.message;
-    if (ev.type === "error") out = null;
+  const blocks: Record<
+    number,
+    { type: "text" | "thinking" | "toolCall"; text: string; name?: string; id?: string }
+  > = {};
+  let usage: AssistantMessage["usage"] | null = null;
+  let reason: string | null = null;
+  let failed = false;
+  for await (const raw of events) {
+    const ev = raw as unknown as Record<string, unknown> & { type: string };
+    if (ev.type === "done") {
+      if (ev.message) return ev.message as AssistantMessage;
+      usage = (ev.usage as AssistantMessage["usage"]) ?? null;
+      reason = String(ev.reason ?? "stop");
+    } else if (ev.type === "error") failed = true;
+    else if (ev.type === "text_delta" || ev.type === "thinking_delta") {
+      const i = Number(ev.contentIndex ?? 0);
+      if (!blocks[i]) blocks[i] = { type: ev.type === "text_delta" ? "text" : "thinking", text: "" };
+      blocks[i].text += String(ev.delta ?? "");
+    } else if (ev.type === "text_end" || ev.type === "thinking_end") {
+      const i = Number(ev.contentIndex ?? 0);
+      if (!blocks[i]) blocks[i] = { type: ev.type === "text_end" ? "text" : "thinking", text: "" };
+      if (typeof ev.content === "string" && ev.content.length >= blocks[i].text.length)
+        blocks[i].text = ev.content;
+    } else if (ev.type === "toolcall_start") {
+      blocks[Number(ev.contentIndex ?? 0)] = {
+        type: "toolCall",
+        text: "",
+        name: String(ev.toolName ?? ""),
+        id: String(ev.id ?? ""),
+      };
+    } else if (ev.type === "toolcall_delta") {
+      const i = Number(ev.contentIndex ?? 0);
+      if (!blocks[i]) blocks[i] = { type: "toolCall", text: "" };
+      blocks[i].text += String(ev.delta ?? "");
+    }
   }
-  return out;
+  if (failed || reason === null) return null;
+  const content = Object.keys(blocks)
+    .map(Number)
+    .sort((a, b) => a - b)
+    .map((i) => {
+      const b = blocks[i];
+      if (b.type === "text") return { type: "text" as const, text: b.text };
+      if (b.type === "thinking") return { type: "thinking" as const, thinking: b.text };
+      let args: Record<string, unknown> = {};
+      try {
+        args = JSON.parse(b.text || "{}");
+      } catch {
+        args = {};
+      }
+      return { type: "toolCall" as const, id: b.id ?? "", name: b.name ?? "", arguments: args };
+    });
+  return {
+    role: "assistant",
+    content,
+    api: "pi-messages",
+    provider: "kvasir",
+    model: "",
+    usage: usage ?? {
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+      totalTokens: 0,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+    },
+    stopReason: reason === "length" ? "length" : "stop",
+    timestamp: 0,
+  } as AssistantMessage;
 }
 
 /** Retry on a provider error, at most `budget` attempts: the recovery path a station takes (§9.4), fired here so a fixture can assert it. */

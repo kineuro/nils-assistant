@@ -1,0 +1,120 @@
+{
+  "id": "baseline-minimax-m2.7-anthropic-shape-01",
+  "question": "List every cohort with its owner and how many subjects it holds, as a table.",
+  "model": "minimax-m2.7-anthropic",
+  "recorded_at": "2026-09-09",
+  "attempts": [
+    {
+      "events": [
+        {
+          "type": "start"
+        },
+        {
+          "type": "thinking_start",
+          "contentIndex": 0
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": "The"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " user wants to list every cohort with its owner and how many subjects it holds, as a table.\n\nLooking at the catalog, cohorts have these fields:\n- id: integer\n- name: text"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": "\n- owner: text\n- members: integer (this represents the number of subjects)\n\nSo I need to:\n1. Create a cohort set at grain:"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " cohort\n2. Get the subject count - but wait, members is already in the cohort data\n\nActually"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": ", looking at the catalog more carefully:\n```json\n{\"cohorts\":[{\"id\":1,\"name\":\"ms-cohort-a\",\"owner\":\"nils-synth\",\"members\":38},{\"id\":2"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": ",\"name\":\"ms-cohort-b\",\"owner\":\"nils-synth\",\"members\":12}]}\n```\n\nThe \"members\" field directly gives the count of subjects in each cohort. So I can use"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " that field directly.\n\nLet me construct the document:\n- sets:\n  - cohorts: grain: cohort ("
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": "with all fields we need)\n- out:\n  - set: cohorts\n  - level: record\n  - columns: [[field,"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " name], [field, owner], [field, members]]\n  - order: [[[field, name], asc]]\n\nThis is straightforward - no need to create"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " a separate subject set since members is already tracked in the cohort."
+        },
+        {
+          "type": "thinking_end",
+          "contentIndex": 0,
+          "content": "The user wants to list every cohort with its owner and how many subjects it holds, as a table.\n\nLooking at the catalog, cohorts have these fields:\n- id: integer\n- name: text\n- owner: text\n- members: integer (this represents the number of subjects)\n\nSo I need to:\n1. Create a cohort set at grain: cohort\n2. Get the subject count - but wait, members is already in the cohort data\n\nActually, looking at the catalog more carefully:\n```json\n{\"cohorts\":[{\"id\":1,\"name\":\"ms-cohort-a\",\"owner\":\"nils-synth\",\"members\":38},{\"id\":2,\"name\":\"ms-cohort-b\",\"owner\":\"nils-synth\",\"members\":12}]}\n```\n\nThe \"members\" field directly gives the count of subjects in each cohort. So I can use that field directly.\n\nLet me construct the document:\n- sets:\n  - cohorts: grain: cohort (with all fields we need)\n- out:\n  - set: cohorts\n  - level: record\n  - columns: [[field, name], [field, owner], [field, members]]\n  - order: [[[field, name], asc]]\n\nThis is straightforward - no need to create a separate subject set since members is already tracked in the cohort.",
+          "contentSignature": "a9a56c3799a73bfdac7c1e0e31e6bee5fb00e86305a7ccdd0eb7fc42dffda089"
+        },
+        {
+          "type": "text_start",
+          "contentIndex": 1
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 1,
+          "delta": "\"ast_version: 1\\nsets:\\n  cohorts: {grain: cohort"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 1,
+          "delta": "}\\nout:\\n  set: cohorts\\n  level: record\\n  columns: [[\\\"field\\\", {}, \\\"name\\\"], [\\\"field\\\", {}, \\\"owner\\\"], [\\\"field\\\", {}, \\\"members\\\"]]\\n  order: [[[\\\"field\\\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 1,
+          "delta": " {}, \\\"name\\\"], asc]]\\n\""
+        },
+        {
+          "type": "text_end",
+          "contentIndex": 1,
+          "content": "\"ast_version: 1\\nsets:\\n  cohorts: {grain: cohort}\\nout:\\n  set: cohorts\\n  level: record\\n  columns: [[\\\"field\\\", {}, \\\"name\\\"], [\\\"field\\\", {}, \\\"owner\\\"], [\\\"field\\\", {}, \\\"members\\\"]]\\n  order: [[[\\\"field\\\", {}, \\\"name\\\"], asc]]\\n\""
+        },
+        {
+          "type": "done",
+          "reason": "stop",
+          "usage": {
+            "input": 0,
+            "output": 356,
+            "cacheRead": 4191,
+            "cacheWrite": 0,
+            "totalTokens": 4547,
+            "cost": {
+              "input": 0,
+              "output": 0.0004272,
+              "cacheRead": 0.00012572999999999998,
+              "cacheWrite": 0,
+              "total": 0.00055293
+            },
+            "cacheWrite1h": 0,
+            "reasoning": 272
+          },
+          "responseId": "06f006bb52ed7138e8d31d1ccaf19f37"
+        }
+      ]
+    }
+  ]
+}

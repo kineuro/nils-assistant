@@ -20,11 +20,11 @@
     "declaration": false,
     "sourceMap": true,
     "skipLibCheck": true,
-    "noEmit": true
+    "noEmit": false
   },
   "include": [
     "src",
     "bench",
-    "test"
+    "test/child"
   ]
 }
