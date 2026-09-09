@@ -217,3 +217,43 @@ describe("the verdict", () => {
     });
   });
 });
+
+describe("a follow-up turn (section 7.7)", async () => {
+  const { Machine, initialState } = await import("../src/stations/machine.ts");
+  const { loadManifests } = await import("../src/stations/manifest.ts");
+  it("starts the budget over, forgets the loop detector, re-enters the named phase and keeps the evidence", () => {
+    const m = loadManifests(["./stations"]).get("ask-help");
+    if (!m) throw new Error("no ask-help manifest");
+    expect(m.phases.follow_up).toBe("shape");
+    const mach = new Machine(m, initialState(m, 1000), () => 5000);
+    mach.advance("shape");
+    mach.call("nils_store", { document: 1 }, ["document"]);
+    mach.state.evidence.documents.push(4);
+    mach.end("budget_wall_clock");
+    mach.followUp(m.phases.follow_up ?? m.phases.initial);
+    expect(mach.state.phase).toBe("shape");
+    expect(mach.state.terminal).toBeNull();
+    expect(mach.state.tool_calls).toBe(0);
+    expect(mach.state.repeats).toEqual({});
+    expect(mach.state.started_at).toBe(5000);
+    expect(mach.state.evidence.documents).toEqual([4]);
+    expect(mach.state.events.at(-1)).toMatchObject({ kind: "follow_up", from: "shape", to: "shape" });
+  });
+});
+
+describe("the result schema (section 9.5)", async () => {
+  const { toValibot } = await import("../src/stations/schema.ts");
+  const v = await import("valibot");
+  it("keeps an object with named properties strict and an object without any open", () => {
+    const strict = toValibot({
+      type: "object",
+      required: ["document"],
+      properties: { document: { type: "integer" } },
+    } as never);
+    expect(v.safeParse(strict, { document: 1, extra: true }).success).toBe(false);
+    const open = toValibot({ type: "object", description: "the declaration block" } as never);
+    expect(v.safeParse(open, { grain: "subject", session_scheme: { name: "x" } }).success).toBe(true);
+    const closed = toValibot({ type: "object", additionalProperties: false } as never);
+    expect(v.safeParse(closed, { grain: "subject" }).success).toBe(false);
+  });
+});

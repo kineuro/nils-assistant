@@ -5,96 +5,96 @@
     {
       "id": "shape-01",
       "passed": false,
-      "why": "the engine refused: the document is refused: the ask will not parse: unknown field `as`, expected one of `grain`, `from`, `of`, `algebra`, `"
+      "why": "no JSON document in the answer"
     },
     {
       "id": "shape-02",
       "passed": false,
-      "why": "the engine refused: the document is refused: the ask will not parse: clause =: the options map is mandatory, even when empty"
+      "why": "no JSON document in the answer"
     },
     {
       "id": "shape-03",
       "passed": false,
-      "why": "no JSON document in the answer"
+      "why": "the engine refused: the document is refused: the ask will not parse: a clause starts with its op, a string"
     },
     {
       "id": "shape-04",
       "passed": false,
-      "why": "no recording; set KVASIR_URL to make one"
+      "why": "no JSON document in the answer"
     },
     {
       "id": "shape-05",
-      "passed": false,
-      "why": "no recording; set KVASIR_URL to make one"
+      "passed": true,
+      "why": ""
     },
     {
       "id": "shape-09",
       "passed": false,
-      "why": "no recording; set KVASIR_URL to make one"
+      "why": "the engine refused: the document is refused"
     },
     {
       "id": "shape-10",
       "passed": false,
-      "why": "no recording; set KVASIR_URL to make one"
+      "why": "the engine refused: the document is refused: the ask will not parse: unknown field `policy`, expected one of `type`, `value`, `description`"
     },
     {
       "id": "shape-11",
       "passed": false,
-      "why": "no recording; set KVASIR_URL to make one"
+      "why": "no JSON document in the answer"
     },
     {
       "id": "shape-12",
       "passed": false,
-      "why": "no recording; set KVASIR_URL to make one"
+      "why": "no JSON document in the answer"
     },
     {
       "id": "shape-13",
       "passed": false,
-      "why": "no recording; set KVASIR_URL to make one"
+      "why": "no JSON document in the answer"
     },
     {
       "id": "shape-14",
       "passed": false,
-      "why": "no recording; set KVASIR_URL to make one"
+      "why": "the engine refused: sets.under30.where[0]: age_at needs a day"
     },
     {
       "id": "shape-15",
       "passed": false,
-      "why": "no recording; set KVASIR_URL to make one"
+      "why": "the engine refused: the document is refused"
     },
     {
       "id": "shape-18",
       "passed": false,
-      "why": "no recording; set KVASIR_URL to make one"
+      "why": "the engine refused: the document is refused: the ask will not parse: unknown field `limit`, expected one of `per`, `by`, `n`, `ties`"
     },
     {
       "id": "shape-20",
       "passed": false,
-      "why": "no recording; set KVASIR_URL to make one"
+      "why": "the engine refused: the document is refused"
     },
     {
       "id": "shape-22",
       "passed": false,
-      "why": "no recording; set KVASIR_URL to make one"
+      "why": "no JSON document in the answer"
     },
     {
       "id": "shape-23",
       "passed": false,
-      "why": "no recording; set KVASIR_URL to make one"
+      "why": "the engine refused: the document is refused"
     },
     {
       "id": "shape-24",
       "passed": false,
-      "why": "no recording; set KVASIR_URL to make one"
+      "why": "the engine refused: the document is refused: the ask will not parse: a clause is an array [op, {opts}, ...args], not a string"
     },
     {
       "id": "shape-25",
       "passed": false,
-      "why": "no recording; set KVASIR_URL to make one"
+      "why": "the engine refused: the document is refused: the ask will not parse: unknown field `refusal`, expected one of `ast_version`, `name`, `scheme"
     }
   ],
   "loop": {
-    "passed": 0,
+    "passed": 1,
     "of": 11
   },
   "held_out": {

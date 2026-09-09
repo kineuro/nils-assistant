@@ -30,6 +30,7 @@ export type Intervention =
   | { kind: "loop_warning"; tool: string; repeats: number; at: number }
   | { kind: "loop_stopped"; tool: string; repeats: number; at: number }
   | { kind: "phase"; from: string; to: string; at: number }
+  | { kind: "follow_up"; from: string; to: string; at: number }
   | { kind: "budget"; which: keyof Budget; at: number }
   | { kind: "refused"; tool: string; why: string; at: number };
 
@@ -81,6 +82,22 @@ export class Machine {
         why: `${tool} is not open in the ${this.state.phase} phase; it opens in ${phases.join(", ")}`,
       };
     return { ok: true };
+  }
+
+  /**
+   * A follow-up turn (section 7.7): the person spoke again after the run
+   * settled. The budget starts over, the loop detector forgets, the phase
+   * re-enters where the manifest says, and the evidence and the events stay.
+   */
+  followUp(to: string): void {
+    this.state.events.push({ kind: "follow_up", from: this.state.phase, to, at: this.now() });
+    this.state.phase = to;
+    this.state.turns = 0;
+    this.state.tool_calls = 0;
+    this.state.input_tokens = 0;
+    this.state.started_at = this.now();
+    this.state.terminal = null;
+    this.state.repeats = {};
   }
 
   /** A move between phases the manifest names; anything else is refused. */

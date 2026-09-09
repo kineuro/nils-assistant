@@ -22,20 +22,20 @@
     }
   },
   "cohort-overlap-count.ask.yml": {
-    "hash": "32c4e9da6d03cc4cc912d551bdada686ac59fe6843bb628aecf1fb8ab9f5e91f",
-    "content_hash": "20feebf60d7dbebafe956dc447510825b0e27e2df6ff210a54ddb378cebd1e4d",
+    "hash": "6dd887851f886b9cc766701f2b9779f294e734637c5868d6682b256c1d6e423f",
+    "content_hash": "f8e954cef1b4fe5ed673f35be0e23917e650b95b9288beecb77dd18d13ee6ca0",
     "row_count": 1,
     "truncated": false,
     "columns": ["rows", "subjects"],
     "epoch": 2,
     "pack": "mri 0.1.1",
     "declaration": {
-      "grain": "subject",
+      "grain": "group",
       "session_scheme": {
         "name": "default",
         "digest": "37f53eb14839513e00f3f54494f1601b"
       },
-      "membership": "every member of the source it starts from",
+      "membership": "the whole grain",
       "key_namespace": "the registry's pseudonymous key",
       "pick_rule": "none: every row of the set",
       "denominator": "none: a count over the set",
@@ -44,20 +44,20 @@
     }
   },
   "cohort-overlap.ask.yml": {
-    "hash": "2689d7dccc8909f7de373103af2546a8aa1e11bd2ae916f43e5fb2e086a46b76",
-    "content_hash": "756d53f02b41232088de75c61bd6352ccecae7eecc0f5c61dca47718e2bb8b31",
-    "row_count": 14,
+    "hash": "3aeb5d1d1dd667f248f1d69672469c8109e34b0733065c0aef6cf233d55c3699",
+    "content_hash": "ea40015a28dfdf0846ad9ca35f865294e82f6b72a5d52e07686eb325e34d071f",
+    "row_count": 7,
     "truncated": false,
     "columns": ["_key", "_subject", "code", "sex", "birth_date", "n_cohorts"],
     "epoch": 2,
     "pack": "mri 0.1.1",
     "declaration": {
-      "grain": "subject",
+      "grain": "group",
       "session_scheme": {
         "name": "default",
         "digest": "37f53eb14839513e00f3f54494f1601b"
       },
-      "membership": "every member of the source it starts from",
+      "membership": "the whole grain",
       "key_namespace": "the registry's pseudonymous key",
       "pick_rule": "none: every row of the set",
       "denominator": "none: a count over the set",

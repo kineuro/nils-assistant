@@ -11,6 +11,8 @@ import {
   defineSkill,
   type JsonValue,
   useAgentFinish,
+  useAgentStart,
+  useDataWriter,
   useModel,
   usePersistentState,
   useResponseFinish,
@@ -20,7 +22,7 @@ import {
 import * as v from "valibot";
 import { providerId } from "../providers/kvasir.ts";
 import type { Seam } from "../seam/client.ts";
-import { seamFor } from "../seam/for.ts";
+import { feedbackOf, seamFor, verdicts } from "../seam/for.ts";
 import { initialState, Machine, type RunState } from "./machine.ts";
 import type { Manifest, TerminalReason } from "./manifest.ts";
 import { toValibot } from "./schema.ts";
@@ -33,6 +35,42 @@ import {
   runChecks,
   type Verdict,
 } from "./verdict.ts";
+
+/** The closed union of section 9.8: what a station may put in front of the desk; anything else the desk drops. */
+export const PART = v.variant("kind", [
+  v.object({
+    kind: v.literal("move_proposal"),
+    document: v.number(),
+    parent: v.nullable(v.number()),
+    sentence: v.string(),
+  }),
+  v.object({
+    kind: v.literal("choice"),
+    question: v.string(),
+    options: v.array(v.object({ label: v.string(), count: v.nullable(v.number()) })),
+  }),
+  v.object({ kind: v.literal("note"), text: v.string() }),
+  v.object({ kind: v.literal("todo"), text: v.string() }),
+  v.object({ kind: v.literal("lookup"), level: v.string(), field: v.string(), values: v.array(v.string()) }),
+  v.object({ kind: v.literal("handle_ref"), handle: v.number() }),
+  v.object({
+    kind: v.literal("funnel"),
+    rows: v.array(v.object({ set: v.string(), stage: v.string(), rows: v.number(), subjects: v.number() })),
+  }),
+  v.object({ kind: v.literal("status"), phase: v.string(), text: v.string() }),
+]);
+export type Part = v.InferOutput<typeof PART>;
+export type PartKind = Part["kind"];
+export const PART_KINDS: PartKind[] = [
+  "move_proposal",
+  "choice",
+  "note",
+  "todo",
+  "lookup",
+  "handle_ref",
+  "funnel",
+  "status",
+];
 
 export interface StationTool {
   name: string;
@@ -59,6 +97,11 @@ export interface StationDefinition {
   checks: Record<string, Check>;
   /** The phase the settle tool moves to, and the phases it is open in. */
   settle: { phases: string[] };
+  /** What the station fills into the result mechanically before the checks run: a hash, a declaration, never a judgement. */
+  complete?: (
+    result: Record<string, unknown>,
+    ctx: { seam: Seam; conversation: string; state: RunState },
+  ) => Promise<Record<string, unknown>>;
 }
 
 export interface Settled {
@@ -87,6 +130,38 @@ export function stationAgent(
     const machine = new Machine(m, structuredClone(state));
     const commit = () => setState(structuredClone(machine.state));
     const seam = seamFor(m.id, id);
+    // the desk seam (section 9.8): the closed union of typed parts, one data part named `part`, never a desk call
+    // one named data part per kind, so a conversation's history keeps the last of each and the live stream sees every write
+    const writers = Object.fromEntries(
+      PART_KINDS.map((k) => [k, useDataWriter(k, { schema: PART })]),
+    ) as Record<PartKind, (p: Part) => void>;
+    const emit = (p: Part) => {
+      try {
+        writers[p.kind](p);
+      } catch {
+        // a bare render has no writer; the record still holds the verdict
+      }
+    };
+
+    // a follow-up turn (section 7.7): the person spoke again after settle; the run starts over on the settled document
+    useAgentStart((ctx) => {
+      // a run that settled, or one that ended by budget or loop, is over: the next message starts a follow-up
+      if (!settled && !machine.state.terminal) return;
+      const to = m.phases.follow_up ?? m.phases.initial;
+      const ended = machine.state.terminal;
+      machine.followUp(to);
+      const base = settled
+        ? (settled.verdict as { result?: { document?: unknown } }).result?.document
+        : undefined;
+      const last = machine.state.evidence.documents.at(-1);
+      setSettled(null);
+      commit();
+      ctx.append({
+        kind: "signal",
+        type: "station",
+        body: `A follow-up turn. The previous run ${settled ? "settled" : `ended by ${ended}`}${typeof base === "number" ? ` on document ${base}, which is the base now: refine it, do not start over` : typeof last === "number" ? `; the last document it stored was ${last}, start from it` : ""}. The phase is ${to} again and the budget starts over. End with settle.`,
+      });
+    });
 
     for (const t of def.tools) {
       useTool({
@@ -168,6 +243,17 @@ export function stationAgent(
           commit();
           return { output: { refused: true, why: open.why } };
         }
+        // settle counts against the budget and the loop detector like any call: a model cannot retry it forever
+        const gate = machine.call("settle", { document: (data.result as Record<string, unknown>).document }, [
+          "document",
+        ]);
+        if (!gate.ok) {
+          commit();
+          return {
+            output: { refused: true, why: gate.why, terminal: gate.terminal } as JsonValue,
+            terminate: gate.terminal !== null,
+          };
+        }
         const proposals: Proposal[] = [];
         for (const p of data.proposals as {
           kind: string;
@@ -184,6 +270,19 @@ export function stationAgent(
           }
           proposals.push({ kind: p.kind as Proposal["kind"], ref: p.ref, sentence: p.sentence });
         }
+        let result = data.result as Record<string, unknown>;
+        if (def.complete) {
+          try {
+            result = await def.complete(result, { seam, conversation: id, state: machine.state });
+          } catch (e) {
+            return {
+              output: {
+                refused: true,
+                why: `the result could not be completed: ${e instanceof Error ? e.message : String(e)}`,
+              } as JsonValue,
+            };
+          }
+        }
         const verdict: Verdict = {
           station: m.id,
           terminal: "settled",
@@ -197,7 +296,7 @@ export function stationAgent(
           },
           evidence: machine.state.evidence,
           proposals,
-          result: data.result as Record<string, unknown>,
+          result,
           checks: [],
         };
         const rows = evidenceOnly(verdict);
@@ -215,6 +314,32 @@ export function stationAgent(
         machine.end("settled");
         commit();
         setSettled({ verdict });
+        verdicts.set(id, verdict);
+        // what the desk renders: a document version as a move proposal on a scratch handle, the choices, the handles read, the status
+        for (const p of proposals) {
+          if (p.kind === "document_version")
+            emit({
+              kind: "move_proposal",
+              document: Number(p.ref.document ?? result.document),
+              parent: p.ref.parent === undefined ? null : Number(p.ref.parent),
+              sentence: p.sentence,
+            });
+        }
+        if (proposals.length === 0 && typeof result.document === "number")
+          emit({ kind: "move_proposal", document: result.document, parent: null, sentence: data.sentence });
+        for (const c of (Array.isArray(result.choices) ? result.choices : []) as Record<string, unknown>[])
+          emit({
+            kind: "choice",
+            question: String(c.question ?? c.text ?? ""),
+            options: Array.isArray(c.options)
+              ? (c.options as { label: string; count?: number | null }[]).map((o) => ({
+                  label: String(o.label ?? o),
+                  count: typeof o.count === "number" ? o.count : null,
+                }))
+              : [],
+          });
+        for (const h of machine.state.evidence.handles) emit({ kind: "handle_ref", handle: h });
+        emit({ kind: "status", phase: "finish", text: data.sentence });
         return { output: { settled: true, sentence: data.sentence }, terminate: true };
       },
     });
@@ -242,7 +367,13 @@ export function stationAgent(
       });
     });
 
-    return `${def.instructions}\n\nYou are the ${m.id} station of ${m.app}, at the ${m.ceiling} ceiling, in the ${machine.state.phase} phase. The phases: ${m.phases.initial}${m.phases.transitions.map((t) => ` then ${t.to}`).join("")}. Move with advance. End with settle.`;
+    // the desk's feedback (section 7.7): a rejected proposal is named so it is not repeated; an accepted one is the new base
+    const fb = feedbackOf(id);
+    const feedbackText =
+      fb.rejected.length + fb.accepted.length === 0
+        ? ""
+        : `\n\nThe person's feedback on earlier proposals:${fb.accepted.map((f) => `\n- accepted document ${f.document}${f.sentence ? ` (${f.sentence})` : ""}: it is the base now`).join("")}${fb.rejected.map((f) => `\n- rejected document ${f.document}${f.sentence ? ` (${f.sentence})` : ""}: do not propose it or the same change again`).join("")}`;
+    return `${def.instructions}${feedbackText}\n\nYou are the ${m.id} station of ${m.app}, at the ${m.ceiling} ceiling, in the ${machine.state.phase} phase. The phases: ${m.phases.initial}${m.phases.transitions.map((t) => ` then ${t.to}`).join("")}. Move with advance. End with settle.`;
   };
   return Object.assign(agent, { agentName: m.id });
 }

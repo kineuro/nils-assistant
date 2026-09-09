@@ -1,0 +1,99 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# The ask-help station (Wave 4c section 9.11), as contracts/suite/v1/station.schema.json fixes a manifest.
+id: ask-help
+app: nils-assistant
+purpose: assistant.ask-help
+content: rows
+ceiling: reviewer
+grant:
+  guide:
+    calls: 2
+  catalog:
+    calls: 4
+  catalog/{level}:
+    calls: 12
+  catalog/{level}/{field}/values:
+    calls: 12
+    rows: 50
+  validate:
+    calls: 8
+  describe:
+    calls: 8
+  options:
+    calls: 12
+  apply:
+    calls: 12
+  diagnose:
+    calls: 6
+  preview:
+    calls: 6
+    rows: 10
+  draft:
+    calls: 4
+  diff:
+    calls: 4
+  handles/{id}:
+    calls: 4
+  handles/{id}/rows:
+    calls: 4
+    rows: 50
+  documents:
+    calls: 6
+  documents/{id}:
+    calls: 6
+brief:
+  path: SKILL.md
+  hash: bc56ccbc45a7917bca7ce6f18aa97e2472c6c8bf0faea25d896b2def2046c20f
+result:
+  type: object
+  required:
+  - document
+  - sentence
+  properties:
+    document:
+      type: integer
+      description: the document handle the run leaves
+    hash:
+      type: string
+      description: the document's content hash, as validate answered it
+    sentence:
+      type: string
+      description: 'one sentence a person reads: what the document asks and the six decisions it took'
+    declaration:
+      type: object
+      description: the declaration block as describe answered it
+    choices:
+      type: array
+      items:
+        type: object
+      description: the typed choices left to the person, each with the count it would produce
+checks:
+- validate_clean
+- declaration_full
+- no_sql
+- no_truncated_handle
+- no_identifier_value
+budget:
+  turns: 12
+  tool_calls: 40
+  wall_clock_seconds: 180
+  input_tokens: 250000
+writes:
+- document_version
+phases:
+  initial: resolve
+  follow_up: shape
+  transitions:
+  - from: resolve
+    to: shape
+  - from: shape
+    to: refine
+  - from: shape
+    to: check
+  - from: refine
+    to: check
+  - from: check
+    to: refine
+  - from: check
+    to: finish
+evals: evals

@@ -5,12 +5,56 @@
 // id and nothing else.
 
 import { config } from "../config.ts";
+import type { Verdict } from "../stations/verdict.ts";
 import { Seam, type Station } from "./client.ts";
 import { Ledger } from "./ledger.ts";
 import { Tokens } from "./tokens.ts";
 
 let ledger: Ledger | null = null;
+/** Whether the engine serves with its authentication off, read once from its capabilities; unknown counts as on. */
+let engineAuthOff = false;
+export async function probeEngineAuth(engine: string, dial: typeof fetch = fetch): Promise<boolean> {
+  try {
+    const r = await dial(`${engine.replace(/\/+$/u, "")}/api/capabilities`);
+    const doc = (await r.json()) as { auth?: unknown };
+    engineAuthOff = r.ok && doc.auth === "off";
+  } catch {
+    engineAuthOff = false;
+  }
+  return engineAuthOff;
+}
 export const tokens = new Tokens();
+/** The settled verdict of a conversation, for the host to answer beside the run; the record log keeps it durably. */
+export const verdicts = new Map<string, Verdict>();
+
+/** One proposal the desk accepted or rejected (section 7.7): the document it named and the sentence it carried. */
+export interface Feedback {
+  document: number;
+  sentence: string;
+}
+const feedback = new Map<string, { accepted: Feedback[]; rejected: Feedback[] }>();
+
+/** The desk's feedback on a conversation's proposals, kept for the next turn's prompt; rows of the wrong shape are dropped. */
+export function recordFeedback(
+  conversation: string,
+  body: { accepted?: unknown[]; rejected?: unknown[] },
+): void {
+  const rows = (list: unknown[] | undefined): Feedback[] =>
+    (list ?? []).flatMap((r) => {
+      const o = r as { document?: unknown; sentence?: unknown };
+      return typeof o?.document === "number"
+        ? [{ document: o.document, sentence: typeof o.sentence === "string" ? o.sentence : "" }]
+        : [];
+    });
+  const cur = feedback.get(conversation) ?? { accepted: [], rejected: [] };
+  cur.accepted.push(...rows(body.accepted));
+  cur.rejected.push(...rows(body.rejected));
+  feedback.set(conversation, cur);
+}
+
+export function feedbackOf(conversation: string): { accepted: Feedback[]; rejected: Feedback[] } {
+  return feedback.get(conversation) ?? { accepted: [], rejected: [] };
+}
 const stations = new Map<string, Station>();
 const seams = new Map<string, Seam>();
 
@@ -43,6 +87,7 @@ export function seamFor(station: string, conversation: string): Seam {
       station: st,
       conversation,
       token: () => tokens.get(conversation),
+      authOff: () => engineAuthOff,
       ledger: theLedger(),
     });
     seams.set(key, s);
