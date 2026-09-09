@@ -121,9 +121,15 @@ async function same(document: number, goldDocument: number): Promise<boolean> {
     );
     const k = cols.findIndex((c) => c === "code" || c.endsWith(".code"));
     const rows = (r.rows as unknown[][] | undefined) ?? [];
+    // the values of the first row without the technical columns, sorted: a count answered as rows and subjects, or as two named aggregates, is the same answer
+    const keep = cols.map((c) => !c.startsWith("_"));
+    const first = (rows[0] ?? [])
+      .filter((_, i) => keep[i])
+      .map((v) => JSON.stringify(v))
+      .sort();
     return {
       codes: k < 0 ? null : [...new Set(rows.map((row) => String(row[k])))].sort(),
-      first: JSON.stringify(rows[0]?.slice(2) ?? null),
+      first: JSON.stringify(first),
       n: typeof r.row_count === "number" ? r.row_count : -1,
     };
   };
