@@ -220,6 +220,9 @@ if (stableShape?.rebased.gold && expect[stableShape.rebased.gold]?.content_hash)
 }
 
 writeFileSync(
-  join(root, "stations", "ask-help", "evals", `chains-${new Date().toISOString().slice(0, 10)}.json`),
+  join(
+    process.env.EVALS_OUT ?? join(root, "stations", "ask-help", "evals"),
+    `chains-${new Date().toISOString().slice(0, 10)}.json`,
+  ),
   `${JSON.stringify(out, null, 2)}\n`,
 );

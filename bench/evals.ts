@@ -143,6 +143,9 @@ console.log(
   `ask-help: ${all} of ${results.length} (${((100 * all) / Math.max(1, results.length)).toFixed(1)} percent); loop ${two.loop.passed}/${two.loop.of}, held out ${two.held_out.passed}/${two.held_out.of}; the same subjects selected in ${selected} of ${results.length}`,
 );
 writeFileSync(
-  join(root, "stations", "ask-help", "evals", `run-${new Date().toISOString().slice(0, 10)}.json`),
+  join(
+    process.env.EVALS_OUT ?? join(root, "stations", "ask-help", "evals"),
+    `run-${new Date().toISOString().slice(0, 10)}.json`,
+  ),
   `${JSON.stringify({ at: new Date().toISOString(), results, loop: two.loop, held_out: two.held_out }, null, 2)}\n`,
 );
