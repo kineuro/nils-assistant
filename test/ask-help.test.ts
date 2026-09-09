@@ -205,6 +205,23 @@ describe("ask-help", () => {
       expect.arrayContaining(["count", "group", "ordinal", "near", "clinical", "time"]),
     );
     expect(closest("anything", items, 10)).toHaveLength(4);
+    // a rare word shared outweighs common ones: the converters example for a terse converters question, though its idioms differ
+    const wide = [
+      ...items,
+      {
+        file: "converters.ask.yml",
+        question:
+          "Split cohort A into converters and non-converters. A converter has a baseline session with a FLAIR at two millimetres or thinner, a score within a year of it, a course transition four to six years after it, and a relapsing course at baseline.",
+        text: 'name: converters and non-converters\nsets:\n  split:\n    grain: group\n    near: [{as: score}]\n    has: [{set: flair}]\n    bind: {n: ["count", {}], transition: ["change", {}]}\nout: {level: aggregate}',
+      },
+    ];
+    expect(
+      closest(
+        "Split cohort A into converters and non-converters under the baseline and follow-up criteria, as one table.",
+        wide,
+        1,
+      )[0].file,
+    ).toBe("converters.ask.yml");
   });
   it("its checks refuse SQL, an identifier value, a thin declaration, a truncated handle and a foreign hash", async () => {
     const checks = askHelpChecks();

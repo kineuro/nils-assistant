@@ -96,18 +96,28 @@ export function idiomsOfDocument(text: string): Set<string> {
 export function closest<T extends Example>(question: string, examples: T[], k = 4): T[] {
   const qw = words(question);
   const qi = idiomsOfQuestion(question);
+  // the words of each example: its question and the document's own name line
+  const ews = examples.map((e) => {
+    const name = /^name: (.*)$/mu.exec(e.text)?.[1] ?? "";
+    return words(`${e.question} ${name}`);
+  });
+  // a word carried by few examples says more than one carried by many: "converters" over "cohort"
+  const carried = new Map<string, number>();
+  for (const ew of ews) for (const w of ew) carried.set(w, (carried.get(w) ?? 0) + 1);
+  const weight = (w: string): number => 1 / (1 + (carried.get(w) ?? 0));
+  let qWeight = 0;
+  for (const w of qw) qWeight += weight(w);
   const scored = examples.map((e, i) => {
-    const ew = words(e.question);
+    const ew = ews[i];
     const ei = new Set([...idiomsOfDocument(e.text), ...idiomsOfQuestion(e.question)]);
     let shared = 0;
-    for (const w of qw) if (ew.has(w)) shared++;
-    const union = new Set([...qw, ...ew]).size || 1;
+    for (const w of qw) if (ew.has(w)) shared += weight(w);
     let idioms = 0;
     for (const x of qi) if (ei.has(x)) idioms++;
     let extra = 0;
     for (const x of ei) if (!qi.has(x)) extra++;
-    // shared idioms weigh most, then the words shared, then the example's spare idioms count against it, and a shorter example wins a tie
-    const score = idioms * 3 + (10 * shared) / union - extra * 0.5 - e.text.length / 100000;
+    // the words shared weigh most, by their rarity; then the idioms shared; the example's spare idioms count a little against it, and a shorter example wins a tie
+    const score = (12 * shared) / (qWeight || 1) + idioms * 2 - extra * 0.25 - e.text.length / 100000;
     return { e, i, score };
   });
   scored.sort((a, b) => b.score - a.score || a.i - b.i);
