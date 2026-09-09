@@ -95,6 +95,8 @@ export interface StationDefinition {
   instructions: string;
   tools: StationTool[];
   checks: Record<string, Check>;
+  /** Whether the model gets an explicit advance tool; a station whose tools move the run by themselves leaves it out (the local-model rework). */
+  advance?: boolean;
   /** The phase the settle tool moves to, and the phases it is open in. */
   settle: { phases: string[] };
   /** The general context of a run (the catalog, the names, the guide), fetched through the seam and carried on every render; the local model reads it instead of paging for it. */
@@ -236,18 +238,19 @@ export function stationAgent(
       });
     }
 
-    useTool({
-      name: "advance",
-      description: `Move to the next phase. The phases of ${m.id}, in order: ${m.phases.initial}${m.phases.transitions.map((t) => ` then ${t.to}`).join("")}.`,
-      input: v.object({ to: v.string() }),
-      async run({ data }): Promise<{ output?: JsonValue; terminate?: boolean }> {
-        const r = machine.advance(data.to);
-        commit();
-        return {
-          output: (r.ok ? { phase: machine.state.phase } : { refused: true, why: r.why }) as JsonValue,
-        };
-      },
-    });
+    if (def.advance !== false)
+      useTool({
+        name: "advance",
+        description: `Move to the next phase. The phases of ${m.id}, in order: ${m.phases.initial}${m.phases.transitions.map((t) => ` then ${t.to}`).join("")}.`,
+        input: v.object({ to: v.string() }),
+        async run({ data }): Promise<{ output?: JsonValue; terminate?: boolean }> {
+          const r = machine.advance(data.to);
+          commit();
+          return {
+            output: (r.ok ? { phase: machine.state.phase } : { refused: true, why: r.why }) as JsonValue,
+          };
+        },
+      });
 
     useTool({
       name: "settle",

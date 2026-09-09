@@ -347,6 +347,7 @@ export function askHelp(manifest: Manifest, brief: string, model: string): Retur
     tools: askHelpTools(),
     checks: askHelpChecks(),
     settle: { phases: ["check", "finish"] },
+    advance: false,
     complete: completeResult,
     context: (seam, ctx) => prelude(seam, subjectOfConversation(ctx.conversation), ctx),
   };
