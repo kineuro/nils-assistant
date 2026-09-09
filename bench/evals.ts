@@ -42,12 +42,17 @@ async function column(handle: number, name: string): Promise<string[] | null> {
       headers: { authorization: `Bearer ${token}` },
     });
     const cols = (r.columns as (string | { name: string })[] | undefined) ?? [];
-    const i = cols.findIndex((c) => (typeof c === "string" ? c : c.name) === name);
+    // the subject's code however the document reached it: `code` at the subject grain, `subject.code` from below
+    const i = cols.findIndex((c) => {
+      const n = typeof c === "string" ? c : c.name;
+      return n === name || n.endsWith(`.${name}`);
+    });
     if (i < 0) return null;
     for (const row of (r.rows as unknown[][] | undefined) ?? []) out.push(String(row[i]));
     if (typeof r.pages !== "number" || page >= r.pages) break;
   }
-  return out.sort();
+  // the set of subjects, not the multiset of rows: a document that lists a subject twice still selected the same people
+  return [...new Set(out)].sort();
 }
 
 /** The looser measure beside the hash: the same subjects selected, by the code column, when both sides carry one. */
@@ -117,7 +122,7 @@ for (const s of shapes) {
       selection = true;
     } else {
       selection =
-        typeof ran.handle === "number" && ran.row_count === want?.row_count
+        typeof ran.handle === "number"
           ? await sameSelection(ran.handle, s.rebased.gold ?? "").catch(() => null)
           : false;
       why = `document ${document}: ${ran.row_count} rows, the gold has ${want?.row_count}${selection ? ", the same subjects" : ""}; ${verdict.result?.sentence?.slice(0, 100) ?? ""}`;

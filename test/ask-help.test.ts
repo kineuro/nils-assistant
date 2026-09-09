@@ -154,11 +154,17 @@ describe("the cookbook and the implicit phase moves (the rework for the local mo
     );
     const files = readdirSync("stations/ask-help/cookbook").filter((f) => f.endsWith(".ask.yml"));
     expect(files.length).toBeGreaterThan(5);
+    let golds = 0;
     for (const f of files) {
-      const h = body(readFileSync(`stations/ask-help/cookbook/${f}`, "utf8"));
+      const raw = readFileSync(`stations/ask-help/cookbook/${f}`, "utf8");
+      const h = body(raw);
       expect(heldHashes.has(h), `${f} is a held-out gold`).toBe(false);
-      expect(loopHashes.has(h), `${f} is not a loop gold`).toBe(true);
+      // an example is a loop gold, or one written for the cookbook and marked so
+      if (loopHashes.has(h)) golds++;
+      else
+        expect(raw.includes("# synthetic:"), `${f} is neither a loop gold nor marked synthetic`).toBe(true);
     }
+    expect(golds).toBeGreaterThan(5);
     const items = cookbook("stations/ask-help/cookbook");
     expect(items.every((c) => c.question.length > 10 && c.text.includes("ast_version"))).toBe(true);
     expect(renderCookbook(items)).toContain("### Example 1:");
