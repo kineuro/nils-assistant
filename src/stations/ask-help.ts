@@ -6,13 +6,14 @@
 
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import type { JsonValue } from "@flue/runtime";
 import * as v from "valibot";
 import type { Answer, Seam } from "../seam/client.ts";
 import { toolResult } from "../seam/client.ts";
 import { subjectOfConversation } from "../seam/for.ts";
 import { type StationDefinition, type StationTool, stationAgent } from "./agent.ts";
 import type { Manifest } from "./manifest.ts";
-import { prelude } from "./prelude.ts";
+import { catalogOf, prelude } from "./prelude.ts";
 import type { Check, Verdict } from "./verdict.ts";
 
 const handleOf = (a: Answer): number[] =>
@@ -75,21 +76,34 @@ export function askHelpTools(): StationTool[] {
           : s.door("/api/ask/catalog", "GET", undefined, { toolCallId: id, phase }),
       { salient: ["level"] },
     ),
-    door(
-      "nils_values",
-      "A sample of what a field holds at a level, under your own scope: resolve a name here before you use it.",
-      v.object({ level: v.string(), field: v.string(), limit: v.optional(v.number()) }),
-      ["resolve", "shape", "refine"],
-      (s, a, id, phase) =>
-        s.call({
+    {
+      name: "nils_values",
+      description:
+        "A sample of what a field holds at a level, under your own scope: resolve a value here before you use it. An axis (base, technique, modifier, and the others the registry lists) is not a field: its values are answered from the registry as listed.",
+      input: v.object({ level: v.string(), field: v.string(), limit: v.optional(v.number()) }),
+      phases: ["resolve", "shape", "refine"],
+      salient: ["level", "field"],
+      async run(args, ctx) {
+        const name = String(args.field).replace(/^axis\./u, "");
+        const axis = catalogOf(subjectOfConversation(ctx.conversation))?.axes?.find((a) => a.name === name);
+        if (axis)
+          return {
+            output: {
+              axis: axis.name,
+              values: axis.values.map((x) => x.id),
+              note: 'an axis, answered from the registry; compare it with ["axis", {}, "' + axis.name + '"]',
+            } as JsonValue,
+          };
+        const a = await ctx.seam.call({
           method: "GET",
-          path: `/api/ask/catalog/${encodeURIComponent(String(a.level))}/${encodeURIComponent(String(a.field))}/values?limit=${Number(a.limit ?? 20)}`,
-          toolCallId: id,
-          phase,
-          rows: Number(a.limit ?? 20),
-        }),
-      { salient: ["level", "field"] },
-    ),
+          path: `/api/ask/catalog/${encodeURIComponent(String(args.level))}/${encodeURIComponent(String(args.field))}/values?limit=${Number(args.limit ?? 20)}`,
+          toolCallId: ctx.toolCallId,
+          phase: ctx.state.phase,
+          rows: Number(args.limit ?? 20),
+        });
+        return { output: toolResult(a).output, evidence: { handles: handleOf(a), documents: documentOf(a) } };
+      },
+    },
     door(
       "nils_store",
       "Store a whole document you composed, as JSON, and get its handle; a document that does not validate is refused with its issues. Start from the closest worked example and change only what the words change.",

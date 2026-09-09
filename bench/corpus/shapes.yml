@@ -190,7 +190,7 @@ shapes:
     question: In cohort A and cohort B together, how many subjects and how many unique subject-sessions have both a 3D FLAIR and an MP2RAGE?
     silent: [grain, membership]
     earned: [wrong_count_grain]
-    rebased: { status: rebased, gold: composition-count.ask.yml, note: the engine's gate carries the same document as gold-a; the count level answers rows and subjects at once }
+    rebased: { status: rebased, gold: composition-count.ask.yml, question: "In cohort A and cohort B together, how many subjects and how many unique subject-sessions have both a 3D FLAIR and an MPRAGE?", note: the engine's gate carries the same document as gold-a; the count level answers rows and subjects at once; the words are rebased with the gold, an MPRAGE for the MP2RAGE that is not planted }
   - id: shape-24
     title: protocol homogeneity across sessions
     difficulty: hard

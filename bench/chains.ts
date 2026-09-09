@@ -40,7 +40,7 @@ interface Chain {
 interface Shape {
   id: string;
   question: string;
-  rebased: { status: string; gold?: string };
+  rebased: { status: string; gold?: string; question?: string };
 }
 
 const chains = (
@@ -234,7 +234,10 @@ if (stableShape?.rebased.gold && expect[stableShape.rebased.gold]?.content_hash)
     seconds: number;
   }[] = [];
   for (let i = 0; i < times; i++) {
-    const r = await turn(`stable-${stableId}-${i}-${Date.now().toString(36)}`, stableShape.question);
+    const r = await turn(
+      `stable-${stableId}-${i}-${Date.now().toString(36)}`,
+      stableShape.rebased.question ?? stableShape.question,
+    );
     const ran = r.document === null ? null : await run(r.document);
     runs.push({
       document: r.document,
