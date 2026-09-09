@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: How many scout (localizer) stacks are there in cohort A?
+ast_version: 1
+name: scouts in cohort A
+scheme: default
+sets:
+  scope:  {grain: cohort, where: [["=", {}, ["field", {}, "name"], "ms-cohort-a"]]}
+  people: {grain: subject, of: scope}
+  visits: {grain: session, of: people}
+  scouts:
+    grain: stack
+    of: visits
+    where: [["=", {}, ["axis", {}, "disposition"], "scout"]]
+keep: [scouts]
+out: {set: scouts, level: count}

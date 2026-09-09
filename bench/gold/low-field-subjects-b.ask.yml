@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: Which subjects of cohort B have been scanned at 1.5 tesla?
+ast_version: 1
+name: subjects of cohort B scanned at 1.5 tesla
+scheme: default
+sets:
+  scope:  {grain: cohort, where: [["=", {}, ["field", {}, "name"], "ms-cohort-b"]]}
+  people: {grain: subject, of: scope}
+  visits: {grain: session, of: people}
+  low:    {grain: stack, of: visits, where: [["~=", {tol: 0.1}, ["derived", {}, "field_strength"], 1.5]]}
+  found:
+    grain: subject
+    from: people
+    has: [{set: low, min: 1}]
+keep: [found]
+out:
+  set: found
+  level: record
+  columns: [["field", {}, "code"]]
+  order: [[["field", {}, "code"], asc]]

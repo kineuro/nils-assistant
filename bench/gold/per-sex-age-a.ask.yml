@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: Per sex, the number of subjects and their mean age at their first session, in cohort A.
+ast_version: 1
+name: subjects and mean age at the first session per sex in cohort A
+scheme: default
+sets:
+  scope:  {grain: cohort, where: [["=", {}, ["field", {}, "name"], "ms-cohort-a"]]}
+  people: {grain: subject, of: scope}
+  visits:
+    grain: session
+    of: people
+    bind:
+      n:   ["ordinal", {}]
+      age: ["age_at", {}, ["field", {}, "subject.birth_date"], ["field", {}, "first"]]
+  first:
+    grain: session
+    from: visits
+    where: [["=", {}, ["field", {}, "n"], 1]]
+  by_sex:
+    grain: group
+    group: {of: first, by: [["field", {}, "subject.sex"]]}
+    bind:
+      n_subjects: ["count", {set: first}]
+      mean_age:   ["avg", {set: first}, ["field", {}, "age"]]
+keep: [by_sex]
+out:
+  set: by_sex
+  level: aggregate
+  columns: [["field", {}, "subject.sex"], ["field", {}, "n_subjects"], ["field", {}, "mean_age"]]
+  order: [[["field", {}, "subject.sex"], asc]]

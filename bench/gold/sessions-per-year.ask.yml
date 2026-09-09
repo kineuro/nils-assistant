@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: How many sessions were there per calendar year, across the whole registry?
+ast_version: 1
+name: sessions per year
+scheme: default
+sets:
+  scope:  {grain: cohort}
+  people: {grain: subject, of: scope}
+  visits:
+    grain: session
+    of: people
+    bind: {year: ["part", {unit: year}, ["field", {}, "first"]]}
+  by_year:
+    grain: group
+    group: {of: visits, by: [["field", {}, "year"]]}
+    bind: {n: ["count", {set: visits}]}
+keep: [by_year]
+out:
+  set: by_year
+  level: aggregate
+  columns: [["field", {}, "year"], ["field", {}, "n"]]
+  order: [[["field", {}, "year"], asc]]

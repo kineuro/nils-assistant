@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: For each session of cohort A, the T1-weighted MPRAGE with the most slices, as a table with the subject, the session date and the stack id.
+ast_version: 1
+name: the MPRAGE with the most slices per session in cohort A
+scheme: default
+sets:
+  scope:  {grain: cohort, where: [["=", {}, ["field", {}, "name"], "ms-cohort-a"]]}
+  people: {grain: subject, of: scope}
+  visits: {grain: session, of: people}
+  chosen:
+    grain: stack
+    of: visits
+    where:
+      - ["=", {}, ["axis", {}, "base"], "T1w"]
+      - ["=", {}, ["axis", {}, "technique"], "MPRAGE"]
+    pick: {per: session, n: 1, ties: report, by: [[["field", {}, "n_instances"], desc], [["field", {}, "id"], asc]]}
+keep: [chosen]
+out:
+  set: chosen
+  level: record
+  columns: [["field", {}, "subject.code"], ["field", {}, "session.first"], ["field", {}, "id"]]
+  order: [[["field", {}, "subject.code"], asc], [["field", {}, "session.first"], asc]]

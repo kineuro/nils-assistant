@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: Which subjects have been scanned at both 1.5 and 3 tesla?
+ast_version: 1
+name: subjects scanned at both field strengths
+scheme: default
+sets:
+  scope:  {grain: cohort}
+  people: {grain: subject, of: scope}
+  visits: {grain: session, of: people}
+  low:    {grain: stack, of: visits, where: [["~=", {tol: 0.1}, ["derived", {}, "field_strength"], 1.5]]}
+  high:   {grain: stack, of: visits, where: [["~=", {tol: 0.1}, ["derived", {}, "field_strength"], 3.0]]}
+  found:
+    grain: subject
+    from: people
+    has: [{set: low, min: 1}, {set: high, min: 1}]
+keep: [found]
+out:
+  set: found
+  level: record
+  columns: [["field", {}, "code"]]
+  order: [[["field", {}, "code"], asc]]

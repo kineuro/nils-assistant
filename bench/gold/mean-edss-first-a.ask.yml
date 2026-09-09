@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: What is the mean EDSS at the first session across cohort A, taking the score nearest within a year?
+ast_version: 1
+name: the mean EDSS at the first session in cohort A
+scheme: default
+params:
+  all: {type: text, value: all}
+sets:
+  scope:  {grain: cohort, where: [["=", {}, ["field", {}, "name"], "ms-cohort-a"]]}
+  people: {grain: subject, of: scope}
+  edss:   {grain: event, where: [["=", {}, ["field", {}, "kind"], "EDSS"]]}
+  first:
+    grain: session
+    of: people
+    bind: {n: ["ordinal", {}]}
+    near: [{as: score, set: edss, window: {from: -1, to: 1, unit: year}, policy: nearest, tie: earlier}]
+    where: [["=", {}, ["field", {}, "n"], 1]]
+  summary:
+    grain: group
+    group: {of: first, by: [["param", {}, "all"]]}
+    bind:
+      n_sessions: ["count", {set: first}]
+      mean_edss:  ["avg", {set: first}, ["field", {}, "score.number"]]
+keep: [summary]
+out: {set: summary, level: aggregate, columns: [["field", {}, "n_sessions"], ["field", {}, "mean_edss"]]}

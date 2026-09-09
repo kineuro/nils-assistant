@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: How many stacks were acquired at 1.5 tesla?
+ast_version: 1
+name: stacks at 1.5 tesla
+scheme: default
+sets:
+  scope:  {grain: cohort}
+  people: {grain: subject, of: scope}
+  visits: {grain: session, of: people}
+  low:
+    grain: stack
+    of: visits
+    where: [["~=", {tol: 0.1}, ["derived", {}, "field_strength"], 1.5]]
+keep: [low]
+out: {set: low, level: count}

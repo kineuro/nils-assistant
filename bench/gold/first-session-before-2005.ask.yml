@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: How many subjects had their first session before 2005?
+ast_version: 1
+name: subjects whose first session was before 2005
+scheme: default
+sets:
+  scope:  {grain: cohort}
+  people: {grain: subject, of: scope}
+  visits:
+    grain: session
+    of: people
+    bind:
+      n:    ["ordinal", {}]
+      year: ["part", {unit: year}, ["field", {}, "first"]]
+  early_first:
+    grain: session
+    from: visits
+    where:
+      - ["=", {}, ["field", {}, "n"], 1]
+      - ["<", {}, ["field", {}, "year"], 2005]
+  found:
+    grain: subject
+    from: people
+    has: [{set: early_first, min: 1}]
+keep: [found]
+out: {set: found, level: count}

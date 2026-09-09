@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: How many subjects in cohort A have an HIV status recorded?
+ast_version: 1
+name: subjects of cohort A with an HIV status
+scheme: default
+sets:
+  scope:  {grain: cohort, where: [["=", {}, ["field", {}, "name"], "ms-cohort-a"]]}
+  people: {grain: subject, of: scope}
+  hiv:    {grain: event, of: people, where: [["=", {}, ["field", {}, "kind"], "HIV Status"]]}
+  found:
+    grain: subject
+    from: people
+    has: [{set: hiv, min: 1}]
+keep: [found]
+out: {set: found, level: count}

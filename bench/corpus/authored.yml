@@ -1,0 +1,262 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# The authored corpus (Wave 4c, the refinement of ask-help, 2026-09-09): thirty-six
+# questions written for NILS v1 and its ask language rather than paraphrased from
+# the previous prototype's traffic. Each is worded as a researcher would ask it at
+# the desk, and each has a gold document under gold/ whose answer on the synthetic
+# registry is recorded in gold/expect.json. `constructs` names what the gold uses,
+# so a miss can be read by construct. The split is the bench's one rule: a shape
+# is held out by the hash of its id (manifest/split.ts), and only the loop split
+# may inform the station's cookbook, which a test asserts by content hash.
+shapes:
+  - id: auth-cohort-b-size
+    title: the size of cohort B
+    difficulty: easy
+    grain: subject
+    question: "How many subjects are in cohort B?"
+    constructs: [count, cohort scope]
+    gold: cohort-b-size.ask.yml
+  - id: auth-cohort-a-sessions
+    title: the sessions of cohort A
+    difficulty: easy
+    grain: session
+    question: "How many sessions does cohort A have in total?"
+    constructs: [count, sessions of a cohort]
+    gold: cohort-a-sessions.ask.yml
+  - id: auth-only-in-a
+    title: subjects only in cohort A
+    difficulty: medium
+    grain: subject
+    question: "How many subjects are in cohort A but not in cohort B?"
+    constructs: [count, algebra except]
+    gold: only-in-a.ask.yml
+  - id: auth-four-sessions
+    title: subjects with at least four sessions
+    difficulty: easy
+    grain: subject
+    question: "Which subjects have had at least four sessions? Give the code and the number of sessions."
+    constructs: [record, has with a minimum and as]
+    gold: four-sessions.ask.yml
+  - id: auth-sessions-per-subject-b
+    title: sessions per subject in cohort B
+    difficulty: easy
+    grain: group
+    question: "For each subject in cohort B, how many sessions do they have?"
+    constructs: [aggregate, group by the parent key]
+    gold: sessions-per-subject-b.ask.yml
+  - id: auth-diagnosed-count
+    title: subjects with a diagnosis
+    difficulty: easy
+    grain: subject
+    question: "How many subjects have a diagnosis on record?"
+    constructs: [count, event kind, has]
+    gold: diagnosed-count.ask.yml
+  - id: auth-rrms-to-spms
+    title: converters from RRMS to SPMS
+    difficulty: medium
+    grain: subject
+    question: "List the subjects who converted from RRMS to SPMS, with the date of the transition."
+    constructs: [record, change sugar over the course]
+    gold: rrms-to-spms.ask.yml
+  - id: auth-latest-edss-b
+    title: the latest EDSS per subject in cohort B
+    difficulty: medium
+    grain: event
+    question: "What is the latest EDSS score of each subject in cohort B, with its date?"
+    constructs: [record, pick per subject by date]
+    gold: latest-edss-b.ask.yml
+  - id: auth-edss-at-first-session
+    title: an EDSS within six months of the first session
+    difficulty: medium
+    grain: session
+    question: "Which subjects of cohort A had an EDSS score within six months of their first session? Show the code, the session date and the score."
+    constructs: [record, ordinal, near with a month window]
+    gold: edss-at-first-session.ask.yml
+  - id: auth-age-at-first-session-b
+    title: age at the first session in cohort B
+    difficulty: easy
+    grain: session
+    question: "How old was each subject of cohort B at their first session?"
+    constructs: [record, ordinal, age_at]
+    gold: age-at-first-session-b.ask.yml
+  - id: auth-diagnosed-before-thirty
+    title: diagnosed before thirty
+    difficulty: medium
+    grain: subject
+    question: "How many subjects were diagnosed before the age of 30?"
+    constructs: [count, age_at on an event, has]
+    gold: diagnosed-before-thirty.ask.yml
+  - id: auth-after-transition
+    title: sessions within three months after an SP transition
+    difficulty: medium
+    grain: session
+    question: "Which sessions took place within three months after an SP transition? Show the subject, the session date and the transition date."
+    constructs: [record, near with an asymmetric window]
+    gold: after-transition.ask.yml
+  - id: auth-first-to-second-gap-b
+    title: days from the first to the second session in cohort B
+    difficulty: medium
+    grain: session
+    question: "For the subjects of cohort B, how many days passed between their first and their second session?"
+    constructs: [record, ordinal, prev, days_between]
+    gold: first-to-second-gap-b.ask.yml
+  - id: auth-mprage-1mm-sessions-a
+    title: sessions of cohort A with a 1 mm MPRAGE
+    difficulty: easy
+    grain: session
+    question: "How many sessions in cohort A have an MPRAGE with one millimetre slices?"
+    constructs: [count, axis, field with a tolerance, has]
+    gold: mprage-1mm-sessions-a.ask.yml
+  - id: auth-low-field-subjects-b
+    title: subjects of cohort B scanned at 1.5 tesla
+    difficulty: easy
+    grain: subject
+    question: "Which subjects of cohort B have been scanned at 1.5 tesla?"
+    constructs: [record, derived field with a tolerance, has]
+    gold: low-field-subjects-b.ask.yml
+  - id: auth-stacks-at-15t
+    title: stacks at 1.5 tesla
+    difficulty: easy
+    grain: stack
+    question: "How many stacks were acquired at 1.5 tesla?"
+    constructs: [count, derived field with a tolerance]
+    gold: stacks-at-15t.ask.yml
+  - id: auth-tse-without-flair
+    title: sessions with a TSE and no FLAIR
+    difficulty: medium
+    grain: session
+    question: "Which sessions have a T2-weighted TSE but no FLAIR? Show the subject and the session date."
+    constructs: [record, has min 1 and has max 0]
+    gold: tse-without-flair.ask.yml
+  - id: auth-thinnest-t2-a
+    title: the thinnest T2-weighted slice in cohort A
+    difficulty: medium
+    grain: group
+    question: "What is the thinnest slice thickness among the T2-weighted stacks of cohort A?"
+    constructs: [aggregate, a whole-set summary keyed by a parameter, min]
+    gold: thinnest-t2-a.ask.yml
+  - id: auth-scouts-a
+    title: scouts in cohort A
+    difficulty: easy
+    grain: stack
+    question: "How many scout (localizer) stacks are there in cohort A?"
+    constructs: [count, disposition axis]
+    gold: scouts-a.ask.yml
+  - id: auth-per-cohort-sessions
+    title: subjects and sessions per cohort
+    difficulty: hard
+    grain: group
+    question: "Per cohort, how many subjects, how many sessions, and the average number of sessions per subject."
+    constructs: [aggregate, has as then sum and avg in a group by cohort]
+    gold: per-cohort-sessions.ask.yml
+  - id: auth-per-sex-age-a
+    title: subjects and mean age at the first session per sex in cohort A
+    difficulty: hard
+    grain: group
+    question: "Per sex, the number of subjects and their mean age at their first session, in cohort A."
+    constructs: [aggregate, ordinal, age_at, group by a parent field]
+    gold: per-sex-age-a.ask.yml
+  - id: auth-sessions-per-year
+    title: sessions per year
+    difficulty: medium
+    grain: group
+    question: "How many sessions were there per calendar year, across the whole registry?"
+    constructs: [aggregate, part year, group]
+    gold: sessions-per-year.ask.yml
+  - id: auth-edss-and-sdmt-a
+    title: an EDSS and an SDMT around one session
+    difficulty: hard
+    grain: subject
+    question: "Which subjects of cohort A have both an EDSS and an SDMT within a month of the same session?"
+    constructs: [record, two near clauses, has]
+    gold: edss-and-sdmt-a.ask.yml
+  - id: auth-dark-fluid-sessions
+    title: sessions with a dark-fluid series
+    difficulty: easy
+    grain: session
+    question: "How many sessions have a series described as dark-fluid?"
+    constructs: [count, contains on the description text, has]
+    gold: dark-fluid-sessions.ask.yml
+  - id: auth-both-field-strengths
+    title: subjects scanned at both field strengths
+    difficulty: medium
+    grain: subject
+    question: "Which subjects have been scanned at both 1.5 and 3 tesla?"
+    constructs: [record, two has clauses over derived fields]
+    gold: both-field-strengths.ask.yml
+  - id: auth-female-share-a
+    title: the share of women in cohort A
+    difficulty: medium
+    grain: group
+    question: "What share of the subjects in cohort A are female?"
+    constructs: [aggregate, share with its denominator]
+    gold: female-share-a.ask.yml
+  - id: auth-mean-edss-first-a
+    title: the mean EDSS at the first session in cohort A
+    difficulty: hard
+    grain: group
+    question: "What is the mean EDSS at the first session across cohort A, taking the score nearest within a year?"
+    constructs: [aggregate, ordinal, near, a whole-set summary keyed by a parameter, avg]
+    gold: mean-edss-first-a.ask.yml
+  - id: auth-edss-six-or-more
+    title: subjects with an EDSS of six or more
+    difficulty: easy
+    grain: subject
+    question: "Which subjects have ever had an EDSS of 6 or more?"
+    constructs: [record, event value filter, has]
+    gold: edss-six-or-more.ask.yml
+  - id: auth-sessions-of-b
+    title: the sessions of cohort B
+    difficulty: easy
+    grain: session
+    question: "List every session of cohort B with the subject code and the session date, ordered by subject and then by date."
+    constructs: [record, order by two columns]
+    gold: sessions-of-b.ask.yml
+  - id: auth-hiv-status-a
+    title: subjects of cohort A with an HIV status
+    difficulty: easy
+    grain: subject
+    question: "How many subjects in cohort A have an HIV status recorded?"
+    constructs: [count, an event kind the registry lists but holds none of]
+    gold: hiv-status-a.ask.yml
+  - id: auth-most-slices-mprage-a
+    title: the MPRAGE with the most slices per session in cohort A
+    difficulty: medium
+    grain: stack
+    question: "For each session of cohort A, the T1-weighted MPRAGE with the most slices, as a table with the subject, the session date and the stack id."
+    constructs: [record, pick per session by a field]
+    gold: most-slices-mprage-a.ask.yml
+  - id: auth-isotropic-flair-a
+    title: subjects of cohort A with a 1 mm isotropic 3D FLAIR
+    difficulty: hard
+    grain: subject
+    question: "Which subjects of cohort A have a session with a 3D FLAIR at one millimetre isotropic?"
+    constructs: [record, derived voxel with its parameter, has]
+    gold: isotropic-flair-a.ask.yml
+  - id: auth-first-session-before-2005
+    title: subjects whose first session was before 2005
+    difficulty: medium
+    grain: subject
+    question: "How many subjects had their first session before 2005?"
+    constructs: [count, ordinal, part year, has]
+    gold: first-session-before-2005.ask.yml
+  - id: auth-edss-count-and-max-b
+    title: EDSS count and maximum per subject in cohort B
+    difficulty: medium
+    grain: group
+    question: "For each subject in cohort B, the number of EDSS scores on record and the highest one."
+    constructs: [aggregate, group over events by the subject key, max]
+    gold: edss-count-and-max-b.ask.yml
+  - id: auth-two-sessions-one-year
+    title: subjects with several sessions in one year
+    difficulty: medium
+    grain: group
+    question: "Which subjects have more than one session in the same calendar year? Show the subject, the year and how many."
+    constructs: [aggregate, group by two keys, where on a group count]
+    gold: two-sessions-one-year.ask.yml
+  - id: auth-fifty-at-latest-a
+    title: fifty or older at the latest session in cohort A
+    difficulty: medium
+    grain: session
+    question: "Which subjects of cohort A were 50 or older at their latest session?"
+    constructs: [record, pick the latest per subject, age_at]
+    gold: fifty-at-latest-a.ask.yml

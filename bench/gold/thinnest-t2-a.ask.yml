@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: What is the thinnest slice thickness among the T2-weighted stacks of cohort A?
+ast_version: 1
+name: the thinnest T2-weighted slice in cohort A
+scheme: default
+params:
+  all: {type: text, value: all}
+sets:
+  scope:  {grain: cohort, where: [["=", {}, ["field", {}, "name"], "ms-cohort-a"]]}
+  people: {grain: subject, of: scope}
+  visits: {grain: session, of: people}
+  t2:     {grain: stack, of: visits, where: [["=", {}, ["axis", {}, "base"], "T2w"]]}
+  summary:
+    grain: group
+    group: {of: t2, by: [["param", {}, "all"]]}
+    bind: {thinnest: ["min", {set: t2}, ["field", {}, "slice_thickness"]]}
+keep: [summary]
+out: {set: summary, level: aggregate, columns: [["field", {}, "thinnest"]]}
