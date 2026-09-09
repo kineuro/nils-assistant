@@ -1,0 +1,52 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# shape-15: the sessions of one cohort holding a 3D MPRAGE and a 3D FLAIR, two stack rows per session with named columns
+ast_version: 1
+name: session composition with named columns
+scheme: default
+params:
+  cohort: {type: cohort, value: ms-cohort-a}
+sets:
+  scope:  {grain: cohort,  where: [["=", {}, ["field", {}, "name"], ["param", {}, "cohort"]]]}
+  people: {grain: subject, of: scope}
+  visits: {grain: session, of: people}
+  t1:
+    grain: stack
+    of: visits
+    where:
+      - ["=", {}, ["axis", {}, "base"], "T1w"]
+      - ["=", {}, ["axis", {}, "technique"], "MPRAGE"]
+      - ["=", {}, ["axis", {}, "disposition"], "acquisition"]
+      - ["=", {}, ["derived", {}, "acquisition_type"], "3D"]
+  flair:
+    grain: stack
+    of: visits
+    where:
+      - ["=",   {}, ["axis", {}, "base"], "T2w"]
+      - ["has", {}, ["axis", {}, "modifier"], "FLAIR"]
+      - ["=",   {}, ["derived", {}, "acquisition_type"], "3D"]
+  both:
+    grain: session
+    from: visits
+    has:
+      - {set: t1, min: 1}
+      - {set: flair, min: 1}
+  rows:
+    grain: stack
+    of: both
+    where:
+      - ["=", {}, ["axis", {}, "disposition"], "acquisition"]
+      - ["=", {}, ["derived", {}, "acquisition_type"], "3D"]
+      - ["or", {}, ["=", {}, ["axis", {}, "technique"], "MPRAGE"], ["has", {}, ["axis", {}, "modifier"], "FLAIR"]]
+    bind:
+      acq: ["derived", {}, "acquisition_type"]
+keep: [rows]
+out:
+  set: rows
+  level: record
+  columns:
+    - ["field", {}, "subject.code"]
+    - ["field", {}, "session.first"]
+    - ["field", {}, "id"]
+    - ["field", {}, "text_series_description"]
+    - ["field", {}, "acq"]
+  order: [[["field", {}, "subject.code"], asc], [["field", {}, "session.first"], asc], [["field", {}, "id"], asc]]

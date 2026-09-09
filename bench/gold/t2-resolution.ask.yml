@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# shape-12: the most common resolution of the T2-weighted images
+ast_version: 1
+name: the most common resolution of T2-weighted images
+scheme: default
+sets:
+  t2:
+    grain: stack
+    where: [["=", {}, ["axis", {}, "base"], "T2w"]]
+    bind:
+      res: ["derived", {}, "resolution"]
+  by_res:
+    grain: group
+    group: {of: t2, by: [["field", {}, "res"]]}
+    bind:
+      n: ["count", {set: t2}]
+keep: [by_res]
+out:
+  set: by_res
+  level: aggregate
+  columns:
+    - ["field", {}, "res"]
+    - ["field", {}, "n"]
+  order: [[["field", {}, "n"], desc], [["field", {}, "res"], asc]]
+  limit: 1

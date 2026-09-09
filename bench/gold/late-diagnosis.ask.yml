@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# shape-09: subjects with more than three sessions, diagnosed at forty or older
+ast_version: 1
+name: many sessions and a late diagnosis
+scheme: default
+params:
+  age_from: {type: integer, value: 40}
+  min_sessions: {type: integer, value: 4}
+sets:
+  scope:  {grain: cohort}
+  people: {grain: subject, of: scope}
+  visits: {grain: session, of: people}
+  late_dx:
+    grain: event
+    of: people
+    where:
+      - ["=", {}, ["field", {}, "kind"], "Diagnosis"]
+    bind:
+      age_dx: ["age_at", {}, ["field", {}, "subject.birth_date"], ["field", {}, "date"]]
+  late:
+    grain: event
+    from: late_dx
+    where: [[">=", {}, ["field", {}, "age_dx"], ["param", {}, "age_from"]]]
+  found:
+    grain: subject
+    from: people
+    has:
+      - {set: visits, min: ["param", {}, "min_sessions"], as: n_sessions}
+      - {set: late, min: 1}
+keep: [found]
+out:
+  set: found
+  level: record
+  columns:
+    - ["field", {}, "code"]
+    - ["field", {}, "n_sessions"]
+  order: [[["field", {}, "code"], asc]]

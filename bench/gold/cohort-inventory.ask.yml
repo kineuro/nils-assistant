@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# shape-01: every cohort with its owner and how many subjects it holds
+ast_version: 1
+name: cohort inventory
+scheme: default
+sets:
+  scope:  {grain: cohort}
+  people: {grain: subject, of: scope}
+  by_cohort:
+    grain: group
+    group: {of: people, by: [["field", {}, "cohort.id"]]}
+    bind:
+      n: ["count", {set: people}]
+keep: [by_cohort]
+out:
+  set: by_cohort
+  level: aggregate
+  columns:
+    - ["field", {}, "cohort.id"]
+    - ["field", {}, "n"]
+  order: [[["field", {}, "cohort.id"], asc]]

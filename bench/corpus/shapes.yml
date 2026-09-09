@@ -1,0 +1,209 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# The twenty-five distinct question shapes of the prototype's traffic (one
+# researcher, thirty-five openings), paraphrased; no name, code, identifier,
+# UID or path from the source. `cohort A` and `cohort B` are the synthetic
+# registry's two cohorts. `silent` names the decisions the question leaves
+# unstated (taxonomy.ts, the second axis); `earned` the failure words the
+# prototype earned on it. `rebased` says whether the gold answer could be
+# re-derived against the synthetic registry, with the document that does it.
+shapes:
+  - id: shape-01
+    title: cohort inventory
+    difficulty: easy
+    grain: cohort
+    question: List every cohort with its owner and how many subjects it holds, as a table.
+    silent: [membership]
+    earned: []
+    rebased: { status: rebased, gold: cohort-inventory.ask.yml }
+  - id: shape-02
+    title: cohort overlap with identity
+    difficulty: medium
+    grain: subject
+    question: Which subjects are in both cohort A and cohort B? Give every identifier they carry and everything else known about them, as a table for a report.
+    silent: [membership, key]
+    earned: [identifier_fan_out]
+    rebased: { status: partial, gold: cohort-overlap.ask.yml, note: the overlap and the subjects' fields are rebased; the identifier namespaces are projected only under a role that may read them, and the bench asks for none }
+  - id: shape-03
+    title: subjects in more than one cohort
+    difficulty: easy
+    grain: subject
+    question: How many subjects are in more than one cohort, and how many distinct identifiers do they have between them?
+    silent: [membership, key]
+    earned: [identifier_fan_out]
+    rebased: { status: partial, gold: cohort-overlap-count.ask.yml, note: the registry holds two cohorts, so more than two was rebased to more than one; the identifier count is not asked }
+  - id: shape-04
+    title: demographics per cohort
+    difficulty: easy
+    grain: cohort
+    question: One table per cohort with the number of subjects, the sex split and the mean, standard deviation, minimum and maximum age.
+    silent: [denominator, scope]
+    earned: [wrong_column]
+    rebased: { status: rebased, gold: demographics.ask.yml, note: age as of a date the document states, never as of today }
+  - id: shape-05
+    title: subjects with no recorded sex
+    difficulty: easy
+    grain: subject
+    question: Find the subjects with no recorded sex, with their cohort and whatever else is known about them.
+    silent: [membership]
+    earned: []
+    rebased: { status: rebased, gold: no-sex.ask.yml }
+  - id: shape-06
+    title: delivery events
+    difficulty: medium
+    grain: subject
+    question: How many subjects have delivery events, how many had more than one, and among those what were the youngest and the oldest age at delivery?
+    silent: [grain, denominator]
+    earned: [wrong_count_grain]
+    rebased: { status: not_rebased, note: the synthetic registry plants no delivery events }
+  - id: shape-07
+    title: uploaded list against the registry
+    difficulty: medium
+    grain: session
+    question: Here is a list of subject and session pairs. Keep the ones in cohort A or cohort B and report each one's main FLAIR classification.
+    silent: [membership, pick]
+    earned: [incomplete_filtering]
+    rebased: { status: not_rebased, note: needs an uploaded key list; the bench uploads nothing }
+  - id: shape-08
+    title: SyMRI output types at session grain
+    difficulty: medium
+    grain: session
+    question: For cohort A, list the distinct SyMRI output types with the number of sessions carrying each.
+    silent: [grain]
+    earned: [wrong_count_grain]
+    rebased: { status: not_rebased, note: the synthetic registry plants no SyMRI stacks; an axis is a predicate in the ask language, so the types would be a case bind per construct }
+  - id: shape-09
+    title: many sessions and a late diagnosis
+    difficulty: hard
+    grain: subject
+    question: A table of the subjects with more than three sessions who were diagnosed at forty or older, with their age at diagnosis.
+    silent: [key, scope]
+    earned: [ambiguous_age_window]
+    rebased: { status: partial, gold: late-diagnosis.ask.yml, note: more than ten sessions became more than three, the synthetic subjects having few; the identifiers are not asked }
+  - id: shape-10
+    title: session pairs with the nearest score
+    difficulty: hard
+    grain: session
+    question: Within cohort A, for each subject one pair of sessions four to five years apart where each session has a score within a year of its date, choosing the pair whose score dates sit closest, with both dates, the gap and both scores.
+    silent: [pick, scope]
+    earned: [ambiguous_requirement_handling]
+    rebased: { status: rebased, gold: session-pairs.ask.yml, note: the engine's gate carries the same document as gold-b }
+  - id: shape-11
+    title: converters and non-converters
+    difficulty: hard
+    grain: subject
+    question: Split cohort A into converters and non-converters. A converter has a baseline session with a FLAIR at two millimetres or thinner, a score within a year of it, a course transition four to six years after it, and a relapsing course at baseline.
+    silent: [pick, scope, grain]
+    earned: [wrong_question, ambiguous_age_window]
+    rebased: { status: rebased, gold: converters.ask.yml }
+  - id: shape-12
+    title: the most common resolution
+    difficulty: easy
+    grain: stack
+    question: What is the most common resolution of the T2-weighted images?
+    silent: [denominator]
+    earned: [wrong_column, no_schema_discovery]
+    rebased: { status: rebased, gold: t2-resolution.ask.yml }
+  - id: shape-13
+    title: sessions with a T2 at one resolution
+    difficulty: medium
+    grain: session
+    question: How many sessions in cohort A have a T2-weighted image at exactly half a millimetre in plane and half a millimetre thick? List them with the subject and the session date.
+    silent: [key, grain]
+    earned: [incomplete_answer]
+    rebased: { status: rebased, gold: t2-exact-resolution.ask.yml, note: the resolution named is the one the synthetic registry plants }
+  - id: shape-14
+    title: age at the first session
+    difficulty: medium
+    grain: subject
+    question: How many subjects in cohort A were under thirty at their first session? List them with the cohort's own identifier and everything known.
+    silent: [key, scope]
+    earned: [ambiguous_age_window]
+    rebased: { status: rebased, gold: under-thirty-first-session.ask.yml }
+  - id: shape-15
+    title: session composition with named columns
+    difficulty: hard
+    grain: session
+    question: The sessions in cohort A that have both a 3D T1-weighted MPRAGE and a 3D T2-weighted FLAIR, as two stack rows per session with the subject, the session date, the stack id, the base, the technique, the modifier and the acquisition type.
+    silent: [grain, pick, key]
+    earned: [inefficient_query, incomplete_answer]
+    rebased: { status: rebased, gold: composition-columns.ask.yml }
+  - id: shape-16
+    title: treatment distribution
+    difficulty: medium
+    grain: subject
+    question: Among the subjects of cohort A whose external identifier starts with a given prefix, the count and the percentage of each treatment.
+    silent: [denominator, key]
+    earned: [ambiguous_denominator]
+    rebased: { status: not_rebased, note: the synthetic registry plants no treatments and no external identifier prefixes }
+  - id: shape-17
+    title: session composition across cohorts
+    difficulty: medium
+    grain: session
+    question: How many unique subject-sessions have both an MP2RAGE and an SWI, and are they all from cohort A?
+    silent: [grain, membership]
+    earned: [wrong_count_grain]
+    rebased: { status: not_rebased, note: neither an MP2RAGE nor an SWI is planted, and the field strength in the question (7 T) is not either; shape-23 carries the same composition over what is planted }
+  - id: shape-18
+    title: one stack per role under stated rules
+    difficulty: hard
+    grain: stack
+    question: For the sessions of cohort A, one stack per role, the rules given one at a time, an original over a derived, then the most slices, then the longest echo, then the latest, as a table with the session, the role and the stack.
+    silent: [pick]
+    earned: [wrong_column, incomplete_filtering]
+    rebased: { status: rebased, gold: one-per-role.ask.yml }
+  - id: shape-19
+    title: a lookup by study identifier
+    difficulty: easy
+    grain: study
+    question: Which subject and which session date belong to this study identifier?
+    silent: [key]
+    earned: [wrong_question]
+    rebased: { status: not_rebased, note: an identifier lookup is the values door, not a document }
+  - id: shape-20
+    title: scans within a window of diagnosis
+    difficulty: medium
+    grain: session
+    question: Which sessions of cohort A are diagnostic, meaning within six months of the diagnosis?
+    silent: [scope, grain]
+    earned: [ambiguous_age_window, incomplete_answer]
+    rebased: { status: rebased, gold: diagnostic-window.ask.yml }
+  - id: shape-21
+    title: pasted identifiers and six roles
+    difficulty: hard
+    grain: stack
+    question: For these sixteen subjects, given as identifier and code pairs, six named acquisitions from their session under the same pick rules, as a table with nine columns.
+    silent: [pick, key]
+    earned: [identifier_fan_out, incomplete_filtering]
+    rebased: { status: not_rebased, note: needs an identifier upload; the bench uploads nothing }
+  - id: shape-22
+    title: two stacks of one subject
+    difficulty: easy
+    grain: stack
+    question: One subject has two MPRAGE stacks, a reformat with few slices and the complete original; give me the stack id of both.
+    silent: [pick]
+    earned: []
+    rebased: { status: partial, gold: two-stacks.ask.yml, note: the source asked about two SWI stacks told apart by their image type; the registry plants no SWI and no image type, so the shape is carried by an MPRAGE reformat beside its original, the subject named by a parameter }
+  - id: shape-23
+    title: subjects and sessions with both a 3D FLAIR and an MP2RAGE
+    difficulty: medium
+    grain: session
+    question: In cohort A and cohort B together, how many subjects and how many unique subject-sessions have both a 3D FLAIR and an MP2RAGE?
+    silent: [grain, membership]
+    earned: [wrong_count_grain]
+    rebased: { status: rebased, gold: composition-count.ask.yml, note: the engine's gate carries the same document as gold-a; the count level answers rows and subjects at once }
+  - id: shape-24
+    title: protocol homogeneity across sessions
+    difficulty: hard
+    grain: session
+    question: Of those sessions, how many have the same protocol on the FLAIR and the MP2RAGE, the same meaning the physics and the resolution, compared across sessions for each sequence?
+    silent: [scope, pick]
+    earned: [wrong_question, ambiguous_requirement_handling]
+    rebased: { status: rebased, gold: protocol-homogeneity.ask.yml }
+  - id: shape-25
+    title: the free text of a cohort's sessions
+    difficulty: easy
+    grain: session
+    question: A table of the distinct series descriptions of the sessions of cohort A.
+    silent: [scope]
+    earned: [cohort_name_misresolution]
+    rebased: { status: rebased, gold: series-descriptions.ask.yml, note: the name trap of the source (a cohort named like a field strength) is not planted }

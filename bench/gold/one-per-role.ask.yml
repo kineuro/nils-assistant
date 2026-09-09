@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# shape-18: one stack per session for the t1w role under stated rules: an original over a derived, then the most slices, then the longest echo, then the latest
+ast_version: 1
+name: one stack per role under stated rules
+scheme: default
+params:
+  cohort: {type: cohort, value: ms-cohort-a}
+sets:
+  scope:  {grain: cohort,  where: [["=", {}, ["field", {}, "name"], ["param", {}, "cohort"]]]}
+  people: {grain: subject, of: scope}
+  visits: {grain: session, of: people}
+  t1:
+    grain: stack
+    of: visits
+    where:
+      - ["=", {}, ["axis", {}, "base"], "T1w"]
+      - ["=", {}, ["axis", {}, "technique"], "MPRAGE"]
+    bind:
+      derived_rank: ["case", {}, ["=", {}, ["axis", {}, "disposition"], "acquisition"], 0, 1]
+    pick:
+      per: session
+      n: 1
+      ties: report
+      by:
+        - [["field", {}, "derived_rank"], asc]
+        - [["field", {}, "n_instances"], desc]
+        - [["field", {}, "echo_time"], desc]
+        - [["field", {}, "id"], desc]
+keep: [t1]
+out:
+  set: t1
+  level: record
+  columns:
+    - ["field", {}, "subject.code"]
+    - ["field", {}, "session.first"]
+    - ["field", {}, "id"]
+    - ["field", {}, "n_instances"]
+    - ["field", {}, "pick.tied"]
+  order: [[["field", {}, "subject.code"], asc], [["field", {}, "session.first"], asc]]

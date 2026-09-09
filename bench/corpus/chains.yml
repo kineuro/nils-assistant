@@ -1,0 +1,110 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# The three refinement chains of the traffic, turn by turn, paraphrased.
+# Each is one standing selection edited over and over; the unit of work.
+# A turn names what the person asked for and the kind of edit it is: a
+# correction (the assistant read the question wrong), an addition (a
+# constraint, a column, a role), meta, or a verification. `corrections`
+# counts the turns of the first kind; the traffic held twenty-two across
+# all threads, and the bench scores a station on how many it needs.
+chains:
+  - id: chain-a
+    title: composition, homogeneity, then one stack per role
+    shape: shape-23
+    turns:
+      - kind: opening
+        text: "In cohort A and cohort B together, how many subjects and unique subject-sessions have both a 3D FLAIR and an MP2RAGE?"
+      - kind: correction
+        text: "Count a subject once even when it is in both cohorts."
+      - kind: addition
+        text: "Of those sessions, how many have the same protocol on the FLAIR and the MP2RAGE, compared across sessions?"
+      - kind: correction
+        text: "Not within a session; across sessions, for each sequence on its own."
+      - kind: correction
+        text: "The same means the physics parameters and the resolution, not the description text."
+      - kind: meta
+        text: "Try again."
+      - kind: addition
+        text: "Now a table with one FLAIR and one MP2RAGE per session, with the stack ids."
+      - kind: correction
+        text: "Some sessions have two FLAIR reconstructions of one acquisition; keep the original over the derived."
+      - kind: addition
+        text: "When both are originals keep the one with the most slices."
+      - kind: addition
+        text: "Then the longest echo, then the latest series."
+      - kind: addition
+        text: "Add the SWI to the same table, magnitude of the last echo."
+      - kind: correction
+        text: "Never a reformat, never a projection, never a localizer."
+      - kind: verification
+        text: "How did you enforce the rule on the second session?"
+      - kind: addition
+        text: "Add the subject's cohort identifier and the session date."
+      - kind: addition
+        text: "Add the slice count and the resolution."
+      - kind: addition
+        text: "Add the sex, the birth date and the age at the session."
+      - kind: meta
+        text: "You did not surface the result."
+      - kind: meta
+        text: "Run it again under a proper name."
+    corrections: 5
+  - id: chain-b
+    title: session composition with marked stacks and a growing column list
+    shape: shape-15
+    turns:
+      - kind: opening
+        text: "The sessions of cohort A that have both a main T1-weighted MPRAGE and a main T2-weighted FLAIR, both 3D, as two stack rows per session with eight named columns."
+      - kind: correction
+        text: "Only the cohort's own identifier; you produced one row per identifier namespace."
+      - kind: addition
+        text: "The T1-weighted may also be a VIBE."
+      - kind: correction
+        text: "The duplicate check was incomplete; one session appears twice."
+      - kind: addition
+        text: "Add the slice count and the resolution."
+      - kind: correction
+        text: "The resolution must come from the image, not the cached spacing."
+      - kind: addition
+        text: "Same table for the T2-weighted TSE, axial, as a new role."
+      - kind: addition
+        text: "Add the sex, the birth date and the age at the session."
+      - kind: meta
+        text: "What happened?"
+      - kind: meta
+        text: "Surface the query and the result."
+      - kind: correction
+        text: "The age must be at the session, not today."
+      - kind: addition
+        text: "Same table without the FLAIR role."
+      - kind: addition
+        text: "Same table for cohort B."
+      - kind: verification
+        text: "Why does one subject have two rows for one role?"
+      - kind: correction
+        text: "A literal in the generated query does not match the description text; the pattern is a substring."
+      - kind: addition
+        text: "Name the file for the version and keep the previous one."
+      - kind: meta
+        text: "Proceed."
+    corrections: 5
+  - id: chain-c
+    title: the converter split and the reconciliation
+    shape: shape-11
+    turns:
+      - kind: opening
+        text: "Split cohort A into converters and non-converters under the baseline and follow-up criteria, as one table."
+      - kind: correction
+        text: "The follow-up score is five years after the baseline, give or take one, not any later score."
+      - kind: correction
+        text: "The course at baseline must be the relapsing one."
+      - kind: addition
+        text: "Transition dates may be at year precision; treat them as their whole year."
+      - kind: verification
+        text: "How does that differ from my own script? Here it is."
+      - kind: correction
+        text: "My script uses calendar years; yours uses days. Say which one the table used."
+      - kind: correction
+        text: "My script takes the earliest session as baseline; yours took the one nearest the score."
+      - kind: meta
+        text: "Give me both counts on one screen."
+    corrections: 4

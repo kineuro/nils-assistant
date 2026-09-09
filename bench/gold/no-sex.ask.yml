@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# shape-05: the subjects with no recorded sex
+ast_version: 1
+name: subjects with no recorded sex
+scheme: default
+sets:
+  scope:  {grain: cohort}
+  people:
+    grain: subject
+    of: scope
+    where: [["is_null", {}, ["field", {}, "sex"]]]
+keep: [people]
+out:
+  set: people
+  level: record
+  columns:
+    - ["field", {}, "code"]
+    - ["field", {}, "cohort.id"]
+    - ["field", {}, "birth_date"]
+  order: [[["field", {}, "code"], asc], [["field", {}, "cohort.id"], asc]]

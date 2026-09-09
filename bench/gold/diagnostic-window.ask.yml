@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# shape-20: the sessions of one cohort within six months of the diagnosis
+ast_version: 1
+name: sessions within six months of diagnosis
+scheme: default
+params:
+  cohort: {type: cohort, value: ms-cohort-a}
+  reach:  {type: window, value: {from: -6, to: 6, unit: month}}
+sets:
+  scope:  {grain: cohort,  where: [["=", {}, ["field", {}, "name"], ["param", {}, "cohort"]]]}
+  people: {grain: subject, of: scope}
+  dx:     {grain: event, where: [["=", {}, ["field", {}, "kind"], "Diagnosis"]]}
+  visits:
+    grain: session
+    of: people
+    near: [{as: dx, set: dx, window: ["param", {}, "reach"], policy: nearest, tie: earlier}]
+  diagnostic:
+    grain: session
+    from: visits
+    where: [["not_null", {}, ["field", {}, "dx.date"]]]
+keep: [diagnostic]
+out:
+  set: diagnostic
+  level: record
+  columns:
+    - ["field", {}, "subject.code"]
+    - ["field", {}, "first"]
+    - ["field", {}, "dx.date"]
+    - ["field", {}, "dx.offset_days"]
+  order: [[["field", {}, "subject.code"], asc], [["field", {}, "first"], asc]]

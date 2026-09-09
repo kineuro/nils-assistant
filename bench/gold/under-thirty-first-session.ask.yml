@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# shape-14: subjects of one cohort under thirty at their first session
+ast_version: 1
+name: under thirty at the first session
+scheme: default
+params:
+  cohort:  {type: cohort, value: ms-cohort-a}
+  age_to:  {type: integer, value: 30}
+sets:
+  scope:  {grain: cohort,  where: [["=", {}, ["field", {}, "name"], ["param", {}, "cohort"]]]}
+  people: {grain: subject, of: scope}
+  visits:
+    grain: session
+    of: people
+    bind:
+      n:   ["ordinal", {}]
+      age: ["age_at", {}, ["field", {}, "subject.birth_date"], ["field", {}, "first"]]
+  first_young:
+    grain: session
+    from: visits
+    where:
+      - ["=", {}, ["field", {}, "n"], 1]
+      - ["<", {}, ["field", {}, "age"], ["param", {}, "age_to"]]
+keep: [first_young]
+out:
+  set: first_young
+  level: record
+  columns:
+    - ["field", {}, "subject.code"]
+    - ["field", {}, "first"]
+    - ["field", {}, "age"]
+  order: [[["field", {}, "subject.code"], asc]]
