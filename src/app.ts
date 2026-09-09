@@ -12,6 +12,7 @@ import { config } from "./config.ts";
 import { capabilities } from "./host/capabilities.ts";
 import { Runs } from "./host/runs.ts";
 import { kvasirProvider, readCatalog } from "./providers/kvasir.ts";
+import { agentIds, delegationsOf, delegationView, registerAgent } from "./seam/delegations.ts";
 import {
   feedbackOf,
   probeEngineAuth,
@@ -23,6 +24,7 @@ import {
   verdicts,
 } from "./seam/for.ts";
 import { AskHelp } from "./stations/ask-help-agent.ts";
+import { Concierge } from "./stations/concierge-agent.ts";
 import { Echo } from "./stations/echo.ts";
 import { loadManifests } from "./stations/manifest.ts";
 
@@ -45,7 +47,10 @@ for (const m of manifests.values())
 // the station code, by manifest id, each a 'use agent' module the build scanned; a manifest without code is listed and refused at run time
 const agents = new Map<string, Parameters<typeof createAgentRouter>[0]>();
 if (manifests.has("ask-help")) agents.set("ask-help", AskHelp);
+if (manifests.has("concierge")) agents.set("concierge", Concierge);
 agents.set("echo", Echo);
+// the stations a concierge may delegate to, by id (section 9.12)
+for (const [id, a] of agents) registerAgent(id, a);
 registerStation({
   id: "echo",
   version: c.version,
@@ -160,6 +165,11 @@ app.post("/conversations/:id/feedback", async (ctx) => {
 });
 
 app.get("/conversations/:id/feedback", (ctx) => ctx.json(feedbackOf(ctx.req.param("id"))));
+
+/** The delegations of a conversation, from the store (section 9.12): the desk renders a delegate's verdict from here, never from the concierge's words. */
+app.get("/conversations/:id/delegations", (ctx) =>
+  ctx.json({ stations: agentIds(), tasks: delegationsOf(ctx.req.param("id")).map(delegationView) }),
+);
 
 app.get("/ledger/:id", (ctx) => ctx.json({ rows: theLedger().rows(ctx.req.param("id")) }));
 
