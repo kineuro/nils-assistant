@@ -138,6 +138,12 @@ export function renderGuide(g: Guide): string {
 }
 
 const cache = new Map<string, string>();
+const catalogs = new Map<string, Catalog>();
+
+/** The catalog the prelude fetched for a person, when it did; a tool answers an axis's values from it. */
+export function catalogOf(key: string): Catalog | null {
+  return catalogs.get(key) ?? null;
+}
 
 /**
  * The prelude of one run: the catalog and the guide through the seam, cached
@@ -169,10 +175,14 @@ export async function prelude(
   if (cat.kind === "ok") parts.push(renderCatalog(cat.body as Catalog));
   if (guide.kind === "ok") parts.push(renderGuide(guide.body as Guide));
   const text = parts.join("\n\n");
-  if (cat.kind === "ok") cache.set(key, text);
+  if (cat.kind === "ok") {
+    cache.set(key, text);
+    catalogs.set(key, cat.body as Catalog);
+  }
   return text;
 }
 
 export function forgetPrelude(): void {
   cache.clear();
+  catalogs.clear();
 }

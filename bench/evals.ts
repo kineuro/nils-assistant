@@ -19,7 +19,7 @@ const root = process.cwd();
 interface Shape {
   id: string;
   question: string;
-  rebased: { status: string; gold?: string };
+  rebased: { status: string; gold?: string; question?: string };
 }
 const shapes = (
   parse(readFileSync(join(root, "bench", "corpus", "shapes.yml"), "utf8")) as { shapes: Shape[] }
@@ -105,7 +105,7 @@ for (const s of shapes) {
   const run = await json(`${host}/stations/ask-help/runs`, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-    body: JSON.stringify({ message: s.question, conversation }),
+    body: JSON.stringify({ message: s.rebased.question ?? s.question, conversation }),
   });
   let state: Record<string, unknown> = run;
   for (let i = 0; i < 120 && !["settled", "failed", "aborted"].includes(String(state.state)); i++) {
