@@ -74,6 +74,11 @@ export class Seam {
     this.now = o.now ?? Date.now;
   }
 
+  /** The grant's counts start over: a follow-up turn is a new run (section 7.7). */
+  resetGrant(): void {
+    this.keeper.reset();
+  }
+
   get counts(): Record<string, number> {
     return this.keeper.counts();
   }
