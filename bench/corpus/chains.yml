@@ -8,15 +8,16 @@
 # all threads, and the bench scores a station on how many it needs.
 chains:
   - id: chain-a
+    # rebased like shape-23 (2026-09-09): the synthetic registry holds no MP2RAGE, so its MPRAGE stands in, in every turn that names it
     title: composition, homogeneity, then one stack per role
     shape: shape-23
     turns:
       - kind: opening
-        text: "In cohort A and cohort B together, how many subjects and unique subject-sessions have both a 3D FLAIR and an MP2RAGE?"
+        text: "In cohort A and cohort B together, how many subjects and unique subject-sessions have both a 3D FLAIR and an MPRAGE?"
       - kind: correction
         text: "Count a subject once even when it is in both cohorts."
       - kind: addition
-        text: "Of those sessions, how many have the same protocol on the FLAIR and the MP2RAGE, compared across sessions?"
+        text: "Of those sessions, how many have the same protocol on the FLAIR and the MPRAGE, compared across sessions?"
       - kind: correction
         text: "Not within a session; across sessions, for each sequence on its own."
       - kind: correction
@@ -24,7 +25,7 @@ chains:
       - kind: meta
         text: "Try again."
       - kind: addition
-        text: "Now a table with one FLAIR and one MP2RAGE per session, with the stack ids."
+        text: "Now a table with one FLAIR and one MPRAGE per session, with the stack ids."
       - kind: correction
         text: "Some sessions have two FLAIR reconstructions of one acquisition; keep the original over the derived."
       - kind: addition
