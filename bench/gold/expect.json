@@ -4,12 +4,7 @@
     "content_hash": "be41f5b97b183b820934cc4b7d8835915a2820c19123d03f9f5b0d258ffb4054",
     "row_count": 2,
     "truncated": false,
-    "columns": [
-      "_key",
-      "_subject",
-      "cohort.id",
-      "n"
-    ],
+    "columns": ["_key", "_subject", "cohort.id", "n"],
     "epoch": 2,
     "pack": "mri 0.1.1",
     "declaration": {
@@ -31,10 +26,7 @@
     "content_hash": "f8e954cef1b4fe5ed673f35be0e23917e650b95b9288beecb77dd18d13ee6ca0",
     "row_count": 1,
     "truncated": false,
-    "columns": [
-      "rows",
-      "subjects"
-    ],
+    "columns": ["rows", "subjects"],
     "epoch": 2,
     "pack": "mri 0.1.1",
     "declaration": {
@@ -56,14 +48,7 @@
     "content_hash": "ea40015a28dfdf0846ad9ca35f865294e82f6b72a5d52e07686eb325e34d071f",
     "row_count": 7,
     "truncated": false,
-    "columns": [
-      "_key",
-      "_subject",
-      "code",
-      "sex",
-      "birth_date",
-      "n_cohorts"
-    ],
+    "columns": ["_key", "_subject", "code", "sex", "birth_date", "n_cohorts"],
     "epoch": 2,
     "pack": "mri 0.1.1",
     "declaration": {
@@ -85,15 +70,7 @@
     "content_hash": "82841166673285a59cae326051ce16a8bb0c64f4436941d5abd4249c6ec88a77",
     "row_count": 268,
     "truncated": false,
-    "columns": [
-      "_key",
-      "_subject",
-      "subject.code",
-      "session.first",
-      "id",
-      "text_series_description",
-      "acq"
-    ],
+    "columns": ["_key", "_subject", "subject.code", "session.first", "id", "text_series_description", "acq"],
     "epoch": 2,
     "pack": "mri 0.1.1",
     "declaration": {
@@ -115,10 +92,7 @@
     "content_hash": "fcfe0bdf87113984fe6d4f961b5f3f8c11e6e3fd4b383ac95f37cd8a62a4faf7",
     "row_count": 1,
     "truncated": false,
-    "columns": [
-      "rows",
-      "subjects"
-    ],
+    "columns": ["rows", "subjects"],
     "epoch": 2,
     "pack": "mri 0.1.1",
     "declaration": {
@@ -140,12 +114,7 @@
     "content_hash": "5f24eaa83dab24b3363e673742bb8d00d70b41c5a3c9ed2f3f190243c6982159",
     "row_count": 2,
     "truncated": false,
-    "columns": [
-      "_key",
-      "_subject",
-      "converter",
-      "n"
-    ],
+    "columns": ["_key", "_subject", "converter", "n"],
     "epoch": 2,
     "pack": "mri 0.1.1",
     "declaration": {
@@ -200,14 +169,7 @@
     "content_hash": "fcceefd981ac1d8304c70eb020b8971149d5abc78cdf159898c568f277cf8637",
     "row_count": 8,
     "truncated": false,
-    "columns": [
-      "_key",
-      "_subject",
-      "subject.code",
-      "first",
-      "dx.date",
-      "dx.offset_days"
-    ],
+    "columns": ["_key", "_subject", "subject.code", "first", "dx.date", "dx.offset_days"],
     "epoch": 2,
     "pack": "mri 0.1.1",
     "declaration": {
@@ -229,12 +191,7 @@
     "content_hash": "7df11ef54ea7709b5ecbea7dc7ec400b1e652e9dbeef4871aaaea2386b5c9f9a",
     "row_count": 3,
     "truncated": false,
-    "columns": [
-      "_key",
-      "_subject",
-      "code",
-      "n_sessions"
-    ],
+    "columns": ["_key", "_subject", "code", "n_sessions"],
     "epoch": 2,
     "pack": "mri 0.1.1",
     "declaration": {
@@ -256,13 +213,7 @@
     "content_hash": "0e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8",
     "row_count": 0,
     "truncated": false,
-    "columns": [
-      "_key",
-      "_subject",
-      "code",
-      "cohort.id",
-      "birth_date"
-    ],
+    "columns": ["_key", "_subject", "code", "cohort.id", "birth_date"],
     "epoch": 2,
     "pack": "mri 0.1.1",
     "declaration": {
@@ -284,15 +235,7 @@
     "content_hash": "5de89df64973555929b97cac7ef30ccaddcfc8374d6eec4c81b5fdcb556e1a33",
     "row_count": 144,
     "truncated": false,
-    "columns": [
-      "_key",
-      "_subject",
-      "subject.code",
-      "session.first",
-      "id",
-      "n_instances",
-      "pick.tied"
-    ],
+    "columns": ["_key", "_subject", "subject.code", "session.first", "id", "n_instances", "pick.tied"],
     "epoch": 2,
     "pack": "mri 0.1.1",
     "declaration": {
@@ -314,12 +257,7 @@
     "content_hash": "a8667758528ead7b1e8b6bc856070d21e1ebf8508d5ccb3ba724fe4015547b2c",
     "row_count": 2,
     "truncated": false,
-    "columns": [
-      "_key",
-      "_subject",
-      "sig",
-      "n_sessions"
-    ],
+    "columns": ["_key", "_subject", "sig", "n_sessions"],
     "epoch": 2,
     "pack": "mri 0.1.1",
     "declaration": {
@@ -341,12 +279,7 @@
     "content_hash": "42e8e83011776d24b3beed86e6fdda14baa54498b217cd22903ee5f2485f48c5",
     "row_count": 9,
     "truncated": false,
-    "columns": [
-      "_key",
-      "_subject",
-      "text_series_description",
-      "n_sessions"
-    ],
+    "columns": ["_key", "_subject", "text_series_description", "n_sessions"],
     "epoch": 2,
     "pack": "mri 0.1.1",
     "declaration": {
@@ -400,12 +333,7 @@
     "content_hash": "5a3c172e216c3a989e6f5065e24927e6b1243e30c253a5466c3d041382b7b362",
     "row_count": 124,
     "truncated": false,
-    "columns": [
-      "_key",
-      "_subject",
-      "subject.code",
-      "first"
-    ],
+    "columns": ["_key", "_subject", "subject.code", "first"],
     "epoch": 2,
     "pack": "mri 0.1.1",
     "declaration": {
@@ -427,12 +355,7 @@
     "content_hash": "61cd430400befcd62239b8a1927488f5370fe02fb9969520bb2bd665e6ea40f5",
     "row_count": 1,
     "truncated": false,
-    "columns": [
-      "_key",
-      "_subject",
-      "res",
-      "n"
-    ],
+    "columns": ["_key", "_subject", "res", "n"],
     "epoch": 2,
     "pack": "mri 0.1.1",
     "declaration": {
@@ -454,13 +377,7 @@
     "content_hash": "f9dcacae7d8bf19c6784631d0b513861cd082a879c67622413292cdd39717001",
     "row_count": 2,
     "truncated": false,
-    "columns": [
-      "_key",
-      "_subject",
-      "id",
-      "n_instances",
-      "orientation"
-    ],
+    "columns": ["_key", "_subject", "id", "n_instances", "orientation"],
     "epoch": 2,
     "pack": "mri 0.1.1",
     "declaration": {
@@ -482,13 +399,7 @@
     "content_hash": "5a85461b699c1147bf8974606bb171ec73693ea9aa829216f298def7a1f321ed",
     "row_count": 2,
     "truncated": false,
-    "columns": [
-      "_key",
-      "_subject",
-      "subject.code",
-      "first",
-      "age"
-    ],
+    "columns": ["_key", "_subject", "subject.code", "first", "age"],
     "epoch": 2,
     "pack": "mri 0.1.1",
     "declaration": {

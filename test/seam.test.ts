@@ -316,3 +316,22 @@ describe("the seam", () => {
     expect(dials.filter((f) => !allowed.includes(f))).toEqual([]);
   });
 });
+
+describe("the desk's feedback on proposals (section 7.7)", async () => {
+  const { feedbackOf, recordFeedback } = await import("../src/seam/for.ts");
+  it("keeps accepted and rejected proposals per conversation and drops rows of the wrong shape", () => {
+    recordFeedback("c-fb", {
+      rejected: [{ document: 12, sentence: "count them" }, { nonsense: true }],
+      accepted: [{ document: 11 }],
+    });
+    recordFeedback("c-fb", { rejected: [{ document: 13, sentence: 7 }] });
+    expect(feedbackOf("c-fb")).toEqual({
+      accepted: [{ document: 11, sentence: "" }],
+      rejected: [
+        { document: 12, sentence: "count them" },
+        { document: 13, sentence: "" },
+      ],
+    });
+    expect(feedbackOf("c-none")).toEqual({ accepted: [], rejected: [] });
+  });
+});

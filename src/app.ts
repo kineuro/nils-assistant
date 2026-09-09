@@ -12,7 +12,15 @@ import { config } from "./config.ts";
 import { capabilities } from "./host/capabilities.ts";
 import { Runs } from "./host/runs.ts";
 import { kvasirProvider, readCatalog } from "./providers/kvasir.ts";
-import { registerStation, stationList, theLedger, tokens, verdicts } from "./seam/for.ts";
+import {
+  feedbackOf,
+  recordFeedback,
+  registerStation,
+  stationList,
+  theLedger,
+  tokens,
+  verdicts,
+} from "./seam/for.ts";
 import { AskHelp } from "./stations/ask-help-agent.ts";
 import { Echo } from "./stations/echo.ts";
 import { loadManifests } from "./stations/manifest.ts";
@@ -121,9 +129,10 @@ app.get("/runs/:id", (ctx) => {
   return run ? ctx.json(run) : ctx.json({ error: `no run ${ctx.req.param("id")}` }, 404);
 });
 
-/** Accepted and rejected proposals come back as feedback (§7.7); kept in the seam's ledger until D4 reads them. */
+/** Accepted and rejected proposals come back as feedback (§7.7): the next turn's prompt names them, and the ledger counts them. */
 app.post("/conversations/:id/feedback", async (ctx) => {
   const body = (await ctx.req.json().catch(() => ({}))) as { accepted?: unknown[]; rejected?: unknown[] };
+  recordFeedback(ctx.req.param("id"), body);
   theLedger().record({
     at: Date.now(),
     conversation: ctx.req.param("id"),
@@ -140,8 +149,10 @@ app.post("/conversations/:id/feedback", async (ctx) => {
     ceiling: "reader",
     idempotency_key: null,
   });
-  return ctx.json({ recorded: true });
+  return ctx.json({ recorded: true, ...feedbackOf(ctx.req.param("id")) });
 });
+
+app.get("/conversations/:id/feedback", (ctx) => ctx.json(feedbackOf(ctx.req.param("id"))));
 
 app.get("/ledger/:id", (ctx) => ctx.json({ rows: theLedger().rows(ctx.req.param("id")) }));
 

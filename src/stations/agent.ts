@@ -21,7 +21,7 @@ import {
 import * as v from "valibot";
 import { providerId } from "../providers/kvasir.ts";
 import type { Seam } from "../seam/client.ts";
-import { seamFor, verdicts } from "../seam/for.ts";
+import { feedbackOf, seamFor, verdicts } from "../seam/for.ts";
 import { initialState, Machine, type RunState } from "./machine.ts";
 import type { Manifest, TerminalReason } from "./manifest.ts";
 import { toValibot } from "./schema.ts";
@@ -59,6 +59,17 @@ export const PART = v.variant("kind", [
   v.object({ kind: v.literal("status"), phase: v.string(), text: v.string() }),
 ]);
 export type Part = v.InferOutput<typeof PART>;
+export type PartKind = Part["kind"];
+export const PART_KINDS: PartKind[] = [
+  "move_proposal",
+  "choice",
+  "note",
+  "todo",
+  "lookup",
+  "handle_ref",
+  "funnel",
+  "status",
+];
 
 export interface StationTool {
   name: string;
@@ -119,10 +130,13 @@ export function stationAgent(
     const commit = () => setState(structuredClone(machine.state));
     const seam = seamFor(m.id, id);
     // the desk seam (section 9.8): the closed union of typed parts, one data part named `part`, never a desk call
-    const part = useDataWriter("part", { schema: PART });
-    const emit = (p: v.InferOutput<typeof PART>) => {
+    // one named data part per kind, so a conversation's history keeps the last of each and the live stream sees every write
+    const writers = Object.fromEntries(
+      PART_KINDS.map((k) => [k, useDataWriter(k, { schema: PART })]),
+    ) as Record<PartKind, (p: Part) => void>;
+    const emit = (p: Part) => {
       try {
-        part(p);
+        writers[p.kind](p);
       } catch {
         // a bare render has no writer; the record still holds the verdict
       }
@@ -332,7 +346,13 @@ export function stationAgent(
       });
     });
 
-    return `${def.instructions}\n\nYou are the ${m.id} station of ${m.app}, at the ${m.ceiling} ceiling, in the ${machine.state.phase} phase. The phases: ${m.phases.initial}${m.phases.transitions.map((t) => ` then ${t.to}`).join("")}. Move with advance. End with settle.`;
+    // the desk's feedback (section 7.7): a rejected proposal is named so it is not repeated; an accepted one is the new base
+    const fb = feedbackOf(id);
+    const feedbackText =
+      fb.rejected.length + fb.accepted.length === 0
+        ? ""
+        : `\n\nThe person's feedback on earlier proposals:${fb.accepted.map((f) => `\n- accepted document ${f.document}${f.sentence ? ` (${f.sentence})` : ""}: it is the base now`).join("")}${fb.rejected.map((f) => `\n- rejected document ${f.document}${f.sentence ? ` (${f.sentence})` : ""}: do not propose it or the same change again`).join("")}`;
+    return `${def.instructions}${feedbackText}\n\nYou are the ${m.id} station of ${m.app}, at the ${m.ceiling} ceiling, in the ${machine.state.phase} phase. The phases: ${m.phases.initial}${m.phases.transitions.map((t) => ` then ${t.to}`).join("")}. Move with advance. End with settle.`;
   };
   return Object.assign(agent, { agentName: m.id });
 }

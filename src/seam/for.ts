@@ -14,6 +14,35 @@ let ledger: Ledger | null = null;
 export const tokens = new Tokens();
 /** The settled verdict of a conversation, for the host to answer beside the run; the record log keeps it durably. */
 export const verdicts = new Map<string, Verdict>();
+
+/** One proposal the desk accepted or rejected (section 7.7): the document it named and the sentence it carried. */
+export interface Feedback {
+  document: number;
+  sentence: string;
+}
+const feedback = new Map<string, { accepted: Feedback[]; rejected: Feedback[] }>();
+
+/** The desk's feedback on a conversation's proposals, kept for the next turn's prompt; rows of the wrong shape are dropped. */
+export function recordFeedback(
+  conversation: string,
+  body: { accepted?: unknown[]; rejected?: unknown[] },
+): void {
+  const rows = (list: unknown[] | undefined): Feedback[] =>
+    (list ?? []).flatMap((r) => {
+      const o = r as { document?: unknown; sentence?: unknown };
+      return typeof o?.document === "number"
+        ? [{ document: o.document, sentence: typeof o.sentence === "string" ? o.sentence : "" }]
+        : [];
+    });
+  const cur = feedback.get(conversation) ?? { accepted: [], rejected: [] };
+  cur.accepted.push(...rows(body.accepted));
+  cur.rejected.push(...rows(body.rejected));
+  feedback.set(conversation, cur);
+}
+
+export function feedbackOf(conversation: string): { accepted: Feedback[]; rejected: Feedback[] } {
+  return feedback.get(conversation) ?? { accepted: [], rejected: [] };
+}
 const stations = new Map<string, Station>();
 const seams = new Map<string, Seam>();
 
