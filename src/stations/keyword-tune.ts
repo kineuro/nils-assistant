@@ -149,7 +149,7 @@ export function keywordTuneTools(): StationTool[] {
       async run(args, ctx) {
         const a = await ctx.seam.call({
           method: "GET",
-          path: `/api/classify/signals?scope=${encodeURIComponent(String(args.scope))}`,
+          path: `/api/classify/signals?scope=${encodeURIComponent(String(args.scope)).replace(/%3A/giu, ":")}`,
           toolCallId: ctx.toolCallId,
           phase: ctx.state.phase,
         });
