@@ -11,6 +11,18 @@ import { Ledger } from "./ledger.ts";
 import { Tokens } from "./tokens.ts";
 
 let ledger: Ledger | null = null;
+/** Whether the engine serves with its authentication off, read once from its capabilities; unknown counts as on. */
+let engineAuthOff = false;
+export async function probeEngineAuth(engine: string, dial: typeof fetch = fetch): Promise<boolean> {
+  try {
+    const r = await dial(`${engine.replace(/\/+$/u, "")}/api/capabilities`);
+    const doc = (await r.json()) as { auth?: unknown };
+    engineAuthOff = r.ok && doc.auth === "off";
+  } catch {
+    engineAuthOff = false;
+  }
+  return engineAuthOff;
+}
 export const tokens = new Tokens();
 /** The settled verdict of a conversation, for the host to answer beside the run; the record log keeps it durably. */
 export const verdicts = new Map<string, Verdict>();
@@ -75,6 +87,7 @@ export function seamFor(station: string, conversation: string): Seam {
       station: st,
       conversation,
       token: () => tokens.get(conversation),
+      authOff: () => engineAuthOff,
       ledger: theLedger(),
     });
     seams.set(key, s);

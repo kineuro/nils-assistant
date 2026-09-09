@@ -217,3 +217,26 @@ describe("the verdict", () => {
     });
   });
 });
+
+describe("a follow-up turn (section 7.7)", async () => {
+  const { Machine, initialState } = await import("../src/stations/machine.ts");
+  const { loadManifests } = await import("../src/stations/manifest.ts");
+  it("starts the budget over, forgets the loop detector, re-enters the named phase and keeps the evidence", () => {
+    const m = loadManifests(["./stations"]).get("ask-help");
+    if (!m) throw new Error("no ask-help manifest");
+    expect(m.phases.follow_up).toBe("shape");
+    const mach = new Machine(m, initialState(m, 1000), () => 5000);
+    mach.advance("shape");
+    mach.call("nils_store", { document: 1 }, ["document"]);
+    mach.state.evidence.documents.push(4);
+    mach.end("budget_wall_clock");
+    mach.followUp(m.phases.follow_up ?? m.phases.initial);
+    expect(mach.state.phase).toBe("shape");
+    expect(mach.state.terminal).toBeNull();
+    expect(mach.state.tool_calls).toBe(0);
+    expect(mach.state.repeats).toEqual({});
+    expect(mach.state.started_at).toBe(5000);
+    expect(mach.state.evidence.documents).toEqual([4]);
+    expect(mach.state.events.at(-1)).toMatchObject({ kind: "follow_up", from: "shape", to: "shape" });
+  });
+});

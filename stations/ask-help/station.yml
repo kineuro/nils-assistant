@@ -82,6 +82,7 @@ writes:
 - document_version
 phases:
   initial: resolve
+  follow_up: shape
   transitions:
   - from: resolve
     to: shape

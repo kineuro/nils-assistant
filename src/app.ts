@@ -14,6 +14,7 @@ import { Runs } from "./host/runs.ts";
 import { kvasirProvider, readCatalog } from "./providers/kvasir.ts";
 import {
   feedbackOf,
+  probeEngineAuth,
   recordFeedback,
   registerStation,
   stationList,
@@ -61,6 +62,12 @@ const catalog = await readCatalog(c.kvasir, c.kvasirKey).catch((e: Error) => {
 });
 for (const s of stationList())
   setProvider(kvasirProvider({ station: s.id, purpose: `assistant.${s.id}`, catalog, key: c.kvasirKey }));
+
+// an engine serving with its authentication off takes a turn without a token (section 5.5); anything else refuses it
+if (await probeEngineAuth(c.engine))
+  console.error(
+    "nils-assistant: the engine serves with its authentication off; turns without a token are allowed",
+  );
 
 const app = new Hono();
 

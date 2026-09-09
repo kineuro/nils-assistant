@@ -335,3 +335,78 @@ describe("the desk's feedback on proposals (section 7.7)", async () => {
     expect(feedbackOf("c-none")).toEqual({ accepted: [], rejected: [] });
   });
 });
+
+describe("a turn without a token (section 5.5)", async () => {
+  const { Seam } = await import("../src/seam/client.ts");
+  const { Ledger } = await import("../src/seam/ledger.ts");
+  const { probeEngineAuth } = await import("../src/seam/for.ts");
+  const station = {
+    id: "ask-help",
+    version: "1",
+    grant: { describe: { calls: 2 } },
+    ceiling: "reviewer" as const,
+    content: "rows" as const,
+    model: "qwen",
+  };
+  it("is refused unless the engine serves with its authentication off, and then carries no bearer", async () => {
+    const seen: Record<string, string>[] = [];
+    const dial = (async (_url: string | URL | Request, init?: RequestInit) => {
+      seen.push(Object.fromEntries(Object.entries((init?.headers ?? {}) as Record<string, string>)));
+      return new Response(JSON.stringify({ sets: [] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as typeof fetch;
+    const on = new Seam({
+      engine: "http://e",
+      station,
+      conversation: "c",
+      token: () => null,
+      ledger: new Ledger(":memory:"),
+      fetch: dial,
+    });
+    expect(
+      await on.call({
+        method: "POST",
+        path: "/api/ask/describe",
+        body: { document_id: 1 },
+        toolCallId: "t1",
+        phase: "shape",
+      }),
+    ).toMatchObject({ kind: "error", reason: "token_unavailable" });
+    const off = new Seam({
+      engine: "http://e",
+      station,
+      conversation: "c",
+      token: () => null,
+      authOff: () => true,
+      ledger: new Ledger(":memory:"),
+      fetch: dial,
+    });
+    expect(
+      (
+        await off.call({
+          method: "POST",
+          path: "/api/ask/describe",
+          body: { document_id: 1 },
+          toolCallId: "t2",
+          phase: "shape",
+        })
+      ).kind,
+    ).toBe("ok");
+    expect(seen).toHaveLength(1);
+    expect(seen[0].authorization).toBeUndefined();
+    expect(seen[0]["x-nils-ceiling"]).toBe("reviewer");
+  });
+  it("reads the engine's answer and counts an unreachable engine as on", async () => {
+    const off = (async () => new Response(JSON.stringify({ auth: "off" }), { status: 200 })) as typeof fetch;
+    expect(await probeEngineAuth("http://e/", off)).toBe(true);
+    const token = (async () =>
+      new Response(JSON.stringify({ auth: "token" }), { status: 200 })) as typeof fetch;
+    expect(await probeEngineAuth("http://e", token)).toBe(false);
+    const dead = (async () => {
+      throw new Error("no route");
+    }) as typeof fetch;
+    expect(await probeEngineAuth("http://e", dead)).toBe(false);
+  });
+});

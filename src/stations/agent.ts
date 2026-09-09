@@ -11,6 +11,7 @@ import {
   defineSkill,
   type JsonValue,
   useAgentFinish,
+  useAgentStart,
   useDataWriter,
   useModel,
   usePersistentState,
@@ -141,6 +142,21 @@ export function stationAgent(
         // a bare render has no writer; the record still holds the verdict
       }
     };
+
+    // a follow-up turn (section 7.7): the person spoke again after settle; the run starts over on the settled document
+    useAgentStart((ctx) => {
+      if (!settled) return;
+      const to = m.phases.follow_up ?? m.phases.initial;
+      machine.followUp(to);
+      const base = (settled.verdict as { result?: { document?: unknown } }).result?.document;
+      setSettled(null);
+      commit();
+      ctx.append({
+        kind: "signal",
+        type: "station",
+        body: `A follow-up turn. The previous run settled${typeof base === "number" ? ` on document ${base}, which is the base now: refine it, do not start over` : ""}. The phase is ${to} again and the budget starts over. End with settle.`,
+      });
+    });
 
     for (const t of def.tools) {
       useTool({

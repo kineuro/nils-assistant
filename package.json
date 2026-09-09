@@ -18,7 +18,8 @@
     "start": "node dist/app/server.mjs",
     "records:export": "tsc -p tsconfig.build.json && node dist/src/host/records.js export",
     "records:import": "tsc -p tsconfig.build.json && node dist/src/host/records.js import",
-    "pretest": "tsc -p tsconfig.build.json"
+    "pretest": "tsc -p tsconfig.build.json",
+    "bench:chains": "node dist/bench/chains.js"
   },
   "dependencies": {
     "@earendil-works/pi-ai": "0.83.0",

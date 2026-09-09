@@ -62,7 +62,7 @@ export interface Manifest {
   checks: string[];
   budget: Budget;
   writes: ProposalKind[];
-  phases: { initial: string; transitions: Transition[] };
+  phases: { initial: string; transitions: Transition[]; follow_up?: string };
   evals: string;
   /** Where it was loaded from; the brief and the evals resolve against it. */
   dir: string;
@@ -150,7 +150,7 @@ export function validate(
     fail(id, `writes is a subset of ${PROPOSAL_KINDS.join(", ")}`);
   if (new Set(m.writes as string[]).size !== (m.writes as string[]).length)
     fail(id, "writes lists a kind once");
-  const phases = m.phases as { initial?: unknown; transitions?: unknown };
+  const phases = m.phases as { initial?: unknown; transitions?: unknown; follow_up?: unknown };
   if (typeof phases?.initial !== "string" || !Array.isArray(phases.transitions))
     fail(id, "phases carries initial and transitions");
   for (const t of phases.transitions as Transition[]) {
@@ -161,6 +161,8 @@ export function validate(
     ...(phases.transitions as Transition[]).flatMap((t) => [t.from, t.to]),
   ]);
   if (!named.has("finish")) fail(id, "the phases end in finish");
+  if (typeof phases.follow_up === "string" && !named.has(phases.follow_up))
+    fail(id, "phases.follow_up names a phase");
   if (typeof m.evals !== "string") fail(id, "evals names the fixture directory");
   const evals = resolve(dir, m.evals);
   if (!existsSync(evals) || !statSync(evals).isDirectory())
@@ -177,7 +179,11 @@ export function validate(
     checks: m.checks as string[],
     budget: b as unknown as Budget,
     writes: m.writes as ProposalKind[],
-    phases: { initial: phases.initial, transitions: phases.transitions as Transition[] },
+    phases: {
+      initial: phases.initial,
+      transitions: phases.transitions as Transition[],
+      ...(typeof phases.follow_up === "string" ? { follow_up: phases.follow_up } : {}),
+    },
     evals: m.evals,
     dir,
   };

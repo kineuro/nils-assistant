@@ -55,6 +55,8 @@ export interface SeamOptions {
   conversation: string;
   /** The person's token for this turn, or null when the desk has not handed one. */
   token: () => string | null;
+  /** The engine serves with its authentication off, so a turn without a token is not a refusal; false when unknown. */
+  authOff?: () => boolean;
   ledger: Ledger;
   fetch?: typeof fetch;
   /** The engine's own idempotency doors see a key; a repeat of one tool call repeats the answer. */
@@ -156,12 +158,12 @@ export class Seam {
       return { kind: "blocked", reason: decision.reason ?? "blocked", operation: decision.operation };
     }
     const token = this.o.token();
-    if (!token) {
+    if (!token && !this.o.authOff?.()) {
       this.record(decision.operation, c, decision, "error", null, null, 0, null);
       return { kind: "error", reason: "token_unavailable" };
     }
     const headers: Record<string, string> = {
-      authorization: `Bearer ${token}`,
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
       "content-type": "application/json",
       "x-nils-ceiling": this.o.station.ceiling,
       "x-nils-actor": actorHeader(this.actor()),
