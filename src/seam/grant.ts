@@ -93,4 +93,9 @@ export class GrantKeeper {
   counts(): Record<string, number> {
     return Object.fromEntries(this.used);
   }
+
+  /** A follow-up turn starts the grant's counts over, as it starts the budget over (section 7.7). */
+  reset(): void {
+    this.used.clear();
+  }
 }

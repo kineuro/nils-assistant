@@ -7,6 +7,8 @@
 // person accepted one, and never a value: the row has no free text field,
 // so a note names nothing a reader may not see, by construction.
 
+import { mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 export type NoteKind = "person" | "correction" | "study" | "reference";
@@ -36,6 +38,8 @@ const ID = /^[a-z][a-z0-9_.-]{0,63}$/u;
 export class Notes {
   readonly db: DatabaseSync;
   constructor(path: string) {
+    // the store's directory is made on first use, as the ledger's is
+    if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
     this.db = new DatabaseSync(path);
     this.db.exec("PRAGMA journal_mode = WAL");
     this.db.exec(`CREATE TABLE IF NOT EXISTS note (

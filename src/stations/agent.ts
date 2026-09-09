@@ -174,6 +174,7 @@ export function stationAgent(
       const to = m.phases.follow_up ?? m.phases.initial;
       const ended = machine.state.terminal;
       machine.followUp(to);
+      seam.resetGrant();
       const base = settled
         ? (settled.verdict as { result?: { document?: unknown } }).result?.document
         : undefined;
