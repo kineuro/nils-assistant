@@ -1,0 +1,819 @@
+{
+  "id": "baseline-qwen38-27b-fast-shape-01",
+  "question": "List every cohort with its owner and how many subjects it holds, as a table.",
+  "model": "qwen38-27b-fast",
+  "recorded_at": "2026-09-09",
+  "attempts": [
+    {
+      "events": [
+        {
+          "type": "start"
+        },
+        {
+          "type": "text_start",
+          "contentIndex": 0
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "{"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "ast"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "_version"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "1"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": ","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "sets"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "   "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "coh"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "orts"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "gr"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "ain"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "co"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "hort"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "   "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " },"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "   "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "members"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "gr"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "ain"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "subject"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "of"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "coh"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "orts"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "   "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " }"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " },"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "out"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "   "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "set"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "coh"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "orts"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "   "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "level"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "record"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "   "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "columns"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ["
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " [\""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "field"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {},"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "name"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\"],"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " [\""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "field"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {},"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "owner"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\"],"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " [\""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "count"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {},"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " [\""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "set"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {},"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "members"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\"]]"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "   "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ],"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "   "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "order"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ["
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " [[\""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "field"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {},"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "name"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\"],"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "asc"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\"]"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "   "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ]"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " }"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "}"
+        },
+        {
+          "type": "text_end",
+          "contentIndex": 0,
+          "content": "{\n  \"ast_version\": 1,\n  \"sets\": {\n    \"cohorts\": {\n      \"grain\": \"cohort\"\n    },\n    \"members\": {\n      \"grain\": \"subject\",\n      \"of\": \"cohorts\"\n    }\n  },\n  \"out\": {\n    \"set\": \"cohorts\",\n    \"level\": \"record\",\n    \"columns\": [\n      [\"field\", {}, \"name\"],\n      [\"field\", {}, \"owner\"],\n      [\"count\", {}, [\"set\", {}, \"members\"]]\n    ],\n    \"order\": [\n      [[\"field\", {}, \"name\"], \"asc\"]\n    ]\n  }\n}"
+        },
+        {
+          "type": "done",
+          "reason": "stop",
+          "usage": {
+            "input": 4126,
+            "output": 156,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 4282,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "responseId": "4e278113a6624cbe9ecc8d22d8d0eb8f"
+        }
+      ]
+    }
+  ]
+}

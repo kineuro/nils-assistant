@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// The baseline, one shot (Wave 4c §9.10): the model reads the engine's guide
+// The baseline, one shot (Wave 4c §9.10). Sixteen thousand output tokens,
+// because a reasoning model thinks before it writes and a document cut short
+// by the cap is a failure of the cap, not of the model.: the model reads the engine's guide
 // and one question, writes an ask document, the engine runs it, and the
 // content hash is compared to the gold. Through Kvasir's pi-messages door
 // when KVASIR_URL is set, and every answer is recorded into gate/fixtures/
@@ -56,18 +58,38 @@ const catalog = (await (
     headers: nilsToken ? { authorization: `Bearer ${nilsToken}` } : {},
   })
 ).json()) as Record<string, unknown>;
-const grounding = JSON.stringify({
-  grounding: guide.grounding,
-  examples: guide.examples,
+const examples = ((guide.examples as { question: string; document: unknown; note?: string }[]) ?? [])
+  .map(
+    (e, i) =>
+      `Example ${i + 1}. Question: ${e.question}\n${e.note ? `Note: ${e.note}\n` : ""}Document:\n${JSON.stringify(e.document)}`,
+  )
+  .join("\n\n");
+const grounding =
+  typeof guide.grounding === "string" ? guide.grounding : JSON.stringify(guide.grounding, null, 1);
+const slice = {
   cohorts: catalog.cohorts,
   kinds: catalog.kinds,
   axes: catalog.axes,
   derived: catalog.derived,
   functions: catalog.functions,
-  levels: catalog.levels,
-});
+  levels: (catalog.levels as { level: string; fields: { path: string; type: string }[] }[]).map((l) => ({
+    level: l.level,
+    fields: l.fields.map((f) => `${f.path}:${f.type}`),
+  })),
+};
 
-const SYSTEM = `You write ask documents for a research registry. Answer with one JSON object, the document, and nothing else: no prose, no code fence. The grammar, the worked examples and the catalog follow.\n${grounding}`;
+const SYSTEM = [
+  "You write ask documents for a research registry. Answer with one JSON object, the document itself, and nothing else: no prose, no code fence, no wrapper object.",
+  "",
+  "THE RULES OF A DOCUMENT",
+  grounding,
+  "",
+  "WORKED EXAMPLES (each Document is a complete answer of the shape you must produce)",
+  examples,
+  "",
+  "THE CATALOG OF THIS REGISTRY (names you may use)",
+  JSON.stringify(slice),
+].join("\n");
 
 /** One shot through Kvasir's door, the events kept for the recording. */
 async function live(question: string): Promise<AssistantMessageEvent[]> {
@@ -83,7 +105,7 @@ async function live(question: string): Promise<AssistantMessageEvent[]> {
         systemPrompt: SYSTEM,
         messages: [{ role: "user", content: question, timestamp: Date.now() }],
       },
-      options: { temperature: 0, maxTokens: 4096 },
+      options: { temperature: 0, maxTokens: Number(process.env.MAX_TOKENS ?? 16384) },
     }),
   });
   if (!r.ok || !r.body) throw new Error(`Kvasir answered ${r.status}: ${(await r.text()).slice(0, 200)}`);
