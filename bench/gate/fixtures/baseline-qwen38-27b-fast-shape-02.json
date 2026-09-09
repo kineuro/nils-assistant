@@ -1,0 +1,2364 @@
+{
+  "id": "baseline-qwen38-27b-fast-shape-02",
+  "question": "Which subjects are in both cohort A and cohort B? Give every identifier they carry and everything else known about them, as a table for a report.",
+  "model": "qwen38-27b-fast",
+  "recorded_at": "2026-09-09",
+  "attempts": [
+    {
+      "events": [
+        {
+          "type": "start"
+        },
+        {
+          "type": "text_start",
+          "contentIndex": 0
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "{"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "ast"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "_version"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "1"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": ","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "sets"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "   "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "co"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "hort"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "_a"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "gr"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "ain"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "co"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "hort"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "where"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ["
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \"=\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {},"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ["
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "         "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "field"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "         "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {},"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "         "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "name"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ],"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "ms"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "-co"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "hort"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "-a"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ]"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "   "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " },"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "   "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "co"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "hort"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "_b"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "gr"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "ain"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "co"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "hort"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "where"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ["
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \"=\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {},"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ["
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "         "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "field"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "         "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {},"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "         "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "name"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ],"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "ms"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "-co"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "hort"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "-b"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ]"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "   "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " },"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "   "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "people"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "_a"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "gr"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "ain"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "subject"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "of"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "co"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "hort"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "_a"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "   "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " },"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "   "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "people"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "_b"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "gr"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "ain"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "subject"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "of"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "co"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "hort"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "_b"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "   "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " },"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "   "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "answer"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "gr"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "ain"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "subject"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "from"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "people"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "_a"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "where"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ["
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "in"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {},"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ["
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "         "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "field"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "         "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {},"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "         "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "id"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ],"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ["
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "         "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "set"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "         "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {},"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "         "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "people"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "_b"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "         "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "id"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ]"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ]"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "   "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " }"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " },"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "out"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "   "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "set"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "answer"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "   "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "level"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "record"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "   "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "columns"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ["
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ["
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "field"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {},"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "id"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ],"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ["
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "field"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {},"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "code"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ],"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ["
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "field"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {},"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "sex"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ],"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ["
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "field"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {},"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "birth"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "_date"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ],"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ["
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "field"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {},"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "de"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "ceased"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "_at"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ]"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "   "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ],"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "   "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "order"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ["
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ["
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ["
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "         "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "field"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "         "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {},"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "         "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "code"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ],"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "asc"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ]"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "   "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " ]"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " }"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "}"
+        },
+        {
+          "type": "text_end",
+          "contentIndex": 0,
+          "content": "{\n  \"ast_version\": 1,\n  \"sets\": {\n    \"cohort_a\": {\n      \"grain\": \"cohort\",\n      \"where\": [\n        \"=\",\n        {},\n        [\n          \"field\",\n          {},\n          \"name\"\n        ],\n        \"ms-cohort-a\"\n      ]\n    },\n    \"cohort_b\": {\n      \"grain\": \"cohort\",\n      \"where\": [\n        \"=\",\n        {},\n        [\n          \"field\",\n          {},\n          \"name\"\n        ],\n        \"ms-cohort-b\"\n      ]\n    },\n    \"people_a\": {\n      \"grain\": \"subject\",\n      \"of\": \"cohort_a\"\n    },\n    \"people_b\": {\n      \"grain\": \"subject\",\n      \"of\": \"cohort_b\"\n    },\n    \"answer\": {\n      \"grain\": \"subject\",\n      \"from\": \"people_a\",\n      \"where\": [\n        \"in\",\n        {},\n        [\n          \"field\",\n          {},\n          \"id\"\n        ],\n        [\n          \"set\",\n          {},\n          \"people_b\",\n          \"id\"\n        ]\n      ]\n    }\n  },\n  \"out\": {\n    \"set\": \"answer\",\n    \"level\": \"record\",\n    \"columns\": [\n      [\n        \"field\",\n        {},\n        \"id\"\n      ],\n      [\n        \"field\",\n        {},\n        \"code\"\n      ],\n      [\n        \"field\",\n        {},\n        \"sex\"\n      ],\n      [\n        \"field\",\n        {},\n        \"birth_date\"\n      ],\n      [\n        \"field\",\n        {},\n        \"deceased_at\"\n      ]\n    ],\n    \"order\": [\n      [\n        [\n          \"field\",\n          {},\n          \"code\"\n        ],\n        \"asc\"\n      ]\n    ]\n  }\n}"
+        },
+        {
+          "type": "done",
+          "reason": "stop",
+          "usage": {
+            "input": 4139,
+            "output": 465,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "totalTokens": 4604,
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0,
+              "total": 0
+            }
+          },
+          "responseId": "fe7f4b3a03ab4817b057a6de9f48ff46"
+        }
+      ]
+    }
+  ]
+}

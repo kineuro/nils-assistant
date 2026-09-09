@@ -1,0 +1,104 @@
+{
+  "model": "minimax-m2.7-anthropic",
+  "at": "2026-09-09",
+  "results": [
+    {
+      "id": "shape-01",
+      "passed": false,
+      "why": "the engine refused: the document is refused: the ask will not parse: unknown field `as`, expected one of `grain`, `from`, `of`, `algebra`, `"
+    },
+    {
+      "id": "shape-02",
+      "passed": false,
+      "why": "the engine refused: the document is refused: the ask will not parse: clause =: the options map is mandatory, even when empty"
+    },
+    {
+      "id": "shape-03",
+      "passed": false,
+      "why": "no JSON document in the answer"
+    },
+    {
+      "id": "shape-04",
+      "passed": false,
+      "why": "no recording; set KVASIR_URL to make one"
+    },
+    {
+      "id": "shape-05",
+      "passed": false,
+      "why": "no recording; set KVASIR_URL to make one"
+    },
+    {
+      "id": "shape-09",
+      "passed": false,
+      "why": "no recording; set KVASIR_URL to make one"
+    },
+    {
+      "id": "shape-10",
+      "passed": false,
+      "why": "no recording; set KVASIR_URL to make one"
+    },
+    {
+      "id": "shape-11",
+      "passed": false,
+      "why": "no recording; set KVASIR_URL to make one"
+    },
+    {
+      "id": "shape-12",
+      "passed": false,
+      "why": "no recording; set KVASIR_URL to make one"
+    },
+    {
+      "id": "shape-13",
+      "passed": false,
+      "why": "no recording; set KVASIR_URL to make one"
+    },
+    {
+      "id": "shape-14",
+      "passed": false,
+      "why": "no recording; set KVASIR_URL to make one"
+    },
+    {
+      "id": "shape-15",
+      "passed": false,
+      "why": "no recording; set KVASIR_URL to make one"
+    },
+    {
+      "id": "shape-18",
+      "passed": false,
+      "why": "no recording; set KVASIR_URL to make one"
+    },
+    {
+      "id": "shape-20",
+      "passed": false,
+      "why": "no recording; set KVASIR_URL to make one"
+    },
+    {
+      "id": "shape-22",
+      "passed": false,
+      "why": "no recording; set KVASIR_URL to make one"
+    },
+    {
+      "id": "shape-23",
+      "passed": false,
+      "why": "no recording; set KVASIR_URL to make one"
+    },
+    {
+      "id": "shape-24",
+      "passed": false,
+      "why": "no recording; set KVASIR_URL to make one"
+    },
+    {
+      "id": "shape-25",
+      "passed": false,
+      "why": "no recording; set KVASIR_URL to make one"
+    }
+  ],
+  "loop": {
+    "passed": 0,
+    "of": 11
+  },
+  "held_out": {
+    "passed": 0,
+    "of": 7
+  }
+}

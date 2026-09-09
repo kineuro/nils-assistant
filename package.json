@@ -5,23 +5,37 @@
   "description": "The assistant of NILS: stations on Flue, the bench, the seam to the engine",
   "license": "AGPL-3.0-only",
   "type": "module",
-  "engines": { "node": ">=22.19" },
+  "engines": {
+    "node": ">=22.19"
+  },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json --noEmit && vite build",
     "test": "vitest run",
     "check": "tsc -p tsconfig.json --noEmit && biome check .",
-    "bench:gold": "tsc -p tsconfig.json && node dist/bench/gold.js",
-    "bench:baseline": "tsc -p tsconfig.json && node dist/bench/baseline.js"
+    "bench:gold": "tsc -p tsconfig.build.json && node dist/bench/gold.js",
+    "bench:baseline": "tsc -p tsconfig.build.json && node dist/bench/baseline.js",
+    "dev": "vite dev",
+    "start": "node dist/app/server.mjs",
+    "records:export": "tsc -p tsconfig.build.json && node dist/src/host/records.js export",
+    "records:import": "tsc -p tsconfig.build.json && node dist/src/host/records.js import",
+    "pretest": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
     "@earendil-works/pi-ai": "0.83.0",
+    "@flue/postgres": "2.0.3",
     "@flue/runtime": "2.0.3",
+    "@flue/vite": "2.0.3",
+    "hono": "^4.13.7",
+    "postgres": "^3.4.9",
+    "valibot": "^1.4.2",
     "yaml": "^2.8.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.1.0",
     "@types/node": "^22.15.0",
+    "openapi-typescript": "^7.13.0",
     "typescript": "^5.8.0",
+    "vite": "^8.2.2",
     "vitest": "^3.2.0"
   }
 }
