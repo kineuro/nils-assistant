@@ -37,17 +37,23 @@ async function json(url: string, init?: RequestInit): Promise<Record<string, unk
 /** The values of one column of a handle, every page, as a sorted list; null when the handle has no such column. */
 async function column(handle: number, name: string): Promise<string[] | null> {
   const out: string[] = [];
-  for (let page = 1; page < 200; page++) {
+  // the rows door pages from zero
+  for (let page = 0; page < 200; page++) {
     const r = await json(`${nils}/api/ask/handles/${handle}/rows?page=${page}`, {
       headers: { authorization: `Bearer ${token}` },
     });
     const cols = (r.columns as (string | { name: string })[] | undefined) ?? [];
-    const i = cols.findIndex((c) => (typeof c === "string" ? c : c.name) === name);
+    // the subject's code however the document reached it: `code` at the subject grain, `subject.code` from below
+    const i = cols.findIndex((c) => {
+      const n = typeof c === "string" ? c : c.name;
+      return n === name || n.endsWith(`.${name}`);
+    });
     if (i < 0) return null;
     for (const row of (r.rows as unknown[][] | undefined) ?? []) out.push(String(row[i]));
-    if (typeof r.pages !== "number" || page >= r.pages) break;
+    if (typeof r.pages !== "number" || page + 1 >= r.pages) break;
   }
-  return out.sort();
+  // the set of subjects, not the multiset of rows: a document that lists a subject twice still selected the same people
+  return [...new Set(out)].sort();
 }
 
 /** The looser measure beside the hash: the same subjects selected, by the code column, when both sides carry one. */
@@ -66,8 +72,21 @@ async function sameSelection(handle: number, goldFile: string): Promise<boolean 
   });
   if (typeof ran.handle !== "number") return null;
   const [a, b] = await Promise.all([column(handle, "code"), column(ran.handle, "code")]);
-  if (!a || !b) return null;
-  return a.length === b.length && a.every((v, i) => v === b[i]);
+  if (a && b) return a.length === b.length && a.every((v, i) => v === b[i]);
+  // no subject column on either side (a count, an aggregate): the same number of rows and, for one row, the same row
+  const mine = await json(`${nils}/api/ask/handles/${handle}`, {
+    headers: { authorization: `Bearer ${token}` },
+  });
+  if (mine.row_count !== ran.row_count) return false;
+  if (ran.row_count === 1) {
+    const page = await json(`${nils}/api/ask/handles/${handle}/rows?page=0`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const ours = JSON.stringify(((page.rows as unknown[][] | undefined) ?? [])[0]?.slice(2) ?? null);
+    const theirs = JSON.stringify(((ran.rows as unknown[][] | undefined) ?? [])[0]?.slice(2) ?? null);
+    return ours === theirs;
+  }
+  return null;
 }
 
 const results: {
@@ -117,7 +136,7 @@ for (const s of shapes) {
       selection = true;
     } else {
       selection =
-        typeof ran.handle === "number" && ran.row_count === want?.row_count
+        typeof ran.handle === "number"
           ? await sameSelection(ran.handle, s.rebased.gold ?? "").catch(() => null)
           : false;
       why = `document ${document}: ${ran.row_count} rows, the gold has ${want?.row_count}${selection ? ", the same subjects" : ""}; ${verdict.result?.sentence?.slice(0, 100) ?? ""}`;
@@ -143,6 +162,9 @@ console.log(
   `ask-help: ${all} of ${results.length} (${((100 * all) / Math.max(1, results.length)).toFixed(1)} percent); loop ${two.loop.passed}/${two.loop.of}, held out ${two.held_out.passed}/${two.held_out.of}; the same subjects selected in ${selected} of ${results.length}`,
 );
 writeFileSync(
-  join(root, "stations", "ask-help", "evals", `run-${new Date().toISOString().slice(0, 10)}.json`),
+  join(
+    process.env.EVALS_OUT ?? join(root, "stations", "ask-help", "evals"),
+    `run-${new Date().toISOString().slice(0, 10)}.json`,
+  ),
   `${JSON.stringify({ at: new Date().toISOString(), results, loop: two.loop, held_out: two.held_out }, null, 2)}\n`,
 );

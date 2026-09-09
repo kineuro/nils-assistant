@@ -1,0 +1,184 @@
+{
+  "at": "2026-09-09T10:58:26.034Z",
+  "results": [
+    {
+      "id": "shape-01",
+      "passed": false,
+      "selection": null,
+      "why": "no verdict (budget_wall_clock: I'll write the document from the closest worked example (Example 12, per-cohort )",
+      "document": null,
+      "seconds": 322,
+      "terminal": "budget_wall_clock"
+    },
+    {
+      "id": "shape-02",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 3,
+      "seconds": 45,
+      "terminal": "settled"
+    },
+    {
+      "id": "shape-03",
+      "passed": false,
+      "selection": null,
+      "why": "document 84: 7 rows, the gold has 1; Seven subjects are members of more than one cohort, and between them they carry seven distinct ident",
+      "document": 84,
+      "seconds": 117,
+      "terminal": "settled"
+    },
+    {
+      "id": "shape-04",
+      "passed": false,
+      "selection": null,
+      "why": "document 86: 2 rows, the gold has 2; One row per cohort: cohort A holds 38 subjects with mean age 59.2, minimum 35 and maximum 73; cohort",
+      "document": 86,
+      "seconds": 141,
+      "terminal": "settled"
+    },
+    {
+      "id": "shape-05",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 4,
+      "seconds": 27,
+      "terminal": "settled"
+    },
+    {
+      "id": "shape-09",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 9,
+      "seconds": 33,
+      "terminal": "settled"
+    },
+    {
+      "id": "shape-10",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 12,
+      "seconds": 48,
+      "terminal": "settled"
+    },
+    {
+      "id": "shape-11",
+      "passed": false,
+      "selection": null,
+      "why": "document 88: 2 rows, the gold has 2; Cohort A splits into 6 converters and 32 non-converters: a converter has a baseline session with a F",
+      "document": 88,
+      "seconds": 51,
+      "terminal": "settled"
+    },
+    {
+      "id": "shape-12",
+      "passed": false,
+      "selection": null,
+      "why": "document 38: 1 rows, the gold has 1; The most common resolution of the T2-weighted images is 50x50x300, carried by 205 of the 380 T2-weig",
+      "document": 38,
+      "seconds": 27,
+      "terminal": "settled"
+    },
+    {
+      "id": "shape-13",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 15,
+      "seconds": 36,
+      "terminal": "settled"
+    },
+    {
+      "id": "shape-14",
+      "passed": false,
+      "selection": true,
+      "why": "document 89: 2 rows, the gold has 2, the same subjects; Two subjects in cohort A (ms-cohort-a) were under thirty at their first session: SYN0027 (female, bo",
+      "document": 89,
+      "seconds": 114,
+      "terminal": "settled"
+    },
+    {
+      "id": "shape-15",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 20,
+      "seconds": 45,
+      "terminal": "settled"
+    },
+    {
+      "id": "shape-18",
+      "passed": false,
+      "selection": true,
+      "why": "document 91: 144 rows, the gold has 144, the same subjects; One T1-weighted stack per session of cohort A, chosen by original over derived, then most slices, th",
+      "document": 91,
+      "seconds": 81,
+      "terminal": "settled"
+    },
+    {
+      "id": "shape-20",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 23,
+      "seconds": 36,
+      "terminal": "settled"
+    },
+    {
+      "id": "shape-22",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 58,
+      "seconds": 33,
+      "terminal": "settled"
+    },
+    {
+      "id": "shape-23",
+      "passed": false,
+      "selection": null,
+      "why": "document 94: 0 rows, the gold has 1; Across cohorts A and B together, zero subjects and zero sessions carry both a 3D FLAIR and an MP2RAG",
+      "document": 94,
+      "seconds": 162,
+      "terminal": "settled"
+    },
+    {
+      "id": "shape-24",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 97,
+      "seconds": 159,
+      "terminal": "settled"
+    },
+    {
+      "id": "shape-25",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 5,
+      "seconds": 33,
+      "terminal": "settled"
+    }
+  ],
+  "loop": {
+    "passed": 10,
+    "of": 11
+  },
+  "held_out": {
+    "passed": 0,
+    "of": 7
+  },
+  "host": "the local 27B, thinking off, temperature 0.2, 64k context",
+  "measures": {
+    "strict": 10,
+    "right": 14,
+    "held_out_right": 3,
+    "loop_right": 11,
+    "median_seconds": 46.5,
+    "note": "right = strict or the same set of subject codes, or for a count the same number; scored after the run from the stored documents"
+  }
+}

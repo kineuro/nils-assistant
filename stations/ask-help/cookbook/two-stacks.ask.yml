@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: One subject has two MPRAGE stacks, a reformat with few slices and the complete original; give me the stack id of both.
+ast_version: 1
+name: the two MPRAGE stacks of one subject
+scheme: default
+params:
+  code: {type: text, value: "SYN0027"}
+sets:
+  one:    {grain: subject, where: [["=", {}, ["field", {}, "code"], ["param", {}, "code"]]]}
+  stacks:
+    grain: stack
+    of: one
+    where:
+      - ["=", {}, ["axis", {}, "technique"], "MPRAGE"]
+      - ["or", {}, ["=", {}, ["axis", {}, "disposition"], "acquisition"], ["=", {}, ["axis", {}, "disposition"], "scanner_derived"]]
+keep: [stacks]
+out:
+  set: stacks
+  level: record
+  columns:
+    - ["field", {}, "id"]
+    - ["field", {}, "n_instances"]
+    - ["field", {}, "orientation"]
+  order: [[["field", {}, "n_instances"], asc], [["field", {}, "id"], asc]]

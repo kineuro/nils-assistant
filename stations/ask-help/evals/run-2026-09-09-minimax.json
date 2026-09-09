@@ -1,0 +1,176 @@
+{
+  "at": "2026-09-09T10:01:26.619Z",
+  "results": [
+    {
+      "id": "shape-01",
+      "passed": false,
+      "selection": null,
+      "why": "no verdict (budget_wall_clock: The issue is that `cohort.owner` isn't exposed from a group set. Let me check wh)",
+      "document": null,
+      "seconds": 270,
+      "terminal": "budget_wall_clock"
+    },
+    {
+      "id": "shape-02",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 3,
+      "seconds": 78,
+      "terminal": "settled"
+    },
+    {
+      "id": "shape-03",
+      "passed": false,
+      "selection": null,
+      "why": "no verdict (budget_wall_clock: Looking at this question, I need to find subjects who belong to more than one co)",
+      "document": null,
+      "seconds": 207,
+      "terminal": "budget_wall_clock"
+    },
+    {
+      "id": "shape-04",
+      "passed": false,
+      "selection": null,
+      "why": "no verdict (budget_wall_clock: I made typos. Let me rewrite from the closest worked example (Example 12) correc)",
+      "document": null,
+      "seconds": 228,
+      "terminal": "budget_wall_clock"
+    },
+    {
+      "id": "shape-05",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 4,
+      "seconds": 48,
+      "terminal": "settled"
+    },
+    {
+      "id": "shape-09",
+      "passed": false,
+      "selection": null,
+      "why": "no verdict (budget_wall_clock: Looking at this question, it's a variation of Example 5 with one addition: the o)",
+      "document": null,
+      "seconds": 201,
+      "terminal": "budget_wall_clock"
+    },
+    {
+      "id": "shape-10",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 12,
+      "seconds": 66,
+      "terminal": "settled"
+    },
+    {
+      "id": "shape-11",
+      "passed": false,
+      "selection": null,
+      "why": "no verdict (budget_wall_clock: I need to write a document splitting cohort A into converters and non-converters)",
+      "document": null,
+      "seconds": 201,
+      "terminal": "budget_wall_clock"
+    },
+    {
+      "id": "shape-12",
+      "passed": false,
+      "selection": null,
+      "why": "document 49: 3 rows, the gold has 1; The most common resolution of the 380 T2-weighted stacks across both cohorts is 50\u00d750\u00d7300 micrometre",
+      "document": 49,
+      "seconds": 57,
+      "terminal": "settled"
+    },
+    {
+      "id": "shape-13",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 15,
+      "seconds": 45,
+      "terminal": "settled"
+    },
+    {
+      "id": "shape-14",
+      "passed": false,
+      "selection": null,
+      "why": "no verdict (budget_wall_clock: I'll analyze this question and build the document step by step.\n\nThe question as)",
+      "document": null,
+      "seconds": 183,
+      "terminal": "budget_wall_clock"
+    },
+    {
+      "id": "shape-15",
+      "passed": false,
+      "selection": null,
+      "why": "no verdict (budget_wall_clock: Looking at this question, it is the same as **Example 2** in the worked examples)",
+      "document": null,
+      "seconds": 294,
+      "terminal": "budget_wall_clock"
+    },
+    {
+      "id": "shape-18",
+      "passed": false,
+      "selection": null,
+      "why": "no verdict (budget_wall_clock: The funnel shows the two `has` clauses are applied as AND, but a stack can only )",
+      "document": null,
+      "seconds": 186,
+      "terminal": "budget_wall_clock"
+    },
+    {
+      "id": "shape-20",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 23,
+      "seconds": 60,
+      "terminal": "settled"
+    },
+    {
+      "id": "shape-22",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 58,
+      "seconds": 132,
+      "terminal": "settled"
+    },
+    {
+      "id": "shape-23",
+      "passed": false,
+      "selection": null,
+      "why": "no verdict (budget_wall_clock: I'll start by activating the ask-help skill, then work through this systematical)",
+      "document": null,
+      "seconds": 234,
+      "terminal": "budget_wall_clock"
+    },
+    {
+      "id": "shape-24",
+      "passed": false,
+      "selection": null,
+      "why": "no verdict (failed)",
+      "document": null,
+      "seconds": 75,
+      "terminal": "failed"
+    },
+    {
+      "id": "shape-25",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 5,
+      "seconds": 60,
+      "terminal": "settled"
+    }
+  ],
+  "loop": {
+    "passed": 7,
+    "of": 11
+  },
+  "held_out": {
+    "passed": 0,
+    "of": 7
+  },
+  "host": "MiniMax M2.7 through the Anthropic shape, a remote-provider test only"
+}

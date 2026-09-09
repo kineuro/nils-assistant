@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: Which subjects are in both cohort A and cohort B? Give every identifier they carry and everything else known about them, as a table for a report.
+ast_version: 1
+name: subjects in both cohorts
+scheme: default
+params:
+  cohorts: {type: list, value: [ms-cohort-a, ms-cohort-b]}
+sets:
+  scope:  {grain: cohort,  where: [["in", {}, ["field", {}, "name"], ["param", {}, "cohorts"]]]}
+  people: {grain: subject, of: scope}
+  each:
+    grain: group
+    group: {of: people, by: [["field", {}, "code"], ["field", {}, "sex"], ["field", {}, "birth_date"]]}
+    bind:
+      n_cohorts: ["count", {set: people}]
+    where: [[">=", {}, ["field", {}, "n_cohorts"], 2]]
+keep: [each]
+out:
+  set: each
+  level: aggregate
+  columns:
+    - ["field", {}, "code"]
+    - ["field", {}, "sex"]
+    - ["field", {}, "birth_date"]
+    - ["field", {}, "n_cohorts"]
+  order: [[["field", {}, "code"], asc]]

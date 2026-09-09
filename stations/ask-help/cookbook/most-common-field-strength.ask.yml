@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: What is the most common field strength among the stacks of cohort A?
+# synthetic: written for the cookbook, not a gold of the bench
+ast_version: 1
+name: the most common field strength in one cohort
+scheme: default
+params:
+  cohort: {type: cohort, value: ms-cohort-a}
+sets:
+  scope:  {grain: cohort,  where: [["=", {}, ["field", {}, "name"], ["param", {}, "cohort"]]]}
+  people: {grain: subject, of: scope}
+  visits: {grain: session, of: people}
+  stacks:
+    grain: stack
+    of: visits
+    bind:
+      tesla: ["derived", {}, "field_strength"]
+  by_tesla:
+    grain: group
+    group: {of: stacks, by: [["field", {}, "tesla"]]}
+    bind:
+      n: ["count", {set: stacks}]
+keep: [by_tesla]
+out:
+  set: by_tesla
+  level: aggregate
+  columns:
+    - ["field", {}, "tesla"]
+    - ["field", {}, "n"]
+  order: [[["field", {}, "n"], desc], [["field", {}, "tesla"], asc]]
+  limit: 1

@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: For each session of cohort A, one T1-weighted stack: an original over a derived, then the most slices, then the latest, as a table with the subject, the session date and the stack id.
+# synthetic: written for the cookbook, not a gold of the bench
+ast_version: 1
+name: one T1-weighted stack per session by rules given one at a time
+scheme: default
+params:
+  cohort: {type: cohort, value: ms-cohort-a}
+sets:
+  scope:  {grain: cohort,  where: [["=", {}, ["field", {}, "name"], ["param", {}, "cohort"]]]}
+  people: {grain: subject, of: scope}
+  visits: {grain: session, of: people}
+  t1:
+    grain: stack
+    of: visits
+    where:
+      - ["=", {}, ["axis", {}, "base"], "T1w"]
+    bind:
+      original: ["case", {}, ["=", {}, ["axis", {}, "disposition"], "acquisition"], 1, 0]
+  chosen:
+    grain: stack
+    from: t1
+    pick:
+      per: session
+      n: 1
+      ties: report
+      by:
+        - [["field", {}, "original"], desc]
+        - [["field", {}, "n_instances"], desc]
+        - [["field", {}, "day"], desc]
+        - [["field", {}, "id"], asc]
+keep: [chosen]
+out:
+  set: chosen
+  level: record
+  columns:
+    - ["field", {}, "subject.code"]
+    - ["field", {}, "session.first"]
+    - ["field", {}, "id"]
+    - ["field", {}, "n_instances"]
+  order: [[["field", {}, "subject.code"], asc], [["field", {}, "session.first"], asc]]

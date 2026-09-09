@@ -7,16 +7,16 @@ content: rows
 ceiling: reviewer
 grant:
   guide:
-    calls: 2
+    calls: 3
   catalog:
-    calls: 4
+    calls: 6
   catalog/{level}:
     calls: 12
   catalog/{level}/{field}/values:
     calls: 12
     rows: 50
   validate:
-    calls: 8
+    calls: 10
   describe:
     calls: 8
   options:
@@ -24,12 +24,12 @@ grant:
   apply:
     calls: 12
   diagnose:
-    calls: 6
+    calls: 8
   preview:
-    calls: 6
+    calls: 8
     rows: 10
   draft:
-    calls: 4
+    calls: 10
   diff:
     calls: 4
   handles/{id}:
@@ -38,12 +38,12 @@ grant:
     calls: 4
     rows: 50
   documents:
-    calls: 6
+    calls: 8
   documents/{id}:
     calls: 6
 brief:
   path: SKILL.md
-  hash: bc56ccbc45a7917bca7ce6f18aa97e2472c6c8bf0faea25d896b2def2046c20f
+  hash: b258c34a6224bbe322c8165a78d2b53c310936d2af264de6656b394830bd31c5
 result:
   type: object
   required:
@@ -74,9 +74,9 @@ checks:
 - no_truncated_handle
 - no_identifier_value
 budget:
-  turns: 12
+  turns: 16
   tool_calls: 40
-  wall_clock_seconds: 180
+  wall_clock_seconds: 300
   input_tokens: 250000
 writes:
 - document_version

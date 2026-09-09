@@ -95,8 +95,12 @@ export interface StationDefinition {
   instructions: string;
   tools: StationTool[];
   checks: Record<string, Check>;
+  /** Whether the model gets an explicit advance tool; a station whose tools move the run by themselves leaves it out (the local-model rework). */
+  advance?: boolean;
   /** The phase the settle tool moves to, and the phases it is open in. */
   settle: { phases: string[] };
+  /** The general context of a run (the catalog, the names, the guide), fetched through the seam and carried on every render; the local model reads it instead of paging for it. */
+  context?: (seam: Seam, ctx: { conversation: string; toolCallId: string; phase: string }) => Promise<string>;
   /** What the station fills into the result mechanically before the checks run: a hash, a declaration, never a judgement. */
   complete?: (
     result: Record<string, unknown>,
@@ -130,6 +134,26 @@ export function stationAgent(
     const machine = new Machine(m, structuredClone(state));
     const commit = () => setState(structuredClone(machine.state));
     const seam = seamFor(m.id, id);
+    // the general context (the rework for the local model): fetched at the first delivery and appended as a signal that joins the first response, so the model reads it before its first answer; it stays in the conversation from then on
+    const [prelude, setPrelude] = usePersistentState<string | null>("prelude", null);
+    if (def.context) {
+      useAgentStart(async (ctx) => {
+        if (prelude !== null) return;
+        let text = "";
+        try {
+          text =
+            (await def.context?.(seam, {
+              conversation: id,
+              toolCallId: "prelude",
+              phase: machine.state.phase,
+            })) ?? "";
+        } catch (e) {
+          console.error(`${m.id}: the prelude did not load: ${e instanceof Error ? e.message : String(e)}`);
+        }
+        setPrelude(text);
+        if (text) ctx.append({ kind: "signal", type: "registry", body: text });
+      });
+    }
     // the desk seam (section 9.8): the closed union of typed parts, one data part named `part`, never a desk call
     // one named data part per kind, so a conversation's history keeps the last of each and the live stream sees every write
     const writers = Object.fromEntries(
@@ -169,12 +193,14 @@ export function stationAgent(
         description: t.description,
         input: t.input,
         async run({ data, toolCallId }): Promise<{ output?: JsonValue; terminate?: boolean }> {
-          const open = machine.allowed(t.name, table);
+          const open = machine.reach(t.name, table);
           if (!open.ok) {
             machine.refuse(t.name, open.why);
             commit();
             return { output: { refused: true, why: open.why } };
           }
+          if (open.moved)
+            emit({ kind: "status", phase: open.moved, text: `${t.name} moved the run to ${open.moved}` });
           if (t.completes) {
             const c = complete(data as Record<string, unknown>, t.completes);
             if (!c.ok) {
@@ -212,18 +238,19 @@ export function stationAgent(
       });
     }
 
-    useTool({
-      name: "advance",
-      description: `Move to the next phase. The phases of ${m.id}, in order: ${m.phases.initial}${m.phases.transitions.map((t) => ` then ${t.to}`).join("")}.`,
-      input: v.object({ to: v.string() }),
-      async run({ data }): Promise<{ output?: JsonValue; terminate?: boolean }> {
-        const r = machine.advance(data.to);
-        commit();
-        return {
-          output: (r.ok ? { phase: machine.state.phase } : { refused: true, why: r.why }) as JsonValue,
-        };
-      },
-    });
+    if (def.advance !== false)
+      useTool({
+        name: "advance",
+        description: `Move to the next phase. The phases of ${m.id}, in order: ${m.phases.initial}${m.phases.transitions.map((t) => ` then ${t.to}`).join("")}.`,
+        input: v.object({ to: v.string() }),
+        async run({ data }): Promise<{ output?: JsonValue; terminate?: boolean }> {
+          const r = machine.advance(data.to);
+          commit();
+          return {
+            output: (r.ok ? { phase: machine.state.phase } : { refused: true, why: r.why }) as JsonValue,
+          };
+        },
+      });
 
     useTool({
       name: "settle",
@@ -237,7 +264,7 @@ export function stationAgent(
         sentence: v.string(),
       }),
       async run({ data }): Promise<{ output?: JsonValue; terminate?: boolean }> {
-        const open = machine.allowed("settle", table);
+        const open = machine.reach("settle", table);
         if (!open.ok) {
           machine.refuse("settle", open.why);
           commit();

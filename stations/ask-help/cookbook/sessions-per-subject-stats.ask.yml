@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: Per cohort, the number of subjects and the mean, minimum and maximum number of sessions per subject.
+# synthetic: written for the cookbook, not a gold of the bench
+ast_version: 1
+name: sessions per subject, summarised per cohort
+scheme: default
+sets:
+  scope:    {grain: cohort}
+  everyone: {grain: subject, of: scope}
+  visits:   {grain: session, of: everyone}
+  people:
+    grain: subject
+    of: scope
+    has:
+      - {set: visits, min: 0, as: n_sessions}
+  by_cohort:
+    grain: group
+    group: {of: people, by: [["field", {}, "cohort.id"]]}
+    bind:
+      n:      ["count", {set: people}]
+      mean_n: ["avg", {set: people}, ["field", {}, "n_sessions"]]
+      min_n:  ["min", {set: people}, ["field", {}, "n_sessions"]]
+      max_n:  ["max", {set: people}, ["field", {}, "n_sessions"]]
+keep: [by_cohort]
+out:
+  set: by_cohort
+  level: aggregate
+  columns:
+    - ["field", {}, "cohort.id"]
+    - ["field", {}, "n"]
+    - ["field", {}, "mean_n"]
+    - ["field", {}, "min_n"]
+    - ["field", {}, "max_n"]
+  order: [[["field", {}, "cohort.id"], asc]]

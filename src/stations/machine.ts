@@ -100,6 +100,28 @@ export class Machine {
     this.state.repeats = {};
   }
 
+  /**
+   * The phase a tool needs, reached by one transition the manifest names
+   * (Wave 4c, the rework for the local model): a tool called from the
+   * phase before the one it opens in moves the run there, recorded like an
+   * explicit advance; a tool two phases away, or behind, is still refused.
+   */
+  reach(
+    tool: string,
+    table: Record<string, string[]>,
+  ): { ok: true; moved: string | null } | { ok: false; why: string } {
+    const open = this.allowed(tool, table);
+    if (open.ok) return { ok: true, moved: null };
+    if (this.state.terminal) return open;
+    const phases = table[tool] ?? [];
+    const next = this.manifest.phases.transitions.find(
+      (t) => t.from === this.state.phase && phases.includes(t.to),
+    );
+    if (!next) return open;
+    const moved = this.advance(next.to);
+    return moved.ok ? { ok: true, moved: next.to } : moved;
+  }
+
   /** A move between phases the manifest names; anything else is refused. */
   advance(to: string): { ok: true } | { ok: false; why: string } {
     const t = this.manifest.phases.transitions.find((x) => x.from === this.state.phase && x.to === to);
