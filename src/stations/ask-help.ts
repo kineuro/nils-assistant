@@ -4,11 +4,15 @@
 // operation the grant names, opened by phase; the checks are the five the
 // manifest names; the only write is a document version.
 
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import * as v from "valibot";
 import type { Answer, Seam } from "../seam/client.ts";
 import { toolResult } from "../seam/client.ts";
+import { subjectOfConversation } from "../seam/for.ts";
 import { type StationDefinition, type StationTool, stationAgent } from "./agent.ts";
 import type { Manifest } from "./manifest.ts";
+import { prelude } from "./prelude.ts";
 import type { Check, Verdict } from "./verdict.ts";
 
 const handleOf = (a: Answer): number[] =>
@@ -298,17 +302,53 @@ export async function completeResult(
   return { ...result, document, hash, declaration };
 }
 
+/**
+ * The cookbook: worked examples shipped beside the brief, each a question in
+ * words and the document that answers it, in the YAML the draft tool takes.
+ * They are the loop split of the bench and nothing from the held-out split,
+ * which a test asserts; the model starts from the closest one and changes
+ * only what the words change.
+ */
+export function cookbook(dir: string): { file: string; question: string; text: string }[] {
+  let files: string[] = [];
+  try {
+    files = readdirSync(dir)
+      .filter((f) => f.endsWith(".ask.yml"))
+      .sort();
+  } catch {
+    return [];
+  }
+  return files.map((file) => {
+    const raw = readFileSync(join(dir, file), "utf8");
+    const question = /^# question: (.*)$/mu.exec(raw)?.[1] ?? file;
+    const text = raw
+      .split("\n")
+      .filter((l) => !l.startsWith("# SPDX") && !l.startsWith("# question:"))
+      .join("\n")
+      .trim();
+    return { file, question, text };
+  });
+}
+
+export function renderCookbook(items: { question: string; text: string }[]): string {
+  if (items.length === 0) return "";
+  return `## Worked examples: a question in words, and the document that answers it\n${items
+    .map((c, i) => `### Example ${i + 1}: ${c.question}\n\`\`\`yaml\n${c.text}\n\`\`\``)
+    .join("\n\n")}`;
+}
+
 export function askHelp(manifest: Manifest, brief: string, model: string): ReturnType<typeof stationAgent> {
+  const examples = renderCookbook(cookbook(join(manifest.dir, "cookbook")));
   const def: StationDefinition = {
     manifest,
     brief,
     model,
-    instructions:
-      "You are ask-help. Read the guide, resolve every name against the catalog, shape the smallest document by storing one composed from the closest worked example, refine it by moves, diagnose and preview, then settle with the document's handle and one sentence: the hash and the declaration block are filled in for you from validate and describe. Never SQL, never rows, never a guess at a name.",
+    instructions: `You are ask-help. The registry, the names that exist and the engine's grounding are below; the worked examples show the language. Do this, in order: 1. write the document in YAML, starting from the worked example closest to the question and changing only what the words change, using only names the registry lists; 2. nils_draft it (it repairs what it can and stores it when it validates, else it names what to fix: fix that and draft again); 3. nils_diagnose the stored document and read the funnel; 4. nils_preview it and check the count or the rows look right; 5. settle with the document's handle and one sentence: the hash and the declaration block are filled in for you. Never SQL, never rows in your words, never a name the registry does not list.${examples ? `\n\n${examples}` : ""}`,
     tools: askHelpTools(),
     checks: askHelpChecks(),
     settle: { phases: ["check", "finish"] },
     complete: completeResult,
+    context: (seam, ctx) => prelude(seam, subjectOfConversation(ctx.conversation), ctx),
   };
   return stationAgent(def);
 }

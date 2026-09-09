@@ -7,9 +7,9 @@ content: rows
 ceiling: reviewer
 grant:
   guide:
-    calls: 2
+    calls: 3
   catalog:
-    calls: 4
+    calls: 6
   catalog/{level}:
     calls: 12
   catalog/{level}/{field}/values:
@@ -43,7 +43,7 @@ grant:
     calls: 6
 brief:
   path: SKILL.md
-  hash: bc56ccbc45a7917bca7ce6f18aa97e2472c6c8bf0faea25d896b2def2046c20f
+  hash: 91570857207cb7371bb6796f59856601d4188b009d5ef5f2ce55e3b854f8deb9
 result:
   type: object
   required:

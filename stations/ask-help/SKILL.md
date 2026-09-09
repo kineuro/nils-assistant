@@ -4,34 +4,38 @@ description: Words to a document, or one step of a document tuned. Use when a pe
 ---
 # ask-help
 
-You turn a person's words into an ask document the engine runs, or tune one step of a document the person already has. You never write SQL, never paste rows, never guess a name.
+You turn a person's words into an ask document the engine runs. You never write SQL, never paste rows, never invent a name: every cohort, event kind, axis value and field you use is one the registry lists below.
 
-## The decision point
+## The steps
 
-A question is answered by a document: named sets at a grain (cohort, subject, session, stack, instance, event, group, pair), each set drawn from another (`of`, `from`), filtered (`where`), composed (`has`, `near`, `attach`), picked (`pick`), and one set answered (`out`) at a level (boolean, count, aggregate, record). The engine's guide, fetched live, states the grammar and shows worked examples; read it first.
+1. **Write the document in YAML.** Find the worked example whose question is closest to the person's words and copy it. Change only what the words change: the cohort, the kind, the axis values, the window, the columns, the level. Keep the shape of the example.
+2. **`nils_draft`** the YAML. It repairs small slips and stores the document when it validates, answering its handle and a diagnosis. If it refuses, it names the path and what to fix: fix exactly that and draft again.
+3. **`nils_diagnose`** the stored document. Read the funnel set by set: if a set drops to zero, a name or a value is wrong; fix the YAML and draft again.
+4. **`nils_preview`** it: the count, or ten rows. Check they answer the question.
+5. **`settle`** with the document's handle and one sentence a person reads. The hash and the declaration block are filled in for you.
 
-## The phases, in order
+You do not need to advance phases by hand: a tool moves the run to its phase. `nils_options` and `nils_apply` are for changing one step of a document the person already has.
 
-1. **resolve**: every proper noun in the words is resolved against the catalog before any word is read as a description. A cohort name, a kind of event, an axis value, a field: look each up (`nils_catalog`, the value sampler). A name that resolves to more than one thing becomes a `choice` with the count each would produce; you do not guess.
-2. **shape**: the smallest document that could be right. Take the worked example of the guide that is closest to the words, change only what the words change, and store it with `nils_store` (the whole document as JSON); take the person's base document when there is one; `nils_draft` only for text. Then `nils_describe`: read the sentence per set and the declaration block, and name the six silent decisions before you go on: the grain of the answer, the scope of any comparison, what membership means when a subject is in several cohorts, which identifier namespace keys a row, which stack is kept when a role has more than one candidate, and what a percentage divides by. If one is not decided by the words, decide it, say so in your sentence, and move on; if it changes the answer materially, it is a `choice`.
-3. **refine**: moves over rewrites. `nils_options` on the set you want to change, `nils_apply` a move by its id, `nils_options` again. `nils_draft` only when no move reaches what you need.
-4. **check**: `nils_diagnose` before anything else changes; read the funnel and the drops; then `nils_preview` for ten rows or the count.
-5. **finish**: `settle` with the document handle, its hash, the declaration block, and one sentence a person reads.
+## How the words become a document
 
-## The words
-
-- A **session** is a visit: one subject, one day, under the document's scheme; it is never a study.
-- **In both cohorts** means the subject is a current member of each; **only in** means one and no other.
-- A **window** is days with both ends inclusive; a month is 31 days and a year 366.
-- **At least one** of a thing in a session is `has` with `min: 1`; **one per session** is `pick`.
-- A **percentage** names its denominator in the document, never in the sentence only.
-- A **count per something** (per cohort, per subject) is a set at grain `group`: `{grain: group, group: {of: <set>, by: [["field", {}, "<key>"]]}, bind: {n: ["count", {set: <set>}]}}`, answered at the `aggregate` level. There is no `by` under `out`.
-- A **clause** is always an array: `[op, {options}, ...args]`, the options map present even when empty; a field is `["field", {}, "name"]`, an axis `["axis", {}, "base"]`, a parameter `["param", {}, "name"]`.
-- **settle** takes the document's handle and one sentence; the hash and the declaration block are read from validate and describe for you.
+- **How many** something: `out: {set: <set>, level: count}`.
+- **A table of** something, **list them**: `level: record` with `columns` naming the fields the words ask for, and `order` by the subject's code and the date.
+- **Per cohort**, **per subject**, **for each**: a set at grain `group`: `{grain: group, group: {of: <set>, by: [["field", {}, "<key>"]]}, bind: {n: ["count", {set: <set>}]}}` answered at `level: aggregate`. There is no `by` under `out`.
+- **The most common**, **the mean**: a group with `bind` aggregates (`count`, `avg`, `min`, `max`, `distinct`), ordered by the aggregate.
+- **Cohort A** and **cohort B** are the cohort names the registry lists, in the order they are listed. **In both cohorts** is a subject who is a current member of each; **only in** one is a member of one and no other.
+- **Diagnosed**, **a score**, **a transition**: a set at grain `event` filtered on `["=", {}, ["field", {}, "kind"], "<kind>"]`, drawn from the subjects with `of`.
+- **Within six months of**, **four to five years apart**: `near` with a window `{from, to, unit}`, `policy: nearest`; a month is 31 days, a year 366, both ends inclusive.
+- **At least one** stack or event in a session is `has: [{set: <set>, min: 1}]`; **one per subject** or **per session** is `pick: {per: <grain>, n: 1, by: [[<clause>, asc]]}`.
+- **A 3D FLAIR**, **an MPRAGE**, **T2-weighted**: a set at grain `stack` filtered on axes: `["=", {}, ["axis", {}, "base"], "T2w"]`, `["has", {}, ["axis", {}, "modifier"], "FLAIR"]`, `["=", {}, ["axis", {}, "technique"], "MPRAGE"]`, `["=", {}, ["derived", {}, "acquisition_type"], "3D"]`. An original over a derived is `["=", {}, ["axis", {}, "disposition"], "acquisition"]`.
+- **Resolution** and **thickness** are the stack's `pixel_spacing_row`, `pixel_spacing_col` and `slice_thickness`, or the derived `resolution`.
+- **Age at** something is `["age_at", {}, ["field", {}, "subject.birth_date"], ["field", {}, "date"]]`.
+- A **percentage** names its denominator in the document, never only in the sentence.
+- A **clause** is always an array `[op, {options}, ...args]`, the options map present even when empty: `["field", {}, "name"]`, `["axis", {}, "base"]`, `["param", {}, "cohort"]`, `["count", {set: people}]`.
+- A **session** is a visit: one subject, one day, under `scheme: default`; it is never a study.
 
 ## Refusals
 
 - "That needs a value I may not read here" when the words ask for an identifier at a class this station does not carry.
-- "The name X resolves to more than one thing" and a choice, never a guess.
+- "The name X is not in the registry" when no listed name fits; offer the closest listed names as a `choice`, never guess.
 - "That is a decision, not a document" when the words ask to apply a review decision, adopt, promote, release or reveal: those belong to a person at the desk.
 - "The last run was truncated; I will not cite it" when a handle came back capped.

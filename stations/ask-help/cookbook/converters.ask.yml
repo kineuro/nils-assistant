@@ -1,0 +1,55 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: Split cohort A into converters and non-converters. A converter has a baseline session with a FLAIR at two millimetres or thinner, a score within a year of it, a course transition four to six years after it, and a relapsing course at baseline.
+ast_version: 1
+name: converters and non-converters
+scheme: default
+params:
+  cohort:      {type: cohort, value: ms-cohort-a}
+  disease:     {type: text, value: "Multiple Sclerosis"}
+  from_course: {type: text, value: PPMS}
+  to_course:   {type: text, value: SPMS}
+  score_reach: {type: window, value: {from: -366, to: 366, unit: day}}
+  max_mm:      {type: number, value: 2.0}
+sets:
+  scope:  {grain: cohort,  where: [["=", {}, ["field", {}, "name"], ["param", {}, "cohort"]]]}
+  people:
+    grain: subject
+    of: scope
+    bind:
+      transition: ["change", {of: course, disease: ["param", {}, "disease"], from: ["param", {}, "from_course"], to: ["param", {}, "to_course"], adjacent: true}]
+  edss:   {grain: event, where: [["=", {}, ["field", {}, "kind"], "EDSS"]]}
+  visits:
+    grain: session
+    of: people
+    near: [{as: score, set: edss, window: ["param", {}, "score_reach"], policy: nearest, tie: earlier}]
+  flair:
+    grain: stack
+    of: visits
+    where:
+      - ["=",   {}, ["axis", {}, "base"], "T2w"]
+      - ["has", {}, ["axis", {}, "modifier"], "FLAIR"]
+      - ["<=",  {}, ["field", {}, "slice_thickness"], ["param", {}, "max_mm"]]
+  eligible:
+    grain: session
+    from: visits
+    where: [["not_null", {}, ["field", {}, "score.date"]]]
+    has: [{set: flair, min: 1}]
+  judged:
+    grain: subject
+    from: people
+    bind:
+      n_eligible: ["count", {set: eligible}]
+      converter: ["case", {}, ["and", {}, ["not_null", {}, ["field", {}, "transition"]], [">=", {}, ["field", {}, "n_eligible"], 1]], 1, 0]
+  split:
+    grain: group
+    group: {of: judged, by: [["field", {}, "converter"]]}
+    bind:
+      n: ["count", {set: judged}]
+keep: [split]
+out:
+  set: split
+  level: aggregate
+  columns:
+    - ["field", {}, "converter"]
+    - ["field", {}, "n"]
+  order: [[["field", {}, "converter"], asc]]

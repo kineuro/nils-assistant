@@ -13,6 +13,7 @@ import {
   useAgentFinish,
   useAgentStart,
   useDataWriter,
+  useInstruction,
   useModel,
   usePersistentState,
   useResponseFinish,
@@ -97,6 +98,8 @@ export interface StationDefinition {
   checks: Record<string, Check>;
   /** The phase the settle tool moves to, and the phases it is open in. */
   settle: { phases: string[] };
+  /** The general context of a run (the catalog, the names, the guide), fetched through the seam and carried on every render; the local model reads it instead of paging for it. */
+  context?: (seam: Seam, ctx: { conversation: string; toolCallId: string; phase: string }) => Promise<string>;
   /** What the station fills into the result mechanically before the checks run: a hash, a declaration, never a judgement. */
   complete?: (
     result: Record<string, unknown>,
@@ -130,6 +133,26 @@ export function stationAgent(
     const machine = new Machine(m, structuredClone(state));
     const commit = () => setState(structuredClone(machine.state));
     const seam = seamFor(m.id, id);
+    // the general context (the rework for the local model): fetched at the first delivery, kept in the durable state, appended to every render
+    const [prelude, setPrelude] = usePersistentState<string | null>("prelude", null);
+    if (def.context) {
+      useAgentStart(async () => {
+        if (prelude !== null) return;
+        try {
+          setPrelude(
+            (await def.context?.(seam, {
+              conversation: id,
+              toolCallId: "prelude",
+              phase: machine.state.phase,
+            })) ?? "",
+          );
+        } catch (e) {
+          setPrelude("");
+          console.error(`${m.id}: the prelude did not load: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      });
+      if (prelude) useInstruction(prelude);
+    }
     // the desk seam (section 9.8): the closed union of typed parts, one data part named `part`, never a desk call
     // one named data part per kind, so a conversation's history keeps the last of each and the live stream sees every write
     const writers = Object.fromEntries(
@@ -169,12 +192,14 @@ export function stationAgent(
         description: t.description,
         input: t.input,
         async run({ data, toolCallId }): Promise<{ output?: JsonValue; terminate?: boolean }> {
-          const open = machine.allowed(t.name, table);
+          const open = machine.reach(t.name, table);
           if (!open.ok) {
             machine.refuse(t.name, open.why);
             commit();
             return { output: { refused: true, why: open.why } };
           }
+          if (open.moved)
+            emit({ kind: "status", phase: open.moved, text: `${t.name} moved the run to ${open.moved}` });
           if (t.completes) {
             const c = complete(data as Record<string, unknown>, t.completes);
             if (!c.ok) {
@@ -237,7 +262,7 @@ export function stationAgent(
         sentence: v.string(),
       }),
       async run({ data }): Promise<{ output?: JsonValue; terminate?: boolean }> {
-        const open = machine.allowed("settle", table);
+        const open = machine.reach("settle", table);
         if (!open.ok) {
           machine.refuse("settle", open.why);
           commit();

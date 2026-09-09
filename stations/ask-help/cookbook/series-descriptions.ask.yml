@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: A table of the distinct series descriptions of the sessions of cohort A.
+ast_version: 1
+name: series descriptions of a cohort
+scheme: default
+params:
+  cohort: {type: cohort, value: ms-cohort-a}
+sets:
+  scope:  {grain: cohort,  where: [["=", {}, ["field", {}, "name"], ["param", {}, "cohort"]]]}
+  people: {grain: subject, of: scope}
+  visits: {grain: session, of: people}
+  stacks: {grain: stack, of: visits}
+  by_text:
+    grain: group
+    group: {of: stacks, by: [["field", {}, "text_series_description"]]}
+    bind:
+      n_sessions: ["distinct", {set: stacks}, ["field", {}, "session.id"]]
+keep: [by_text]
+out:
+  set: by_text
+  level: aggregate
+  columns:
+    - ["field", {}, "text_series_description"]
+    - ["field", {}, "n_sessions"]
+  order: [[["field", {}, "text_series_description"], asc]]

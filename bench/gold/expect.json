@@ -5,7 +5,7 @@
     "row_count": 2,
     "truncated": false,
     "columns": ["_key", "_subject", "cohort.id", "n"],
-    "epoch": 2,
+    "epoch": 1,
     "pack": "mri 0.1.1",
     "declaration": {
       "grain": "group",
@@ -27,7 +27,7 @@
     "row_count": 1,
     "truncated": false,
     "columns": ["rows", "subjects"],
-    "epoch": 2,
+    "epoch": 1,
     "pack": "mri 0.1.1",
     "declaration": {
       "grain": "group",
@@ -49,7 +49,7 @@
     "row_count": 7,
     "truncated": false,
     "columns": ["_key", "_subject", "code", "sex", "birth_date", "n_cohorts"],
-    "epoch": 2,
+    "epoch": 1,
     "pack": "mri 0.1.1",
     "declaration": {
       "grain": "group",
@@ -71,7 +71,7 @@
     "row_count": 268,
     "truncated": false,
     "columns": ["_key", "_subject", "subject.code", "session.first", "id", "text_series_description", "acq"],
-    "epoch": 2,
+    "epoch": 1,
     "pack": "mri 0.1.1",
     "declaration": {
       "grain": "stack",
@@ -93,7 +93,7 @@
     "row_count": 1,
     "truncated": false,
     "columns": ["rows", "subjects"],
-    "epoch": 2,
+    "epoch": 1,
     "pack": "mri 0.1.1",
     "declaration": {
       "grain": "session",
@@ -115,7 +115,7 @@
     "row_count": 2,
     "truncated": false,
     "columns": ["_key", "_subject", "converter", "n"],
-    "epoch": 2,
+    "epoch": 1,
     "pack": "mri 0.1.1",
     "declaration": {
       "grain": "group",
@@ -148,7 +148,7 @@
       "max_age",
       "stddev.age"
     ],
-    "epoch": 2,
+    "epoch": 1,
     "pack": "mri 0.1.1",
     "declaration": {
       "grain": "group",
@@ -170,7 +170,7 @@
     "row_count": 8,
     "truncated": false,
     "columns": ["_key", "_subject", "subject.code", "first", "dx.date", "dx.offset_days"],
-    "epoch": 2,
+    "epoch": 1,
     "pack": "mri 0.1.1",
     "declaration": {
       "grain": "session",
@@ -192,7 +192,7 @@
     "row_count": 3,
     "truncated": false,
     "columns": ["_key", "_subject", "code", "n_sessions"],
-    "epoch": 2,
+    "epoch": 1,
     "pack": "mri 0.1.1",
     "declaration": {
       "grain": "subject",
@@ -214,7 +214,7 @@
     "row_count": 0,
     "truncated": false,
     "columns": ["_key", "_subject", "code", "cohort.id", "birth_date"],
-    "epoch": 2,
+    "epoch": 1,
     "pack": "mri 0.1.1",
     "declaration": {
       "grain": "subject",
@@ -236,7 +236,7 @@
     "row_count": 144,
     "truncated": false,
     "columns": ["_key", "_subject", "subject.code", "session.first", "id", "n_instances", "pick.tied"],
-    "epoch": 2,
+    "epoch": 1,
     "pack": "mri 0.1.1",
     "declaration": {
       "grain": "stack",
@@ -258,7 +258,7 @@
     "row_count": 2,
     "truncated": false,
     "columns": ["_key", "_subject", "sig", "n_sessions"],
-    "epoch": 2,
+    "epoch": 1,
     "pack": "mri 0.1.1",
     "declaration": {
       "grain": "group",
@@ -280,7 +280,7 @@
     "row_count": 9,
     "truncated": false,
     "columns": ["_key", "_subject", "text_series_description", "n_sessions"],
-    "epoch": 2,
+    "epoch": 1,
     "pack": "mri 0.1.1",
     "declaration": {
       "grain": "group",
@@ -312,7 +312,7 @@
       "later.score.number",
       "pick.tied"
     ],
-    "epoch": 2,
+    "epoch": 1,
     "pack": "mri 0.1.1",
     "declaration": {
       "grain": "session",
@@ -334,7 +334,7 @@
     "row_count": 124,
     "truncated": false,
     "columns": ["_key", "_subject", "subject.code", "first"],
-    "epoch": 2,
+    "epoch": 1,
     "pack": "mri 0.1.1",
     "declaration": {
       "grain": "session",
@@ -356,7 +356,7 @@
     "row_count": 1,
     "truncated": false,
     "columns": ["_key", "_subject", "res", "n"],
-    "epoch": 2,
+    "epoch": 1,
     "pack": "mri 0.1.1",
     "declaration": {
       "grain": "group",
@@ -378,7 +378,7 @@
     "row_count": 2,
     "truncated": false,
     "columns": ["_key", "_subject", "id", "n_instances", "orientation"],
-    "epoch": 2,
+    "epoch": 1,
     "pack": "mri 0.1.1",
     "declaration": {
       "grain": "stack",
@@ -400,7 +400,7 @@
     "row_count": 2,
     "truncated": false,
     "columns": ["_key", "_subject", "subject.code", "first", "age"],
-    "epoch": 2,
+    "epoch": 1,
     "pack": "mri 0.1.1",
     "declaration": {
       "grain": "session",

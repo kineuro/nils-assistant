@@ -116,3 +116,72 @@ describe("ask-help", () => {
     expect(await checks.no_truncated_handle(v9, { seam })).toMatch(/truncated/u);
   });
 });
+
+describe("the cookbook and the implicit phase moves (the rework for the local model)", async () => {
+  const { createHash } = await import("node:crypto");
+  const { readFileSync, readdirSync } = await import("node:fs");
+  const { cookbook, renderCookbook } = await import("../src/stations/ask-help.ts");
+  const { split } = await import("../bench/manifest/split.ts");
+  const { parse } = await import("yaml");
+  const { Machine, initialState } = await import("../src/stations/machine.ts");
+  const { loadManifests } = await import("../src/stations/manifest.ts");
+
+  it("holds only golds of the loop split, never one of the held-out split", () => {
+    const shapes = (
+      parse(readFileSync("bench/corpus/shapes.yml", "utf8")) as {
+        shapes: { id: string; rebased: { gold?: string } }[];
+      }
+    ).shapes;
+    const { loop, held_out } = split(shapes);
+    const body = (text: string) =>
+      createHash("sha256")
+        .update(
+          text
+            .split("\n")
+            .filter((l) => !l.startsWith("#"))
+            .join("\n")
+            .trim(),
+        )
+        .digest("hex");
+    const goldOf = (id: string) => shapes.find((s) => s.id === id)?.rebased.gold;
+    const loopHashes = new Set(
+      loop.flatMap((s) => (goldOf(s.id) ? [body(readFileSync(`bench/gold/${goldOf(s.id)}`, "utf8"))] : [])),
+    );
+    const heldHashes = new Set(
+      held_out.flatMap((s) =>
+        goldOf(s.id) ? [body(readFileSync(`bench/gold/${goldOf(s.id)}`, "utf8"))] : [],
+      ),
+    );
+    const files = readdirSync("stations/ask-help/cookbook").filter((f) => f.endsWith(".ask.yml"));
+    expect(files.length).toBeGreaterThan(5);
+    for (const f of files) {
+      const h = body(readFileSync(`stations/ask-help/cookbook/${f}`, "utf8"));
+      expect(heldHashes.has(h), `${f} is a held-out gold`).toBe(false);
+      expect(loopHashes.has(h), `${f} is not a loop gold`).toBe(true);
+    }
+    const items = cookbook("stations/ask-help/cookbook");
+    expect(items.every((c) => c.question.length > 10 && c.text.includes("ast_version"))).toBe(true);
+    expect(renderCookbook(items)).toContain("### Example 1:");
+  });
+
+  it("moves the run to a tool's phase by one transition, and refuses a tool two phases away", () => {
+    const m = loadManifests(["./stations"]).get("ask-help");
+    if (!m) throw new Error("no ask-help manifest");
+    const table: Record<string, string[]> = {
+      nils_draft: ["shape", "refine"],
+      nils_diagnose: ["check"],
+      settle: ["check", "finish"],
+    };
+    const mach = new Machine(m, initialState(m, 0), () => 1000);
+    expect(mach.state.phase).toBe("resolve");
+    expect(mach.reach("nils_draft", table)).toEqual({ ok: true, moved: "shape" });
+    expect(mach.state.phase).toBe("shape");
+    expect(mach.reach("nils_draft", table)).toEqual({ ok: true, moved: null });
+    expect(mach.reach("nils_diagnose", table)).toEqual({ ok: true, moved: "check" });
+    expect(mach.reach("settle", table)).toEqual({ ok: true, moved: null });
+    const fresh = new Machine(m, initialState(m, 0), () => 1000);
+    const r = fresh.reach("nils_diagnose", table);
+    expect(r.ok).toBe(false);
+    expect(fresh.state.phase).toBe("resolve");
+  });
+});
