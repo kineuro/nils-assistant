@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: How many sessions have a series described as dark-fluid?
+ast_version: 1
+name: sessions with a dark-fluid series
+scheme: default
+sets:
+  scope:  {grain: cohort}
+  people: {grain: subject, of: scope}
+  visits: {grain: session, of: people}
+  dark:
+    grain: stack
+    of: visits
+    where: [["contains", {}, ["field", {}, "text_series_description"], "dark-fluid"]]
+  found:
+    grain: session
+    from: visits
+    has: [{set: dark, min: 1}]
+keep: [found]
+out: {set: found, level: count}

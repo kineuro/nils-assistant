@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: Which sessions have a T2-weighted TSE but no FLAIR? Show the subject and the session date.
+ast_version: 1
+name: sessions with a TSE and no FLAIR
+scheme: default
+sets:
+  scope:  {grain: cohort}
+  people: {grain: subject, of: scope}
+  visits: {grain: session, of: people}
+  tse:
+    grain: stack
+    of: visits
+    where:
+      - ["=", {}, ["axis", {}, "base"], "T2w"]
+      - ["=", {}, ["axis", {}, "technique"], "TSE"]
+  flair:  {grain: stack, of: visits, where: [["has", {}, ["axis", {}, "modifier"], "FLAIR"]]}
+  found:
+    grain: session
+    from: visits
+    has: [{set: tse, min: 1}, {set: flair, max: 0}]
+keep: [found]
+out:
+  set: found
+  level: record
+  columns: [["field", {}, "subject.code"], ["field", {}, "first"]]
+  order: [[["field", {}, "subject.code"], asc], [["field", {}, "first"], asc]]

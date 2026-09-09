@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: How many sessions does cohort A have in total?
+ast_version: 1
+name: the sessions of cohort A
+scheme: default
+sets:
+  scope:  {grain: cohort, where: [["=", {}, ["field", {}, "name"], "ms-cohort-a"]]}
+  people: {grain: subject, of: scope}
+  visits: {grain: session, of: people}
+keep: [visits]
+out: {set: visits, level: count}

@@ -59,11 +59,36 @@ async function json(url: string, init?: RequestInit): Promise<Record<string, unk
   return (await r.json()) as Record<string, unknown>;
 }
 
-/** One turn of a conversation through the headless door; the settled document, or null with the terminal reason. */
+/** The tool calls a conversation has made so far, from its history: the count and the refused ones. */
+async function calls(conversation: string): Promise<{ tool_calls: number; refused: number }> {
+  const h = (await json(`${host}/agents/ask-help/${conversation}?view=history`).catch(() => null)) as {
+    messages?: { role?: string; parts?: { type?: string; output?: unknown }[] }[];
+  } | null;
+  let tool_calls = 0;
+  let refused = 0;
+  for (const m of h?.messages ?? []) {
+    if (m.role !== "assistant") continue;
+    for (const p of m.parts ?? []) {
+      if (p.type !== "dynamic-tool") continue;
+      tool_calls++;
+      if ((p.output as { refused?: boolean } | undefined)?.refused === true) refused++;
+    }
+  }
+  return { tool_calls, refused };
+}
+
+/** One turn of a conversation through the headless door; the settled document, or null with the terminal reason, and the calls the turn took. */
 async function turn(
   conversation: string,
   message: string,
-): Promise<{ document: number | null; terminal: string; seconds: number }> {
+): Promise<{
+  document: number | null;
+  terminal: string;
+  seconds: number;
+  tool_calls: number;
+  refused: number;
+}> {
+  const before = await calls(conversation);
   const started = Date.now();
   const run = await json(`${host}/stations/ask-help/runs`, {
     method: "POST",
@@ -81,10 +106,13 @@ async function turn(
   const verdict = (await json(`${host}/runs/${run.run}/verdict`).catch(() => ({}))) as {
     result?: { document?: number };
   };
+  const after = await calls(conversation);
   return {
     document: verdict.result?.document ?? null,
     terminal,
     seconds: Math.round((Date.now() - started) / 1000),
+    tool_calls: after.tool_calls - before.tool_calls,
+    refused: after.refused - before.refused,
   };
 }
 
@@ -162,6 +190,8 @@ for (const c of chains) {
     document: number | null;
     terminal: string;
     seconds: number;
+    tool_calls: number;
+    refused: number;
     matched: boolean;
   }[] = [];
   const check = async (document: number | null): Promise<boolean> => {
@@ -179,7 +209,7 @@ for (const c of chains) {
     matched = await check(r.document);
     sent.push({ kind: "opening", text: opening.text, ...r, matched });
     console.log(
-      `${c.id} opening: ${r.document === null ? `no document (${r.terminal})` : `document ${r.document}`} [${r.seconds} s]${matched ? " reached" : ""}`,
+      `${c.id} opening: ${r.document === null ? `no document (${r.terminal})` : `document ${r.document}`} [${r.seconds} s, ${r.tool_calls} calls]${matched ? " reached" : ""}`,
     );
     if (!matched) {
       for (const t of c.turns.filter((t) => t.kind === "correction")) {
@@ -188,7 +218,7 @@ for (const c of chains) {
         matched = await check(r2.document);
         sent.push({ kind: t.kind, text: t.text, ...r2, matched });
         console.log(
-          `${c.id} correction ${corrections}: ${r2.document === null ? `no document (${r2.terminal})` : `document ${r2.document}`} [${r2.seconds} s]${matched ? " reached" : ""}`,
+          `${c.id} correction ${corrections}: ${r2.document === null ? `no document (${r2.terminal})` : `document ${r2.document}`} [${r2.seconds} s, ${r2.tool_calls} calls]${matched ? " reached" : ""}`,
         );
         if (matched) break;
       }
@@ -202,7 +232,7 @@ for (const c of chains) {
     if (r.document !== null) held++;
     sent.push({ kind: t.kind, text: t.text, ...r, matched: false });
     console.log(
-      `${c.id} addition: ${r.document === null ? `no document (${r.terminal})` : `document ${r.document}`} [${r.seconds} s]`,
+      `${c.id} addition: ${r.document === null ? `no document (${r.terminal})` : `document ${r.document}`} [${r.seconds} s, ${r.tool_calls} calls]`,
     );
   }
   console.log(
@@ -232,6 +262,7 @@ if (stableShape?.rebased.gold && expect[stableShape.rebased.gold]?.content_hash)
     row_count: number;
     digest: string | null;
     seconds: number;
+    tool_calls: number;
   }[] = [];
   for (let i = 0; i < times; i++) {
     const r = await turn(
@@ -246,9 +277,10 @@ if (stableShape?.rebased.gold && expect[stableShape.rebased.gold]?.content_hash)
       row_count: ran?.row_count ?? -1,
       digest: ran?.digest ?? null,
       seconds: r.seconds,
+      tool_calls: r.tool_calls,
     });
     console.log(
-      `${stableId} run ${i + 1}: ${r.document === null ? `no document (${r.terminal})` : `document ${r.document}, ${ran?.row_count} rows, digest ${ran?.digest ?? "none"}`} [${r.seconds} s]`,
+      `${stableId} run ${i + 1}: ${r.document === null ? `no document (${r.terminal})` : `document ${r.document}, ${ran?.row_count} rows, digest ${ran?.digest ?? "none"}`} [${r.seconds} s, ${r.tool_calls} calls]`,
     );
   }
   const hashes = new Set(runs.map((r) => r.content_hash).filter(Boolean));

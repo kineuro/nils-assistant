@@ -145,6 +145,11 @@ export function catalogOf(key: string): Catalog | null {
   return catalogs.get(key) ?? null;
 }
 
+/** The prelude text already fetched for a person, when it was: a render reads it without a call, so it can sit in the instructions and stay the same across turns and conversations. */
+export function preludeOf(key: string): string | null {
+  return cache.get(key) ?? null;
+}
+
 /**
  * The prelude of one run: the catalog and the guide through the seam, cached
  * per epoch and person for the process's life. Two calls of the grant on
@@ -180,6 +185,16 @@ export async function prelude(
     catalogs.set(key, cat.body as Catalog);
   }
   return text;
+}
+
+/** Warm the prelude for a person before their first turn, so the first render finds it; a failure is logged and the render falls back to a signal. */
+export async function warmPrelude(seam: Seam, key: string): Promise<void> {
+  if (cache.has(key)) return;
+  try {
+    await prelude(seam, key, { toolCallId: "prelude", phase: "resolve" });
+  } catch (e) {
+    console.error(`the prelude did not warm: ${e instanceof Error ? e.message : String(e)}`);
+  }
 }
 
 export function forgetPrelude(): void {

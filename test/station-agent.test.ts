@@ -159,7 +159,8 @@ describe("a station on Flue", () => {
   it("settles only through settle, once the checks pass, with proposals from the closed set", async () => {
     const h = init(Settle, { id: "run-settle" });
     const reply = await h.read(await h.dispatch("go"));
-    expect(reply.text).toBe("done");
+    // the settle ends the response: no further model turn, so no text after it (the instructions no longer change with the phase, which used to buy one)
+    expect(reply.metadata).toMatchObject({ terminal: "settled" });
     const outputs = recorded("run-settle");
     expect(outputs.some((o) => /not a proposal this station may make/u.test(o))).toBe(true);
     expect(outputs.some((o) => /the count is not positive/u.test(o))).toBe(true);

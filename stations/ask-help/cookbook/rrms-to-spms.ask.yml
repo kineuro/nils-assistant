@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: List the subjects who converted from RRMS to SPMS, with the date of the transition.
+ast_version: 1
+name: converters from RRMS to SPMS
+scheme: default
+sets:
+  scope: {grain: cohort}
+  people:
+    grain: subject
+    of: scope
+    bind:
+      transition: ["change", {of: course, disease: "Multiple Sclerosis", from: RRMS, to: SPMS, adjacent: true}]
+    where: [["not_null", {}, ["field", {}, "transition.to_date"]]]
+keep: [people]
+out:
+  set: people
+  level: record
+  columns: [["field", {}, "code"], ["field", {}, "transition.to_date"]]
+  order: [[["field", {}, "code"], asc]]

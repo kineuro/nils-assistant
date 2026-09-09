@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: How many subjects were diagnosed before the age of 30?
+ast_version: 1
+name: diagnosed before thirty
+scheme: default
+sets:
+  scope:  {grain: cohort}
+  people: {grain: subject, of: scope}
+  dx:
+    grain: event
+    of: people
+    where: [["=", {}, ["field", {}, "kind"], "Diagnosis"]]
+    bind: {age_dx: ["age_at", {}, ["field", {}, "subject.birth_date"], ["field", {}, "date"]]}
+  early:
+    grain: event
+    from: dx
+    where: [["<", {}, ["field", {}, "age_dx"], 30]]
+  found:
+    grain: subject
+    from: people
+    has: [{set: early, min: 1}]
+keep: [found]
+out: {set: found, level: count}

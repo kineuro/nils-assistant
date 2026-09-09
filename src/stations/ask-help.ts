@@ -14,6 +14,7 @@ import { subjectOfConversation } from "../seam/for.ts";
 import { type StationDefinition, type StationTool, stationAgent } from "./agent.ts";
 import type { Manifest } from "./manifest.ts";
 import { catalogOf, prelude } from "./prelude.ts";
+import { closest } from "./select.ts";
 import type { Check, Verdict } from "./verdict.ts";
 
 const handleOf = (a: Answer): number[] =>
@@ -25,7 +26,32 @@ const documentOf = (a: Answer): number[] =>
     ? [(a.body as { document: number }).document]
     : [];
 
-/** The tools of ask-help: each names the door it dials and the phases it opens in. */
+/** The preview compacted for a small model: the level, the columns and the first rows without the technical columns, never the declaration block. */
+export function compactPreview(body: unknown): JsonValue {
+  const b = body as {
+    level?: string;
+    columns?: (string | { name: string })[];
+    rows?: unknown[][];
+    truncated?: boolean;
+  };
+  const cols = (b.columns ?? []).map((c) => (typeof c === "string" ? c : c.name));
+  const keep = cols.map((c) => !c.startsWith("_"));
+  return {
+    level: b.level ?? null,
+    columns: cols.filter((_, i) => keep[i]),
+    rows: (b.rows ?? []).slice(0, 10).map((r) => (Array.isArray(r) ? r.filter((_, i) => keep[i]) : r)),
+    truncated: b.truncated ?? false,
+  } as JsonValue;
+}
+
+/**
+ * The tools of ask-help, five and no more (the refinement for the local
+ * model): one draft that answers the handle, the diagnosis and a preview at
+ * once, the value sampler, the stored document, and the two doors a
+ * follow-up may still want on their own. The guide and the catalog are in
+ * the instructions; options, apply, diff, validate and describe stay doors
+ * of the seam for the checks and the settle, never a choice the model makes.
+ */
 export function askHelpTools(): StationTool[] {
   const door = (
     name: string,
@@ -33,14 +59,13 @@ export function askHelpTools(): StationTool[] {
     input: v.GenericSchema<Record<string, unknown>, unknown>,
     phases: string[],
     dial: (seam: Seam, args: Record<string, unknown>, toolCallId: string, phase: string) => Promise<Answer>,
-    opts: { salient?: string[]; completes?: string } = {},
+    opts: { salient?: string[] } = {},
   ): StationTool => ({
     name,
     description,
     input,
     phases,
     salient: opts.salient,
-    completes: opts.completes,
     async run(args, ctx) {
       const a = await dial(ctx.seam, args, ctx.toolCallId, ctx.state.phase);
       return { output: toolResult(a).output, evidence: { handles: handleOf(a), documents: documentOf(a) } };
@@ -53,33 +78,42 @@ export function askHelpTools(): StationTool[] {
   const withDoc = (args: Record<string, unknown>) =>
     args.document_id !== undefined ? { document_id: args.document_id } : { document: args.document };
   return [
-    door(
-      "nils_guide",
-      "The rules a document obeys, two worked examples and the schema digest. Read it first.",
-      v.object({}),
-      ["resolve", "shape", "refine", "check"],
-      (s, _a, id, phase) => s.door("/api/ask/guide", "GET", undefined, { toolCallId: id, phase }),
-    ),
-    door(
-      "nils_catalog",
-      "What the registry holds at one level: its fields, or every level when absent.",
-      v.object({ level: v.optional(v.string()) }),
-      ["resolve", "shape", "refine"],
-      (s, a, id, phase) =>
-        a.level
-          ? s.call({
-              method: "GET",
-              path: `/api/ask/catalog/${encodeURIComponent(String(a.level))}`,
-              toolCallId: id,
-              phase,
-            })
-          : s.door("/api/ask/catalog", "GET", undefined, { toolCallId: id, phase }),
-      { salient: ["level"] },
-    ),
+    {
+      name: "nils_draft",
+      description:
+        "Store a whole document written as YAML. It is repaired where it can be and stored when it validates, and the answer carries three things: the document's handle, its diagnosis (the funnel set by set) and a preview (the count, or the first rows). A refused draft names the path and the issue: fix exactly that and draft again.",
+      input: v.object({ text: v.string() }),
+      phases: ["shape", "refine"],
+      async run(args, ctx) {
+        const drafted = await ctx.seam.door(
+          "/api/ask/draft",
+          "POST",
+          { text: args.text },
+          { toolCallId: ctx.toolCallId, phase: ctx.state.phase },
+        );
+        const output = toolResult(drafted).output;
+        const documents = documentOf(drafted);
+        if (documents.length === 0) return { output, evidence: { handles: [], documents } };
+        const previewed = await ctx.seam.door(
+          "/api/ask/preview",
+          "POST",
+          { document_id: documents[0], rows: 10 },
+          { toolCallId: `${ctx.toolCallId}-preview`, phase: ctx.state.phase, rows: 10 },
+        );
+        const preview: JsonValue =
+          previewed.kind === "ok"
+            ? compactPreview(previewed.body)
+            : { unavailable: previewed.kind === "blocked" ? previewed.reason : previewed.kind };
+        return {
+          output: { ...(output as Record<string, JsonValue>), preview },
+          evidence: { handles: handleOf(previewed), documents },
+        };
+      },
+    },
     {
       name: "nils_values",
       description:
-        "A sample of what a field holds at a level, under your own scope: resolve a value here before you use it. An axis (base, technique, modifier, and the others the registry lists) is not a field: its values are answered from the registry as listed.",
+        "A sample of what one field holds at a level, under your own scope. An axis (base, technique, modifier, and the others the registry lists) is not a field: its values are answered from the registry as listed.",
       input: v.object({ level: v.string(), field: v.string(), limit: v.optional(v.number()) }),
       phases: ["resolve", "shape", "refine"],
       salient: ["level", "field"],
@@ -105,82 +139,17 @@ export function askHelpTools(): StationTool[] {
       },
     },
     door(
-      "nils_store",
-      "Store a whole document you composed, as JSON, and get its handle; a document that does not validate is refused with its issues. Start from the closest worked example and change only what the words change.",
-      v.object({ document: v.record(v.string(), v.unknown()) }),
-      ["shape", "refine"],
+      "nils_document",
+      "A stored document by its handle, with its parent: the base of a follow-up.",
+      v.object({ document_id: v.number() }),
+      ["resolve", "shape", "refine", "check"],
       (s, a, id, phase) =>
-        s.door("/api/ask/documents", "POST", { document: a.document }, { toolCallId: id, phase }),
-    ),
-    door(
-      "nils_draft",
-      "A whole document as text (YAML or JSON) when you start from words or no move reaches what you need; repaired where it can be, stored when it validates, else its diagnosis.",
-      v.object({ text: v.string() }),
-      ["shape", "refine"],
-      (s, a, id, phase) => s.door("/api/ask/draft", "POST", { text: a.text }, { toolCallId: id, phase }),
-    ),
-    door(
-      "nils_validate",
-      "Validate a document strictly: its hash, or the issues.",
-      v.object({ ...doc, mode: v.optional(v.picklist(["strict", "repair"])) }),
-      ["shape", "refine", "check"],
-      (s, a, id, phase) =>
-        s.door(
-          "/api/ask/validate",
-          "POST",
-          { ...withDoc(a), mode: a.mode ?? "strict" },
-          { toolCallId: id, phase },
-        ),
+        s.call({ method: "GET", path: `/api/ask/documents/${Number(a.document_id)}`, toolCallId: id, phase }),
       { salient: ["document_id"] },
-    ),
-    door(
-      "nils_describe",
-      "One sentence per set, the conventions, and the declaration block: the six decisions the document takes.",
-      v.object(doc),
-      ["shape", "refine", "check"],
-      (s, a, id, phase) => s.door("/api/ask/describe", "POST", withDoc(a), { toolCallId: id, phase }),
-      { salient: ["document_id"] },
-    ),
-    door(
-      "nils_options",
-      "The typed moves one set may take, with stable ids and legal fillers; apply by id, never by rewriting.",
-      v.object({ document_id: v.number(), set: v.string() }),
-      ["refine"],
-      (s, a, id, phase) =>
-        s.door(
-          "/api/ask/options",
-          "POST",
-          { document_id: a.document_id, set: a.set },
-          { toolCallId: id, phase },
-        ),
-      { salient: ["document_id", "set"] },
-    ),
-    door(
-      "nils_apply",
-      "Apply moves by id to a stored document, atomically, against the token options answered; a new document handle comes back. items counts the moves.",
-      v.object({
-        document_id: v.number(),
-        epoch: v.number(),
-        token: v.string(),
-        set: v.string(),
-        moves: v.array(
-          v.object({ move_id: v.number(), args: v.optional(v.record(v.string(), v.unknown())) }),
-        ),
-        items: v.number(),
-      }),
-      ["refine"],
-      (s, a, id, phase) =>
-        s.door(
-          "/api/ask/apply",
-          "POST",
-          { document_id: a.document_id, epoch: a.epoch, token: a.token, set: a.set, moves: a.moves },
-          { toolCallId: id, phase },
-        ),
-      { salient: ["document_id", "set", "moves"], completes: "moves" },
     ),
     door(
       "nils_diagnose",
-      "Why a document answers as it does: the funnel set by set, the drops, the ties, a zero-row explanation. Before anything changes.",
+      "Why a stored document answers as it does: the funnel set by set, the drops, the ties, a zero-row explanation. The draft already answered this for the document it stored.",
       v.object(doc),
       ["check", "refine"],
       (s, a, id, phase) => s.door("/api/ask/diagnose", "POST", withDoc(a), { toolCallId: id, phase }),
@@ -188,7 +157,7 @@ export function askHelpTools(): StationTool[] {
     ),
     door(
       "nils_preview",
-      "Ten rows of the answer, or the count, by the document's level.",
+      "Ten rows of a stored document's answer, or its count. The draft already answered this for the document it stored.",
       v.object({ ...doc, rows: v.optional(v.number()) }),
       ["check"],
       (s, a, id, phase) =>
@@ -198,28 +167,6 @@ export function askHelpTools(): StationTool[] {
           { ...withDoc(a), rows: Math.min(10, Number(a.rows ?? 10)) },
           { toolCallId: id, phase, rows: 10 },
         ),
-      { salient: ["document_id"] },
-    ),
-    door(
-      "nils_diff",
-      "One diff over the canonical form of two documents, by id.",
-      v.object({ a: v.number(), b: v.number() }),
-      ["refine", "check"],
-      (s, a, id, phase) =>
-        s.door(
-          "/api/ask/diff",
-          "POST",
-          { a: { document_id: a.a }, b: { document_id: a.b } },
-          { toolCallId: id, phase },
-        ),
-    ),
-    door(
-      "nils_document",
-      "A stored document by its handle, with its parent.",
-      v.object({ document_id: v.number() }),
-      ["resolve", "shape", "refine", "check"],
-      (s, a, id, phase) =>
-        s.call({ method: "GET", path: `/api/ask/documents/${Number(a.document_id)}`, toolCallId: id, phase }),
       { salient: ["document_id"] },
     ),
   ];
@@ -344,26 +291,37 @@ export function cookbook(dir: string): { file: string; question: string; text: s
   });
 }
 
-export function renderCookbook(items: { question: string; text: string }[]): string {
+export function renderCookbook(
+  items: { question: string; text: string }[],
+  title = "Worked examples: a question in words, and the document that answers it",
+): string {
   if (items.length === 0) return "";
-  return `## Worked examples: a question in words, and the document that answers it\n${items
+  return `## ${title}\n${items
     .map((c, i) => `### Example ${i + 1}: ${c.question}\n\`\`\`yaml\n${c.text}\n\`\`\``)
     .join("\n\n")}`;
 }
 
 export function askHelp(manifest: Manifest, brief: string, model: string): ReturnType<typeof stationAgent> {
-  const examples = renderCookbook(cookbook(join(manifest.dir, "cookbook")));
+  const items = cookbook(join(manifest.dir, "cookbook"));
   const def: StationDefinition = {
     manifest,
     brief,
     model,
-    instructions: `You are ask-help. The registry, the names that exist and the engine's grounding are below; the worked examples show the language. Do this, in order: 1. write the document in YAML, starting from the worked example closest to the question and changing only what the words change, using only names the registry lists; 2. nils_draft it (it repairs what it can and stores it when it validates, else it names what to fix: fix that and draft again); 3. nils_diagnose the stored document and read the funnel; 4. nils_preview it and check the count or the rows look right; 5. settle with the document's handle and one sentence: the hash and the declaration block are filled in for you. Never SQL, never rows in your words, never a name the registry does not list.${examples ? `\n\n${examples}` : ""}`,
+    instructions:
+      "You are ask-help. Your brief follows, then the registry: its grains, the fields of each level, the axes and their values, the event kinds, the cohorts, the derived fields, and the engine's grounding. The worked examples closest to the question arrive with the question. Never SQL, never rows in your words, never a name the registry does not list.",
     tools: askHelpTools(),
     checks: askHelpChecks(),
     settle: { phases: ["check", "finish"] },
     advance: false,
+    briefInline: true,
     complete: completeResult,
     context: (seam, ctx) => prelude(seam, subjectOfConversation(ctx.conversation), ctx),
+    // the small-model selector: the four examples closest to the words, with the question, never the whole cookbook
+    examples: (message) =>
+      renderCookbook(
+        closest(message, items, 4),
+        "The worked examples closest to this question, the closest first: start from it",
+      ),
   };
   return stationAgent(def);
 }

@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: Which sessions took place within three months after an SP transition? Show the subject, the session date and the transition date.
+ast_version: 1
+name: sessions within three months after an SP transition
+scheme: default
+sets:
+  scope:  {grain: cohort}
+  people: {grain: subject, of: scope}
+  trans:  {grain: event, where: [["=", {}, ["field", {}, "kind"], "SP Transition"]]}
+  visits:
+    grain: session
+    of: people
+    near: [{as: t, set: trans, window: {from: -3, to: 0, unit: month}, policy: nearest, tie: earlier}]
+keep: [visits]
+out:
+  set: visits
+  level: record
+  columns: [["field", {}, "subject.code"], ["field", {}, "first"], ["field", {}, "t.date"]]
+  order: [[["field", {}, "subject.code"], asc], [["field", {}, "first"], asc]]

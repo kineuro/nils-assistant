@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: Which subjects have ever had an EDSS of 6 or more?
+ast_version: 1
+name: subjects with an EDSS of six or more
+scheme: default
+sets:
+  scope:  {grain: cohort}
+  people: {grain: subject, of: scope}
+  high:
+    grain: event
+    of: people
+    where:
+      - ["=", {}, ["field", {}, "kind"], "EDSS"]
+      - [">=", {}, ["field", {}, "number"], 6]
+  found:
+    grain: subject
+    from: people
+    has: [{set: high, min: 1}]
+keep: [found]
+out:
+  set: found
+  level: record
+  columns: [["field", {}, "code"]]
+  order: [[["field", {}, "code"], asc]]
