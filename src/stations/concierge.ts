@@ -22,7 +22,7 @@ const handleOf = (a: Answer): number[] =>
     ? [(a.body as { handle: number }).handle]
     : [];
 
-export function conciergeTools(self: () => Parameters<typeof delegate>[0]["parentAgent"]): StationTool[] {
+export function conciergeTools(): StationTool[] {
   const door = (
     name: string,
     description: string,
@@ -98,6 +98,14 @@ export function conciergeTools(self: () => Parameters<typeof delegate>[0]["paren
       salient: ["station"],
       async run(args, ctx) {
         const station = String(args.station);
+        const brief = String(args.brief);
+        if (/\b(select|count\(\*\)|sql|query)\b/iu.test(brief))
+          return {
+            output: {
+              refused: true,
+              why: "the brief is the person's request in their own words, never SQL or a query; say what they asked",
+            } as JsonValue,
+          };
         if (!agentIds().includes(station) || station === ctx.machine.manifest.id)
           return {
             output: {
@@ -109,9 +117,9 @@ export function conciergeTools(self: () => Parameters<typeof delegate>[0]["paren
           };
         const d = delegate({
           parent: ctx.conversation,
-          parentAgent: self(),
+          parentStation: ctx.machine.manifest.id,
           station,
-          brief: String(args.brief),
+          brief,
         });
         return {
           output: {
@@ -171,20 +179,15 @@ export function conciergeChecks(): Record<string, Check> {
 }
 
 export function concierge(manifest: Manifest, brief: string, model: string): ReturnType<typeof stationAgent> {
-  let me: ReturnType<typeof stationAgent> | null = null;
   const def: StationDefinition = {
     manifest,
     brief,
     model,
     instructions:
-      "You are the concierge. You hold the conversation and you do not do the work: you read what exists, you ask one typed choice when a pick, a scope or a grain is open and the person has not said it, and you delegate to a station by a brief in the person's own words. When a task settles you are woken; then read it with delegation_status and settle with its document and sentence. Give status, never a guess.",
-    tools: conciergeTools(() => {
-      if (!me) throw new Error("the concierge is not rendered yet");
-      return me;
-    }),
+      "You are the concierge. You hold the conversation and you do not do the work: you read what exists, you ask one typed choice when a pick, a scope or a grain is open and the person has not said it, and you delegate to a station by a brief in the person's own words. In the turn you delegate, settle at once with a sentence saying the task is working; never poll delegation_status in that turn, you will be woken by a signal when the task settles. In a woken turn, read the task with delegation_status and settle with its document and sentence, word for word. Give status, never a guess.",
+    tools: conciergeTools(),
     checks: conciergeChecks(),
     settle: { phases: ["hold", "finish"] },
   };
-  me = stationAgent(def);
-  return me;
+  return stationAgent(def);
 }

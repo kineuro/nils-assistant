@@ -59,13 +59,16 @@ async function wake(parentAgent: AgentFn, parent: string, body: string): Promise
 /** Start a delegation: the child conversation is dispatched and the task id answered at once. */
 export function delegate(o: {
   parent: string;
-  parentAgent: AgentFn;
+  parentStation: string;
   station: string;
   brief: string;
 }): Delegation {
   const agent = agents.get(o.station);
   if (!agent)
     throw new Error(`no station named ${o.station} is loaded; the stations are ${agentIds().join(", ")}`);
+  // the parent is woken through its scanned agent function, the one the build registered, never the inner render
+  const parentAgent = agents.get(o.parentStation);
+  if (!parentAgent) throw new Error(`the parent station ${o.parentStation} is not loaded`);
   const list = byParent.get(o.parent) ?? [];
   const n = list.length + 1;
   const task = `task-${n}`;
@@ -102,13 +105,13 @@ export function delegate(o: {
       const body = d.verdict
         ? `${task} (${o.station}) settled${typeof r?.document === "number" ? ` on document ${r.document}` : ""}${typeof r?.sentence === "string" ? `: ${r.sentence}` : ""}. Read it with delegation_status and settle with what it found.`
         : `${task} (${o.station}) ended without a verdict: ${terminal}. Tell the person, do not guess what it would have found.`;
-      return wake(o.parentAgent, o.parent, body);
+      return wake(parentAgent, o.parent, body);
     })
     .catch((e: unknown) => {
       d.state = "failed";
       d.settled_at = new Date().toISOString();
       d.error = e instanceof Error ? e.message : String(e);
-      return wake(o.parentAgent, o.parent, `${task} (${o.station}) failed: ${d.error}. Tell the person.`);
+      return wake(parentAgent, o.parent, `${task} (${o.station}) failed: ${d.error}. Tell the person.`);
     });
   return d;
 }

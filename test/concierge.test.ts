@@ -40,10 +40,9 @@ describe("the concierge", () => {
   });
 
   it("refuses a delegation to a station that is not loaded", () => {
-    const parentAgent = Object.assign(() => "", { agentName: "concierge" });
-    expect(() => delegate({ parent: "c1", parentAgent, station: "keyword-tune", brief: "x" })).toThrow(
-      /no station named keyword-tune/u,
-    );
+    expect(() =>
+      delegate({ parent: "c1", parentStation: "concierge", station: "keyword-tune", brief: "x" }),
+    ).toThrow(/no station named keyword-tune/u);
     registerAgent(
       "echo",
       Object.assign(() => "", { agentName: "echo" }),

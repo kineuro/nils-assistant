@@ -16,6 +16,8 @@ export interface Config {
   store: string;
   /** The seam's own SQLite file. */
   ledger: string;
+  /** The notes of section 9.9, their own SQLite file. */
+  notes: string;
   /** Days the seam's rows and the assistant's transcripts are kept (C24: 90 by default). */
   retentionDays: number;
   /** The directories station manifests are loaded from (§4.4). */
@@ -36,6 +38,7 @@ export function config(env: NodeJS.ProcessEnv = process.env): Config {
     kvasirKey,
     store: env.ASSISTANT_STORE ?? "./data/assistant.sqlite",
     ledger: env.ASSISTANT_LEDGER ?? "./data/seam.sqlite",
+    notes: env.ASSISTANT_NOTES ?? "./data/notes.sqlite",
     retentionDays: Number(env.ASSISTANT_RETENTION_DAYS ?? 90),
     stationDirs: (env.ASSISTANT_STATIONS ?? "./stations").split(":").filter(Boolean),
     origin: (env.DESK_ORIGIN ?? "http://127.0.0.1:7200").replace(/\/+$/u, ""),

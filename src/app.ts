@@ -19,7 +19,9 @@ import {
   recordFeedback,
   registerStation,
   stationList,
+  subjectOfConversation,
   theLedger,
+  theNotes,
   tokens,
   verdicts,
 } from "./seam/for.ts";
@@ -170,6 +172,41 @@ app.get("/conversations/:id/feedback", (ctx) => ctx.json(feedbackOf(ctx.req.para
 app.get("/conversations/:id/delegations", (ctx) =>
   ctx.json({ stations: agentIds(), tasks: delegationsOf(ctx.req.param("id")).map(delegationView) }),
 );
+
+/** Memory (section 9.9): a person's own notes, read and deleted by the subject the desk's token names for the conversation. */
+app.get("/conversations/:id/notes", (ctx) => {
+  const subject = subjectOfConversation(ctx.req.param("id"));
+  return ctx.json({ subject, notes: theNotes().list(subject) });
+});
+app.delete("/conversations/:id/notes", (ctx) => {
+  const subject = subjectOfConversation(ctx.req.param("id"));
+  return ctx.json({ subject, deleted: theNotes().deleteSubject(subject) });
+});
+/** Institutional corrections: structural only, accepted by a named person; the row has no field a value fits. */
+app.get("/notes/institutional", (ctx) =>
+  ctx.json({ corrections: theNotes().institutional(ctx.req.query("station") || undefined) }),
+);
+app.post("/notes/institutional", async (ctx) => {
+  const body = (await ctx.req.json().catch(() => ({}))) as {
+    station?: string;
+    axis?: string;
+    check?: string;
+    accepted_by?: string;
+  };
+  try {
+    return ctx.json(
+      theNotes().accept({
+        station: String(body.station ?? ""),
+        axis: String(body.axis ?? ""),
+        check: String(body.check ?? ""),
+        accepted_by: String(body.accepted_by ?? ""),
+      }),
+      201,
+    );
+  } catch (e) {
+    return ctx.json({ error: e instanceof Error ? e.message : String(e) }, 400);
+  }
+});
 
 app.get("/ledger/:id", (ctx) => ctx.json({ rows: theLedger().rows(ctx.req.param("id")) }));
 

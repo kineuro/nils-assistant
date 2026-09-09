@@ -19,7 +19,8 @@
     "records:export": "tsc -p tsconfig.build.json && node dist/src/host/records.js export",
     "records:import": "tsc -p tsconfig.build.json && node dist/src/host/records.js import",
     "pretest": "tsc -p tsconfig.build.json",
-    "bench:chains": "node dist/bench/chains.js"
+    "bench:chains": "node dist/bench/chains.js",
+    "notes": "node dist/src/host/notes.js"
   },
   "dependencies": {
     "@earendil-works/pi-ai": "0.83.0",
