@@ -1,0 +1,27 @@
+{
+  "name": "nils-assistant",
+  "private": true,
+  "version": "1.0.0-alpha.0",
+  "description": "The assistant of NILS: stations on Flue, the bench, the seam to the engine",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "engines": { "node": ">=22.19" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "check": "tsc -p tsconfig.json --noEmit && biome check .",
+    "bench:gold": "tsc -p tsconfig.json && node dist/bench/gold.js",
+    "bench:baseline": "tsc -p tsconfig.json && node dist/bench/baseline.js"
+  },
+  "dependencies": {
+    "@earendil-works/pi-ai": "0.83.0",
+    "@flue/runtime": "2.0.3",
+    "yaml": "^2.8.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.1.0",
+    "@types/node": "^22.15.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.2.0"
+  }
+}
