@@ -28,6 +28,8 @@ import {
 import { AskHelp } from "./stations/ask-help-agent.ts";
 import { Concierge } from "./stations/concierge-agent.ts";
 import { Echo } from "./stations/echo.ts";
+import { IdentityCheck } from "./stations/identity-check-agent.ts";
+import { KeywordTune } from "./stations/keyword-tune-agent.ts";
 import { loadManifests } from "./stations/manifest.ts";
 
 const c = config();
@@ -50,6 +52,8 @@ for (const m of manifests.values())
 const agents = new Map<string, Parameters<typeof createAgentRouter>[0]>();
 if (manifests.has("ask-help")) agents.set("ask-help", AskHelp);
 if (manifests.has("concierge")) agents.set("concierge", Concierge);
+if (manifests.has("keyword-tune")) agents.set("keyword-tune", KeywordTune);
+if (manifests.has("identity-check")) agents.set("identity-check", IdentityCheck);
 agents.set("echo", Echo);
 // the stations a concierge may delegate to, by id (section 9.12)
 for (const [id, a] of agents) registerAgent(id, a);

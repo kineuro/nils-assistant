@@ -1,0 +1,75 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# identity-check (Wave 4c section 9.14), as contracts/suite/v1/station.schema.json fixes a manifest.
+id: identity-check
+app: nils-assistant
+purpose: assistant.identity-check
+content: rows
+ceiling: operator
+grant:
+  capabilities:
+    calls: 2
+  ingest/probe:
+    calls: 4
+  jobs/{id}:
+    calls: 30
+brief:
+  path: SKILL.md
+  hash: ffc41793a817038939278ebb88083122a4b740d76f4c5913b452a51ada8a45ac
+result:
+  type: object
+  required:
+  - location
+  - saw
+  - proposed
+  - sentence
+  properties:
+    location:
+      type: string
+      description: the registered location by name
+    saw:
+      type: array
+      items:
+        type: object
+      description: per rule, the source it read, the shape it answered with and the counts; never a value
+    proposed:
+      type: object
+      description: the rule proposed, one the probe took
+    path_is_direct_identifier:
+      type:
+      - boolean
+      - "null"
+      description: answered when the rule reads a path segment
+    probe_jobs:
+      type: array
+      items:
+        type: integer
+    sentence:
+      type: string
+checks:
+- rule_validated
+- names_rule_and_saw
+- no_identifier_value
+- path_answered
+budget:
+  turns: 10
+  tool_calls: 30
+  wall_clock_seconds: 240
+  input_tokens: 200000
+writes:
+- identity_rule
+- review_decision
+phases:
+  initial: read
+  follow_up: diagnose
+  transitions:
+  - from: read
+    to: diagnose
+  - from: diagnose
+    to: propose
+  - from: propose
+    to: check
+  - from: check
+    to: diagnose
+  - from: check
+    to: finish
+evals: evals
