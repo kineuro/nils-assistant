@@ -72,8 +72,21 @@ async function sameSelection(handle: number, goldFile: string): Promise<boolean 
   });
   if (typeof ran.handle !== "number") return null;
   const [a, b] = await Promise.all([column(handle, "code"), column(ran.handle, "code")]);
-  if (!a || !b) return null;
-  return a.length === b.length && a.every((v, i) => v === b[i]);
+  if (a && b) return a.length === b.length && a.every((v, i) => v === b[i]);
+  // no subject column on either side (a count, an aggregate): the same number of rows and, for one row, the same row
+  const mine = await json(`${nils}/api/ask/handles/${handle}`, {
+    headers: { authorization: `Bearer ${token}` },
+  });
+  if (mine.row_count !== ran.row_count) return false;
+  if (ran.row_count === 1) {
+    const page = await json(`${nils}/api/ask/handles/${handle}/rows?page=0`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const ours = JSON.stringify(((page.rows as unknown[][] | undefined) ?? [])[0]?.slice(2) ?? null);
+    const theirs = JSON.stringify(((ran.rows as unknown[][] | undefined) ?? [])[0]?.slice(2) ?? null);
+    return ours === theirs;
+  }
+  return null;
 }
 
 const results: {
