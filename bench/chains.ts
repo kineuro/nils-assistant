@@ -108,14 +108,47 @@ async function run(
 
 const out: Record<string, unknown> = { at: new Date().toISOString(), host, chains: [], stability: null };
 
+/** The same answer as the gold: the set of subject codes when both carry one, else the one row of a count. */
+async function same(document: number, goldDocument: number): Promise<boolean> {
+  const codes = async (id: number): Promise<{ codes: string[] | null; first: string; n: number }> => {
+    const r = await json(`${nils}/api/ask/run`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+      body: JSON.stringify({ document_id: id }),
+    });
+    const cols = ((r.columns as (string | { name: string })[] | undefined) ?? []).map((c) =>
+      typeof c === "string" ? c : c.name,
+    );
+    const k = cols.findIndex((c) => c === "code" || c.endsWith(".code"));
+    const rows = (r.rows as unknown[][] | undefined) ?? [];
+    return {
+      codes: k < 0 ? null : [...new Set(rows.map((row) => String(row[k])))].sort(),
+      first: JSON.stringify(rows[0]?.slice(2) ?? null),
+      n: typeof r.row_count === "number" ? r.row_count : -1,
+    };
+  };
+  const [a, b] = await Promise.all([codes(document), codes(goldDocument)]);
+  if (a.codes && b.codes)
+    return a.codes.length === b.codes.length && a.codes.every((v, i) => v === b.codes?.[i]);
+  return a.n === b.n && (a.n !== 1 || a.first === b.first);
+}
+
 for (const c of chains) {
   const shape = shapes.find((s) => s.id === c.shape);
   const want = shape?.rebased.gold ? expect[shape.rebased.gold] : undefined;
-  if (!want?.content_hash) {
+  if (!want?.content_hash || !shape?.rebased.gold) {
     console.log(`${c.id}: skipped, ${c.shape} has no gold`);
     (out.chains as unknown[]).push({ id: c.id, skipped: `${c.shape} has no gold` });
     continue;
   }
+  // the gold of the opening question, stored so the answers compare
+  const goldText = readFileSync(join(root, "bench", "gold", shape.rebased.gold), "utf8");
+  const stored = await json(`${nils}/api/ask/draft`, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+    body: JSON.stringify({ text: goldText }),
+  });
+  const goldDocument = typeof stored.document === "number" ? stored.document : null;
   const conversation = `chain-${c.id}-${Date.now().toString(36)}`;
   const sent: {
     kind: string;
@@ -125,41 +158,49 @@ for (const c of chains) {
     seconds: number;
     matched: boolean;
   }[] = [];
-  let matched = false;
-  let last: number | null = null;
   const check = async (document: number | null): Promise<boolean> => {
-    if (document === null) return false;
+    if (document === null || goldDocument === null) return false;
     const r = await run(document);
-    return r.content_hash === want.content_hash;
+    if (r.content_hash === want.content_hash) return true;
+    return same(document, goldDocument).catch(() => false);
   };
-  // the opening and the additions, in order
-  for (const t of c.turns.filter((t) => t.kind === "opening" || t.kind === "addition")) {
-    const r = await turn(conversation, t.text);
-    last = r.document ?? last;
-    matched = await check(r.document);
-    sent.push({ kind: t.kind, text: t.text, ...r, matched });
-    console.log(
-      `${c.id} ${t.kind}: ${r.document === null ? `no document (${r.terminal})` : `document ${r.document}`} [${r.seconds} s]`,
-    );
-  }
-  // the researcher's corrections, held back, one at a time until the gold is reached
+  // the opening, then the researcher's corrections held back one at a time until the gold's answer is reached
+  const opening = c.turns.find((t) => t.kind === "opening");
+  let matched = false;
   let corrections = 0;
-  if (!matched) {
-    for (const t of c.turns.filter((t) => t.kind === "correction")) {
-      corrections++;
-      const r = await turn(conversation, t.text);
-      last = r.document ?? last;
-      matched = await check(r.document);
-      sent.push({ kind: t.kind, text: t.text, ...r, matched });
-      console.log(
-        `${c.id} correction ${corrections}: ${r.document === null ? `no document (${r.terminal})` : `document ${r.document}`} [${r.seconds} s]${matched ? " reached" : ""}`,
-      );
-      if (matched) break;
+  if (opening) {
+    const r = await turn(conversation, opening.text);
+    matched = await check(r.document);
+    sent.push({ kind: "opening", text: opening.text, ...r, matched });
+    console.log(
+      `${c.id} opening: ${r.document === null ? `no document (${r.terminal})` : `document ${r.document}`} [${r.seconds} s]${matched ? " reached" : ""}`,
+    );
+    if (!matched) {
+      for (const t of c.turns.filter((t) => t.kind === "correction")) {
+        corrections++;
+        const r2 = await turn(conversation, t.text);
+        matched = await check(r2.document);
+        sent.push({ kind: t.kind, text: t.text, ...r2, matched });
+        console.log(
+          `${c.id} correction ${corrections}: ${r2.document === null ? `no document (${r2.terminal})` : `document ${r2.document}`} [${r2.seconds} s]${matched ? " reached" : ""}`,
+        );
+        if (matched) break;
+      }
     }
   }
-  const final = last === null ? null : await run(last);
+  // the additions as follow-up turns: the chain holds when every turn leaves a document
+  let held = 0;
+  const additions = c.turns.filter((t) => t.kind === "addition");
+  for (const t of additions) {
+    const r = await turn(conversation, t.text);
+    if (r.document !== null) held++;
+    sent.push({ kind: t.kind, text: t.text, ...r, matched: false });
+    console.log(
+      `${c.id} addition: ${r.document === null ? `no document (${r.terminal})` : `document ${r.document}`} [${r.seconds} s]`,
+    );
+  }
   console.log(
-    `${c.id}: ${matched ? `reached with ${corrections} correction${corrections === 1 ? "" : "s"}` : "not reached"} (the researcher gave ${c.corrections}); last document ${last ?? "none"}${final ? `, ${final.row_count} rows` : ""}, the gold has ${want.row_count}`,
+    `${c.id}: the opening ${matched ? `reached the gold's answer with ${corrections} correction${corrections === 1 ? "" : "s"}` : `did not reach the gold's answer after ${corrections} corrections`} (the researcher gave ${c.corrections}); ${held} of ${additions.length} follow-up turns left a document`,
   );
   (out.chains as unknown[]).push({
     id: c.id,
@@ -167,9 +208,9 @@ for (const c of chains) {
     reached: matched,
     corrections_needed: matched ? corrections : null,
     corrections_given: c.corrections,
+    follow_ups_with_a_document: held,
+    follow_ups: additions.length,
     turns: sent,
-    last,
-    final,
   });
 }
 
