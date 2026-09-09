@@ -145,16 +145,21 @@ export function stationAgent(
 
     // a follow-up turn (section 7.7): the person spoke again after settle; the run starts over on the settled document
     useAgentStart((ctx) => {
-      if (!settled) return;
+      // a run that settled, or one that ended by budget or loop, is over: the next message starts a follow-up
+      if (!settled && !machine.state.terminal) return;
       const to = m.phases.follow_up ?? m.phases.initial;
+      const ended = machine.state.terminal;
       machine.followUp(to);
-      const base = (settled.verdict as { result?: { document?: unknown } }).result?.document;
+      const base = settled
+        ? (settled.verdict as { result?: { document?: unknown } }).result?.document
+        : undefined;
+      const last = machine.state.evidence.documents.at(-1);
       setSettled(null);
       commit();
       ctx.append({
         kind: "signal",
         type: "station",
-        body: `A follow-up turn. The previous run settled${typeof base === "number" ? ` on document ${base}, which is the base now: refine it, do not start over` : ""}. The phase is ${to} again and the budget starts over. End with settle.`,
+        body: `A follow-up turn. The previous run ${settled ? "settled" : `ended by ${ended}`}${typeof base === "number" ? ` on document ${base}, which is the base now: refine it, do not start over` : typeof last === "number" ? `; the last document it stored was ${last}, start from it` : ""}. The phase is ${to} again and the budget starts over. End with settle.`,
       });
     });
 

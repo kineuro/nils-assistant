@@ -240,3 +240,20 @@ describe("a follow-up turn (section 7.7)", async () => {
     expect(mach.state.events.at(-1)).toMatchObject({ kind: "follow_up", from: "shape", to: "shape" });
   });
 });
+
+describe("the result schema (section 9.5)", async () => {
+  const { toValibot } = await import("../src/stations/schema.ts");
+  const v = await import("valibot");
+  it("keeps an object with named properties strict and an object without any open", () => {
+    const strict = toValibot({
+      type: "object",
+      required: ["document"],
+      properties: { document: { type: "integer" } },
+    } as never);
+    expect(v.safeParse(strict, { document: 1, extra: true }).success).toBe(false);
+    const open = toValibot({ type: "object", description: "the declaration block" } as never);
+    expect(v.safeParse(open, { grain: "subject", session_scheme: { name: "x" } }).success).toBe(true);
+    const closed = toValibot({ type: "object", additionalProperties: false } as never);
+    expect(v.safeParse(closed, { grain: "subject" }).success).toBe(false);
+  });
+});

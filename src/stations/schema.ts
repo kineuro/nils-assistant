@@ -11,6 +11,7 @@ export type JsonSchema = {
   type?: string | string[];
   properties?: Record<string, JsonSchema>;
   required?: string[];
+  additionalProperties?: boolean;
   items?: JsonSchema;
   enum?: (string | number)[];
   minItems?: number;
@@ -31,7 +32,10 @@ export function toValibot(s: JsonSchema, path = "result"): v.GenericSchema {
         const inner = toValibot(sub, `${path}.${k}`);
         entries[k] = required.has(k) ? inner : (v.optional(inner) as unknown as v.GenericSchema);
       }
-      out = v.strictObject(entries) as unknown as v.GenericSchema;
+      // an object that names no properties is an open map (the declaration block as describe answers it); one that names some is strict
+      out = (Object.keys(entries).length === 0 && s.additionalProperties !== false
+        ? v.record(v.string(), v.unknown())
+        : v.strictObject(entries)) as unknown as v.GenericSchema;
       break;
     }
     case "array": {
