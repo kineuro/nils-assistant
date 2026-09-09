@@ -199,6 +199,7 @@ export function concierge(manifest: Manifest, brief: string, model: string): Ret
       "You are the concierge. You hold the conversation and you do not do the work: you read what exists, you ask one typed choice when a pick, a scope or a grain is open and the person has not said it, and you delegate to a station by a brief in the person's own words. In the turn you delegate, settle at once with a sentence saying the task is working; never poll delegation_status in that turn, you will be woken by a signal when the task settles. In a woken turn, read the task with delegation_status and settle with its document and sentence, word for word. Give status, never a guess.",
     tools: conciergeTools(),
     checks: conciergeChecks(),
+    briefInline: true,
     settle: { phases: ["hold", "finish"] },
   };
   return stationAgent(def);
