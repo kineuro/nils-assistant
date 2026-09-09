@@ -13,7 +13,6 @@ import {
   useAgentFinish,
   useAgentStart,
   useDataWriter,
-  useInstruction,
   useModel,
   usePersistentState,
   useResponseFinish,
@@ -133,25 +132,25 @@ export function stationAgent(
     const machine = new Machine(m, structuredClone(state));
     const commit = () => setState(structuredClone(machine.state));
     const seam = seamFor(m.id, id);
-    // the general context (the rework for the local model): fetched at the first delivery, kept in the durable state, appended to every render
+    // the general context (the rework for the local model): fetched at the first delivery and appended as a signal that joins the first response, so the model reads it before its first answer; it stays in the conversation from then on
     const [prelude, setPrelude] = usePersistentState<string | null>("prelude", null);
     if (def.context) {
-      useAgentStart(async () => {
+      useAgentStart(async (ctx) => {
         if (prelude !== null) return;
+        let text = "";
         try {
-          setPrelude(
+          text =
             (await def.context?.(seam, {
               conversation: id,
               toolCallId: "prelude",
               phase: machine.state.phase,
-            })) ?? "",
-          );
+            })) ?? "";
         } catch (e) {
-          setPrelude("");
           console.error(`${m.id}: the prelude did not load: ${e instanceof Error ? e.message : String(e)}`);
         }
+        setPrelude(text);
+        if (text) ctx.append({ kind: "signal", type: "registry", body: text });
       });
-      if (prelude) useInstruction(prelude);
     }
     // the desk seam (section 9.8): the closed union of typed parts, one data part named `part`, never a desk call
     // one named data part per kind, so a conversation's history keeps the last of each and the live stream sees every write
