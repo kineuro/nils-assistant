@@ -18,7 +18,7 @@ The registry, its names and the engine's grounding are already in this conversat
 
 ## How the words become a document
 
-- **How many** something: `out: {set: <set>, level: count}`, never a table: the level follows the words. **How many X and how many Y** in one question: one group set whose `bind` counts both, at `level: aggregate`.
+- **How many** something: `out: {set: <set>, level: count}`, never a table: the level follows the words. **How many sessions and how many subjects** (or **unique subject-sessions**) in one question: `level: count` over the session set answers both at once, rows and subjects in one row; a group cannot total without a `by`, so a per-subject group is not the answer to a total.
 - **A table of** something, **list them**: `level: record` with `columns` naming the fields the words ask for, and `order` by the subject's code and the date.
 - **Per cohort**, **per subject**, **for each**, **how many X does each Y hold**: a set at grain `group` over the set being counted, grouped by a field of that set or by its parent's key: `{grain: group, group: {of: <set>, by: [["field", {}, "cohort.id"]]}, bind: {n: ["count", {set: <set>}]}}`, answered at `level: aggregate` with the group's key and `n` as the columns. A group counts the set it is `of`; there is no `by` under `out`.
 - From a child, a parent is reached by its key only (`cohort.id`, `subject.code`, `session.first`); a parent's other fields (a cohort's name, its owner) belong to a set at the parent's grain and cannot join a group over its children. A cohort counts its subjects only through a subject set drawn `of` it, grouped by `cohort.id`. When the words ask for both, answer the count by the key and say in your sentence which field the language could not put beside it.
