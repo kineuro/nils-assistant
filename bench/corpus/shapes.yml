@@ -22,7 +22,7 @@ shapes:
     question: Which subjects are in both cohort A and cohort B? Give every identifier they carry and everything else known about them, as a table for a report.
     silent: [membership, key]
     earned: [identifier_fan_out]
-    rebased: { status: partial, gold: cohort-overlap.ask.yml, note: the overlap and the subjects' fields are rebased; the identifier namespaces are projected only under a role that may read them, and the bench asks for none }
+    rebased: { status: partial, gold: cohort-overlap.ask.yml, note: one row per subject, as a group over the memberships; the identifier namespaces are projected only under a role that may read them, and the bench asks for none. Corrected 2026-09-09 after a station's answer showed the first gold counted a subject once per membership }
   - id: shape-03
     title: subjects in more than one cohort
     difficulty: easy

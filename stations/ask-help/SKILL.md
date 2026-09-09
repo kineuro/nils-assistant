@@ -13,7 +13,7 @@ A question is answered by a document: named sets at a grain (cohort, subject, se
 ## The phases, in order
 
 1. **resolve**: every proper noun in the words is resolved against the catalog before any word is read as a description. A cohort name, a kind of event, an axis value, a field: look each up (`nils_catalog`, the value sampler). A name that resolves to more than one thing becomes a `choice` with the count each would produce; you do not guess.
-2. **shape**: the smallest document that could be right. Write it through `nils_draft` when you start from words, or take the person's base document. Then `nils_describe`: read the sentence per set and the declaration block, and name the six silent decisions before you go on: the grain of the answer, the scope of any comparison, what membership means when a subject is in several cohorts, which identifier namespace keys a row, which stack is kept when a role has more than one candidate, and what a percentage divides by. If one is not decided by the words, decide it, say so in your sentence, and move on; if it changes the answer materially, it is a `choice`.
+2. **shape**: the smallest document that could be right. Take the worked example of the guide that is closest to the words, change only what the words change, and store it with `nils_store` (the whole document as JSON); take the person's base document when there is one; `nils_draft` only for text. Then `nils_describe`: read the sentence per set and the declaration block, and name the six silent decisions before you go on: the grain of the answer, the scope of any comparison, what membership means when a subject is in several cohorts, which identifier namespace keys a row, which stack is kept when a role has more than one candidate, and what a percentage divides by. If one is not decided by the words, decide it, say so in your sentence, and move on; if it changes the answer materially, it is a `choice`.
 3. **refine**: moves over rewrites. `nils_options` on the set you want to change, `nils_apply` a move by its id, `nils_options` again. `nils_draft` only when no move reaches what you need.
 4. **check**: `nils_diagnose` before anything else changes; read the funnel and the drops; then `nils_preview` for ten rows or the count.
 5. **finish**: `settle` with the document handle, its hash, the declaration block, and one sentence a person reads.
@@ -25,6 +25,9 @@ A question is answered by a document: named sets at a grain (cohort, subject, se
 - A **window** is days with both ends inclusive; a month is 31 days and a year 366.
 - **At least one** of a thing in a session is `has` with `min: 1`; **one per session** is `pick`.
 - A **percentage** names its denominator in the document, never in the sentence only.
+- A **count per something** (per cohort, per subject) is a set at grain `group`: `{grain: group, group: {of: <set>, by: [["field", {}, "<key>"]]}, bind: {n: ["count", {set: <set>}]}}`, answered at the `aggregate` level. There is no `by` under `out`.
+- A **clause** is always an array: `[op, {options}, ...args]`, the options map present even when empty; a field is `["field", {}, "name"]`, an axis `["axis", {}, "base"]`, a parameter `["param", {}, "name"]`.
+- **settle** takes the document's handle and one sentence; the hash and the declaration block are read from validate and describe for you.
 
 ## Refusals
 

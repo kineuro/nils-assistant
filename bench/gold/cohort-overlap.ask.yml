@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# shape-02: the subjects in both cohorts, with what is known about them
+# shape-02: the subjects in both cohorts, one row per subject with what is known about them
 ast_version: 1
 name: subjects in both cohorts
 scheme: default
@@ -8,16 +8,16 @@ params:
 sets:
   scope:  {grain: cohort,  where: [["in", {}, ["field", {}, "name"], ["param", {}, "cohorts"]]]}
   people: {grain: subject, of: scope}
-  both:
-    grain: subject
-    from: people
+  each:
+    grain: group
+    group: {of: people, by: [["field", {}, "code"], ["field", {}, "sex"], ["field", {}, "birth_date"]]}
     bind:
       n_cohorts: ["count", {set: people}]
     where: [[">=", {}, ["field", {}, "n_cohorts"], 2]]
-keep: [both]
+keep: [each]
 out:
-  set: both
-  level: record
+  set: each
+  level: aggregate
   columns:
     - ["field", {}, "code"]
     - ["field", {}, "sex"]

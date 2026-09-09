@@ -11,6 +11,7 @@ import {
   defineSkill,
   type JsonValue,
   useAgentFinish,
+  useDataWriter,
   useModel,
   usePersistentState,
   useResponseFinish,
@@ -33,6 +34,31 @@ import {
   runChecks,
   type Verdict,
 } from "./verdict.ts";
+
+/** The closed union of section 9.8: what a station may put in front of the desk; anything else the desk drops. */
+export const PART = v.variant("kind", [
+  v.object({
+    kind: v.literal("move_proposal"),
+    document: v.number(),
+    parent: v.nullable(v.number()),
+    sentence: v.string(),
+  }),
+  v.object({
+    kind: v.literal("choice"),
+    question: v.string(),
+    options: v.array(v.object({ label: v.string(), count: v.nullable(v.number()) })),
+  }),
+  v.object({ kind: v.literal("note"), text: v.string() }),
+  v.object({ kind: v.literal("todo"), text: v.string() }),
+  v.object({ kind: v.literal("lookup"), level: v.string(), field: v.string(), values: v.array(v.string()) }),
+  v.object({ kind: v.literal("handle_ref"), handle: v.number() }),
+  v.object({
+    kind: v.literal("funnel"),
+    rows: v.array(v.object({ set: v.string(), stage: v.string(), rows: v.number(), subjects: v.number() })),
+  }),
+  v.object({ kind: v.literal("status"), phase: v.string(), text: v.string() }),
+]);
+export type Part = v.InferOutput<typeof PART>;
 
 export interface StationTool {
   name: string;
@@ -59,6 +85,11 @@ export interface StationDefinition {
   checks: Record<string, Check>;
   /** The phase the settle tool moves to, and the phases it is open in. */
   settle: { phases: string[] };
+  /** What the station fills into the result mechanically before the checks run: a hash, a declaration, never a judgement. */
+  complete?: (
+    result: Record<string, unknown>,
+    ctx: { seam: Seam; conversation: string; state: RunState },
+  ) => Promise<Record<string, unknown>>;
 }
 
 export interface Settled {
@@ -87,6 +118,15 @@ export function stationAgent(
     const machine = new Machine(m, structuredClone(state));
     const commit = () => setState(structuredClone(machine.state));
     const seam = seamFor(m.id, id);
+    // the desk seam (section 9.8): the closed union of typed parts, one data part named `part`, never a desk call
+    const part = useDataWriter("part", { schema: PART });
+    const emit = (p: v.InferOutput<typeof PART>) => {
+      try {
+        part(p);
+      } catch {
+        // a bare render has no writer; the record still holds the verdict
+      }
+    };
 
     for (const t of def.tools) {
       useTool({
@@ -168,6 +208,17 @@ export function stationAgent(
           commit();
           return { output: { refused: true, why: open.why } };
         }
+        // settle counts against the budget and the loop detector like any call: a model cannot retry it forever
+        const gate = machine.call("settle", { document: (data.result as Record<string, unknown>).document }, [
+          "document",
+        ]);
+        if (!gate.ok) {
+          commit();
+          return {
+            output: { refused: true, why: gate.why, terminal: gate.terminal } as JsonValue,
+            terminate: gate.terminal !== null,
+          };
+        }
         const proposals: Proposal[] = [];
         for (const p of data.proposals as {
           kind: string;
@@ -184,6 +235,19 @@ export function stationAgent(
           }
           proposals.push({ kind: p.kind as Proposal["kind"], ref: p.ref, sentence: p.sentence });
         }
+        let result = data.result as Record<string, unknown>;
+        if (def.complete) {
+          try {
+            result = await def.complete(result, { seam, conversation: id, state: machine.state });
+          } catch (e) {
+            return {
+              output: {
+                refused: true,
+                why: `the result could not be completed: ${e instanceof Error ? e.message : String(e)}`,
+              } as JsonValue,
+            };
+          }
+        }
         const verdict: Verdict = {
           station: m.id,
           terminal: "settled",
@@ -197,7 +261,7 @@ export function stationAgent(
           },
           evidence: machine.state.evidence,
           proposals,
-          result: data.result as Record<string, unknown>,
+          result,
           checks: [],
         };
         const rows = evidenceOnly(verdict);
@@ -216,6 +280,31 @@ export function stationAgent(
         commit();
         setSettled({ verdict });
         verdicts.set(id, verdict);
+        // what the desk renders: a document version as a move proposal on a scratch handle, the choices, the handles read, the status
+        for (const p of proposals) {
+          if (p.kind === "document_version")
+            emit({
+              kind: "move_proposal",
+              document: Number(p.ref.document ?? result.document),
+              parent: p.ref.parent === undefined ? null : Number(p.ref.parent),
+              sentence: p.sentence,
+            });
+        }
+        if (proposals.length === 0 && typeof result.document === "number")
+          emit({ kind: "move_proposal", document: result.document, parent: null, sentence: data.sentence });
+        for (const c of (Array.isArray(result.choices) ? result.choices : []) as Record<string, unknown>[])
+          emit({
+            kind: "choice",
+            question: String(c.question ?? c.text ?? ""),
+            options: Array.isArray(c.options)
+              ? (c.options as { label: string; count?: number | null }[]).map((o) => ({
+                  label: String(o.label ?? o),
+                  count: typeof o.count === "number" ? o.count : null,
+                }))
+              : [],
+          });
+        for (const h of machine.state.evidence.handles) emit({ kind: "handle_ref", handle: h });
+        emit({ kind: "status", phase: "finish", text: data.sentence });
         return { output: { settled: true, sentence: data.sentence }, terminate: true };
       },
     });

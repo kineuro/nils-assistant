@@ -87,6 +87,14 @@ export function askHelpTools(): StationTool[] {
       { salient: ["level", "field"] },
     ),
     door(
+      "nils_store",
+      "Store a whole document you composed, as JSON, and get its handle; a document that does not validate is refused with its issues. Start from the closest worked example and change only what the words change.",
+      v.object({ document: v.record(v.string(), v.unknown()) }),
+      ["shape", "refine"],
+      (s, a, id, phase) =>
+        s.door("/api/ask/documents", "POST", { document: a.document }, { toolCallId: id, phase }),
+    ),
+    door(
       "nils_draft",
       "A whole document as text (YAML or JSON) when you start from words or no move reaches what you need; repaired where it can be, stored when it validates, else its diagnosis.",
       v.object({ text: v.string() }),
@@ -262,16 +270,45 @@ export function askHelpChecks(): Record<string, Check> {
   };
 }
 
+/** The result completed mechanically: the hash from validate, the declaration from describe, on the document the model names. */
+export async function completeResult(
+  result: Record<string, unknown>,
+  ctx: { seam: Seam; conversation: string },
+): Promise<Record<string, unknown>> {
+  const document = Number(result.document);
+  if (!Number.isInteger(document)) throw new Error("document is the handle of a stored document");
+  const validated = await ctx.seam.call({
+    method: "POST",
+    path: "/api/ask/validate",
+    body: { document_id: document, mode: "strict" },
+    toolCallId: `settle-validate-${document}`,
+    phase: "finish",
+  });
+  if (validated.kind !== "ok") throw new Error(`validate did not answer for document ${document}`);
+  const described = await ctx.seam.call({
+    method: "POST",
+    path: "/api/ask/describe",
+    body: { document_id: document },
+    toolCallId: `settle-describe-${document}`,
+    phase: "finish",
+  });
+  if (described.kind !== "ok") throw new Error(`describe did not answer for document ${document}`);
+  const hash = (validated.body as { hash?: string }).hash ?? result.hash;
+  const declaration = (described.body as { declaration?: unknown }).declaration ?? result.declaration ?? {};
+  return { ...result, document, hash, declaration };
+}
+
 export function askHelp(manifest: Manifest, brief: string, model: string): ReturnType<typeof stationAgent> {
   const def: StationDefinition = {
     manifest,
     brief,
     model,
     instructions:
-      "You are ask-help. Read the guide, resolve every name against the catalog, shape the smallest document, refine by moves, diagnose and preview, then settle with the handle, the hash, the declaration block and one sentence. Never SQL, never rows, never a guess at a name.",
+      "You are ask-help. Read the guide, resolve every name against the catalog, shape the smallest document by storing one composed from the closest worked example, refine it by moves, diagnose and preview, then settle with the document's handle and one sentence: the hash and the declaration block are filled in for you from validate and describe. Never SQL, never rows, never a guess at a name.",
     tools: askHelpTools(),
     checks: askHelpChecks(),
     settle: { phases: ["check", "finish"] },
+    complete: completeResult,
   };
   return stationAgent(def);
 }

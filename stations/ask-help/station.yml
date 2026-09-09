@@ -38,19 +38,17 @@ grant:
     calls: 4
     rows: 50
   documents:
-    calls: 4
+    calls: 6
   documents/{id}:
     calls: 6
 brief:
   path: SKILL.md
-  hash: 6cff38de4016040d9d7500e92d3cf3ca50c3bb48df2703f996e0d86c6170fabd
+  hash: bc56ccbc45a7917bca7ce6f18aa97e2472c6c8bf0faea25d896b2def2046c20f
 result:
   type: object
   required:
   - document
-  - hash
   - sentence
-  - declaration
   properties:
     document:
       type: integer
