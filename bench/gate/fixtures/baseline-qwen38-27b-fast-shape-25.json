@@ -1,6 +1,6 @@
 {
-  "id": "baseline-qwen38-27b-fast-shape-12",
-  "question": "What is the most common resolution of the T2-weighted images?",
+  "id": "baseline-qwen38-27b-fast-shape-25",
+  "question": "A table of the distinct series descriptions of the sessions of cohort A.",
   "model": "qwen38-27b-fast",
   "recorded_at": "2026-09-09",
   "attempts": [
@@ -111,22 +111,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "t"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "2"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "_st"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "acks"
+          "delta": "scope"
         },
         {
           "type": "text_delta",
@@ -176,7 +161,12 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "stack"
+          "delta": "co"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "hort"
         },
         {
           "type": "text_delta",
@@ -226,21 +216,6 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": " ["
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "         "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
           "delta": " \"=\","
         },
         {
@@ -251,7 +226,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "         "
+          "delta": "       "
         },
         {
           "type": "text_delta",
@@ -266,7 +241,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "         "
+          "delta": "       "
         },
         {
           "type": "text_delta",
@@ -281,7 +256,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "           "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -291,7 +266,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "axis"
+          "delta": "field"
         },
         {
           "type": "text_delta",
@@ -306,7 +281,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "           "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -321,46 +296,6 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "           "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "base"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "         "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ],"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
           "delta": "         "
         },
         {
@@ -371,17 +306,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "T"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "2"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "w"
+          "delta": "name"
         },
         {
           "type": "text_delta",
@@ -401,7 +326,47 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": " ]"
+          "delta": " ],"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "       "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "ms"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "-co"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "hort"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "-a"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\""
         },
         {
           "type": "text_delta",
@@ -451,22 +416,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "t"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "2"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "_res"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "olutions"
+          "delta": "people"
         },
         {
           "type": "text_delta",
@@ -516,7 +466,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "stack"
+          "delta": "subject"
         },
         {
           "type": "text_delta",
@@ -541,7 +491,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "from"
+          "delta": "of"
         },
         {
           "type": "text_delta",
@@ -556,362 +506,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "t"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "2"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "_st"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "acks"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\","
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "     "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "attach"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\":"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ["
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "       "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " {"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "         "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "as"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\":"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "res"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\","
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "         "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "set"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\":"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " {"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "           "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "gr"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "ain"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\":"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "stack"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\","
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "           "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "from"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\":"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "t"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "2"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "_st"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "acks"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\","
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "           "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "derived"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\":"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ["
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "             "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " {"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "               "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "name"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\":"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "resolution"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\","
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "               "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "as"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\":"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "res"
+          "delta": "scope"
         },
         {
           "type": "text_delta",
@@ -926,27 +521,12 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "             "
+          "delta": "   "
         },
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": " }"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "           "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ]"
+          "delta": " },"
         },
         {
           "type": "text_delta",
@@ -956,27 +536,32 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "         "
+          "delta": "   "
         },
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": " }"
+          "delta": " \""
         },
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "\n"
+          "delta": "vis"
         },
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "       "
+          "delta": "its"
         },
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": " }"
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {"
         },
         {
           "type": "text_delta",
@@ -991,7 +576,352 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": " ]"
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "gr"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "ain"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "session"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "of"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "people"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "   "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " },"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "   "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "st"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "udies"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "gr"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "ain"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "study"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "of"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "vis"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "its"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "   "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " },"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "   "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "series"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " {"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "gr"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "ain"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "series"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\","
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\n"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "     "
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "of"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\":"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": " \""
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "st"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "udies"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "\""
         },
         {
           "type": "text_delta",
@@ -1086,22 +1016,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "t"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "2"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "_res"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "olutions"
+          "delta": "series"
         },
         {
           "type": "text_delta",
@@ -1251,177 +1166,17 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "res"
+          "delta": "series"
+        },
+        {
+          "type": "text_delta",
+          "contentIndex": 0,
+          "delta": "_description"
         },
         {
           "type": "text_delta",
           "contentIndex": 0,
           "delta": "\""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "     "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ],"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "     "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ["
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "       "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "count"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\","
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "       "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " {},"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "       "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ["
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "         "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "field"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\","
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "         "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " {},"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "         "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "res"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "       "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ]"
         },
         {
           "type": "text_delta",
@@ -1471,7 +1226,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "order"
+          "delta": "distinct"
         },
         {
           "type": "text_delta",
@@ -1481,277 +1236,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": " ["
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "     "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ["
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "       "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ["
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "         "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "count"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\","
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "         "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " {},"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "         "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ["
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "           "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "field"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\","
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "           "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " {},"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "           "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "res"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "         "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ]"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "       "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ],"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "       "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "desc"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "     "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ]"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "   "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ],"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "   "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " \""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "limit"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\":"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "1"
+          "delta": " true"
         },
         {
           "type": "text_delta",
@@ -1781,18 +1266,18 @@
         {
           "type": "text_end",
           "contentIndex": 0,
-          "content": "{\n  \"ast_version\": 1,\n  \"sets\": {\n    \"t2_stacks\": {\n      \"grain\": \"stack\",\n      \"where\": [\n        [\n          \"=\",\n          {},\n          [\n            \"axis\",\n            {},\n            \"base\"\n          ],\n          \"T2w\"\n        ]\n      ]\n    },\n    \"t2_resolutions\": {\n      \"grain\": \"stack\",\n      \"from\": \"t2_stacks\",\n      \"attach\": [\n        {\n          \"as\": \"res\",\n          \"set\": {\n            \"grain\": \"stack\",\n            \"from\": \"t2_stacks\",\n            \"derived\": [\n              {\n                \"name\": \"resolution\",\n                \"as\": \"res\"\n              }\n            ]\n          }\n        }\n      ]\n    }\n  },\n  \"out\": {\n    \"set\": \"t2_resolutions\",\n    \"level\": \"record\",\n    \"columns\": [\n      [\n        \"field\",\n        {},\n        \"res\"\n      ],\n      [\n        \"count\",\n        {},\n        [\n          \"field\",\n          {},\n          \"res\"\n        ]\n      ]\n    ],\n    \"order\": [\n      [\n        [\n          \"count\",\n          {},\n          [\n            \"field\",\n            {},\n            \"res\"\n          ]\n        ],\n        \"desc\"\n      ]\n    ],\n    \"limit\": 1\n  }\n}"
+          "content": "{\n  \"ast_version\": 1,\n  \"sets\": {\n    \"scope\": {\n      \"grain\": \"cohort\",\n      \"where\": [\n        \"=\",\n        {},\n        [\n          \"field\",\n          {},\n          \"name\"\n        ],\n        \"ms-cohort-a\"\n      ]\n    },\n    \"people\": {\n      \"grain\": \"subject\",\n      \"of\": \"scope\"\n    },\n    \"visits\": {\n      \"grain\": \"session\",\n      \"of\": \"people\"\n    },\n    \"studies\": {\n      \"grain\": \"study\",\n      \"of\": \"visits\"\n    },\n    \"series\": {\n      \"grain\": \"series\",\n      \"of\": \"studies\"\n    }\n  },\n  \"out\": {\n    \"set\": \"series\",\n    \"level\": \"record\",\n    \"columns\": [\n      [\n        \"field\",\n        {},\n        \"series_description\"\n      ]\n    ],\n    \"distinct\": true\n  }\n}"
         },
         {
           "type": "done",
           "reason": "stop",
           "usage": {
             "input": 4123,
-            "output": 354,
+            "output": 251,
             "cacheRead": 0,
             "cacheWrite": 0,
             "reasoning": 0,
-            "totalTokens": 4477,
+            "totalTokens": 4374,
             "cost": {
               "input": 0,
               "output": 0,
@@ -1801,7 +1286,7 @@
               "total": 0
             }
           },
-          "responseId": "b28f89c327f74aa6aded439799656b21"
+          "responseId": "2e88675df7c14a8dbd6cec2e69bf18c4"
         }
       ]
     }

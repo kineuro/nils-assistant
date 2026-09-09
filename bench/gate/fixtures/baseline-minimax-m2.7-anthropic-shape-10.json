@@ -21,128 +21,138 @@
         {
           "type": "thinking_delta",
           "contentIndex": 0,
-          "delta": " user is asking a complex clinical question. Let me break it down:\n\n1. Within cohort A (ms-cohort-a)\n2. For each subject in that"
+          "delta": " question asks for: within cohort A (ms-cohort-a), for each subject, find one pair of sessions that are 4-5 years apart (48"
         },
         {
           "type": "thinking_delta",
           "contentIndex": 0,
-          "delta": " cohort\n3. Find one pair of sessions that are 4 to 5 years apart (48-60 months)\n4. Each session must have a score within a year of its date (an event"
+          "delta": "-60 months), where each session has a score (likely EDSS since that's the primary clinical measurement) within a year of its"
         },
         {
           "type": "thinking_delta",
           "contentIndex": 0,
-          "delta": " like EDSS within 1 year of session date)\n5. Choose the pair whose score dates sit closest together (minimize the gap between the two score dates"
+          "delta": " date, and choose the pair whose score dates sit closest together. Return both dates, the gap, and both scores"
         },
         {
           "type": "thinking_delta",
           "contentIndex": 0,
-          "delta": ")\n6. Return: both dates, the gap, and both scores\n\nLet me construct the document:\n\n- Grain is subject"
+          "delta": ".\n\nLet me break this down:\n1. Cohort A = ms-cohort-a\n2. Sessions are 4-5 years apart (using months"
         },
         {
           "type": "thinking_delta",
           "contentIndex": 0,
-          "delta": " (each subject gets one answer)\n- Need session sets, need events ("
+          "delta": " with inclusive ends)\n3. Each session has a score within a year of its date (score = ED"
         },
         {
           "type": "thinking_delta",
           "contentIndex": 0,
-          "delta": "scores) attached to sessions\n- Need to find session pairs 4-5 years apart\n- Need to filter to sessions with scores"
+          "delta": "SS event within 1 year of session)\n4. Choose the pair with the closest score dates\n5. Output: both dates, gap, both scores\n\nThe"
         },
         {
           "type": "thinking_delta",
           "contentIndex": 0,
-          "delta": " within a year\n- Need to choose the pair with closest score dates\n- Output: session dates, gap, and scores\n\nLet me think"
+          "delta": " scoring kind is EDSS (primary clinical measurement). The score dates need to be within a year of session dates"
         },
         {
           "type": "thinking_delta",
           "contentIndex": 0,
-          "delta": " about the structure:\n\n1. Scope: cohort A\n2. Subjects: of scope"
+          "delta": ".\n\nI need to build this as sets:\n- scope: cohort ms-cohort-a\n- people: subjects in scope\n- visits: sessions of"
         },
         {
           "type": "thinking_delta",
           "contentIndex": 0,
-          "delta": "\n3. Sessions: of subjects\n4. Events (scores like EDSS): filter to EDSS kind\n5. For"
+          "delta": " people\n- edss: EDSS events (score kind)\n- session_with_score"
         },
         {
           "type": "thinking_delta",
           "contentIndex": 0,
-          "delta": " each subject, find session pairs that are 4-5 years apart\n6. Filter to pairs where each session has a score within a"
+          "delta": ": sessions that have an EDSS within 1 year\n- pairs: pairs of sessions 4-5 years apart, each"
         },
         {
           "type": "thinking_delta",
           "contentIndex": 0,
-          "delta": " year\n7. Choose the pair with closest score dates\n8. Output both session dates, the gap, and both scores\n\nThe document"
+          "delta": " with a score within a year\n- For each subject, pick the pair with closest score dates\n- Output the pair details\n\nWait, let me re-read: \"where"
         },
         {
           "type": "thinking_delta",
           "contentIndex": 0,
-          "delta": " structure:\n\n```json\n{\n  \"ast_version\": 1,\n  \"params\": {\n    \"year_window\": {\"type\": \"window\", \"value\": {\"from\": -12, \"to\": 12"
+          "delta": " each session has a score within a year of its date\" - this means for each session in the pair, there is an EDSS event within 1 year of that session's date.\n\n\"choosing the pair whose score dates"
         },
         {
           "type": "thinking_delta",
           "contentIndex": 0,
-          "delta": ", \"unit\": \"month\"}},\n    \"min_gap\": {\"type\": \"window\", \"value\": {\"from\": 48, \"to\": 60, \"unit\": \"month\"}}\n  },\n  \"sets"
+          "delta": " sit closest\" - among all valid pairs for a subject, pick the one where the two score dates (the EDSS dates)"
         },
         {
           "type": "thinking_delta",
           "contentIndex": 0,
-          "delta": "\": {\n    \"scope\": {\"grain\": \"cohort\", \"where\": [[\"=\", {}, [\"field\", {}, \"name\"], \"ms-cohort-a\"]]},\n    \"subjects\": {\"grain\": \"subject\", \"of"
+          "delta": " are closest to each other.\n\nThe output: both dates (presumably the session dates), the gap (session gap"
         },
         {
           "type": "thinking_delta",
           "contentIndex": 0,
-          "delta": "\": \"scope\"},\n    \"sessions\": {\"grain\": \"session\", \"of\": \"subjects\"},\n    \"scores\": {\"grain\": \"event\", \"where\": [[\"=\", {}, [\"field\", {}, \"kind\"], \"EDSS\"]]},\n    \"sessions"
+          "delta": "), and both scores (the EDSS values).\n\nLet me structure this:\n\n1. scope: cohort ms-cohort-a\n\n\n2. people: subjects in scope\n3. visits: sessions of people\n4. edss: ED"
         },
         {
           "type": "thinking_delta",
           "contentIndex": 0,
-          "delta": "_with_scores\": {\n      \"grain\": \"session\",\n      \"from\": \"sessions\",\n      \"has\": [{\n        \"set\": \"scores\",\n        \"window\": [\""
+          "delta": "SS events (kind = \"EDSS\")\n5. session_score: sessions with an EDSS within 1 year -"
         },
         {
           "type": "thinking_delta",
           "contentIndex": 0,
-          "delta": "param\", {}, \"year_window\"],\n        \"min\": 1\n      }]\n    },\n    \"pairs\": {\n      \"grain\": \"session_pair\",\n      \"of\": \"sessions_with_scores\""
+          "delta": " I need to attach the score to the session\n6. pairs: pairs of sessions_with_score that are 4-5 years apart"
         },
         {
           "type": "thinking_delta",
           "contentIndex": 0,
-          "delta": "\n    }\n  }\n}\n```\n\nI need to build a session pair set where each pair consists of two sessions from the same subject that"
+          "delta": "\n7. For each pair, compute the gap between EDSS dates\n8. answer: for each subject, pick the pair with minimum EDSS date gap\n"
         },
         {
           "type": "thinking_delta",
           "contentIndex": 0,
-          "delta": " are 4-5 years apart, then filter to only those pairs where both sessions have valid scores within the specified window. The engine will handle"
+          "delta": "\nI need to work out the time window. \"within a year\" means ±12 months or just +12 months? Given"
         },
         {
           "type": "thinking_delta",
           "contentIndex": 0,
-          "delta": " the pairing logic, but I need to express the constraints clearly. Since \"within a"
+          "delta": " the rules about coarse dates as intervals, I'll treat it as a 12-month window around the session date. For the "
         },
         {
           "type": "thinking_delta",
           "contentIndex": 0,
-          "delta": " year\" means ±12 months and the gap requirement is 4-5 years (48-60 months), I'll use parameters for these values"
+          "delta": "4-5 year gap, that's 48-60 months between sessions.\n\nLet me use a reach parameter for the ±12 month"
         },
         {
           "type": "thinking_delta",
           "contentIndex": 0,
-          "delta": " and structure the sets to enforce them properly.\n\nThe pairing mechanism needs"
+          "delta": " window to find EDSS scores near each session, then attach those scores to create a qualifying set of sessions. For the"
         },
         {
           "type": "thinking_delta",
           "contentIndex": 0,
-          "delta": " to match sessions within each subject, calculate the time gap, and verify that both sessions in the pair have the required scores within the specified"
+          "delta": " pair matching, I'll define the gap as 48-60 months and find all valid"
         },
         {
           "type": "thinking_delta",
           "contentIndex": 0,
-          "delta": " windows. The final answer should capture the two session dates, the gap between them, and both scores as a record."
+          "delta": " session pairs within that range. Each pair will have two attached EDSS scores, and I'll compute the absolute difference between those score"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " dates to find which pair has the closest alignment. Finally, I'll select the best pair"
+        },
+        {
+          "type": "thinking_delta",
+          "contentIndex": 0,
+          "delta": " per subject."
         },
         {
           "type": "thinking_end",
           "contentIndex": 0,
-          "content": "The user is asking a complex clinical question. Let me break it down:\n\n1. Within cohort A (ms-cohort-a)\n2. For each subject in that cohort\n3. Find one pair of sessions that are 4 to 5 years apart (48-60 months)\n4. Each session must have a score within a year of its date (an event like EDSS within 1 year of session date)\n5. Choose the pair whose score dates sit closest together (minimize the gap between the two score dates)\n6. Return: both dates, the gap, and both scores\n\nLet me construct the document:\n\n- Grain is subject (each subject gets one answer)\n- Need session sets, need events (scores) attached to sessions\n- Need to find session pairs 4-5 years apart\n- Need to filter to sessions with scores within a year\n- Need to choose the pair with closest score dates\n- Output: session dates, gap, and scores\n\nLet me think about the structure:\n\n1. Scope: cohort A\n2. Subjects: of scope\n3. Sessions: of subjects\n4. Events (scores like EDSS): filter to EDSS kind\n5. For each subject, find session pairs that are 4-5 years apart\n6. Filter to pairs where each session has a score within a year\n7. Choose the pair with closest score dates\n8. Output both session dates, the gap, and both scores\n\nThe document structure:\n\n```json\n{\n  \"ast_version\": 1,\n  \"params\": {\n    \"year_window\": {\"type\": \"window\", \"value\": {\"from\": -12, \"to\": 12, \"unit\": \"month\"}},\n    \"min_gap\": {\"type\": \"window\", \"value\": {\"from\": 48, \"to\": 60, \"unit\": \"month\"}}\n  },\n  \"sets\": {\n    \"scope\": {\"grain\": \"cohort\", \"where\": [[\"=\", {}, [\"field\", {}, \"name\"], \"ms-cohort-a\"]]},\n    \"subjects\": {\"grain\": \"subject\", \"of\": \"scope\"},\n    \"sessions\": {\"grain\": \"session\", \"of\": \"subjects\"},\n    \"scores\": {\"grain\": \"event\", \"where\": [[\"=\", {}, [\"field\", {}, \"kind\"], \"EDSS\"]]},\n    \"sessions_with_scores\": {\n      \"grain\": \"session\",\n      \"from\": \"sessions\",\n      \"has\": [{\n        \"set\": \"scores\",\n        \"window\": [\"param\", {}, \"year_window\"],\n        \"min\": 1\n      }]\n    },\n    \"pairs\": {\n      \"grain\": \"session_pair\",\n      \"of\": \"sessions_with_scores\"\n    }\n  }\n}\n```\n\nI need to build a session pair set where each pair consists of two sessions from the same subject that are 4-5 years apart, then filter to only those pairs where both sessions have valid scores within the specified window. The engine will handle the pairing logic, but I need to express the constraints clearly. Since \"within a year\" means ±12 months and the gap requirement is 4-5 years (48-60 months), I'll use parameters for these values and structure the sets to enforce them properly.\n\nThe pairing mechanism needs to match sessions within each subject, calculate the time gap, and verify that both sessions in the pair have the required scores within the specified windows. The final answer should capture the two session dates, the gap between them, and both scores as a record.",
-          "contentSignature": "1a3c487a03c225549da6a941f45ad61606d7c7f52243c6026f5e7f7a9a0192ed"
+          "content": "The question asks for: within cohort A (ms-cohort-a), for each subject, find one pair of sessions that are 4-5 years apart (48-60 months), where each session has a score (likely EDSS since that's the primary clinical measurement) within a year of its date, and choose the pair whose score dates sit closest together. Return both dates, the gap, and both scores.\n\nLet me break this down:\n1. Cohort A = ms-cohort-a\n2. Sessions are 4-5 years apart (using months with inclusive ends)\n3. Each session has a score within a year of its date (score = EDSS event within 1 year of session)\n4. Choose the pair with the closest score dates\n5. Output: both dates, gap, both scores\n\nThe scoring kind is EDSS (primary clinical measurement). The score dates need to be within a year of session dates.\n\nI need to build this as sets:\n- scope: cohort ms-cohort-a\n- people: subjects in scope\n- visits: sessions of people\n- edss: EDSS events (score kind)\n- session_with_score: sessions that have an EDSS within 1 year\n- pairs: pairs of sessions 4-5 years apart, each with a score within a year\n- For each subject, pick the pair with closest score dates\n- Output the pair details\n\nWait, let me re-read: \"where each session has a score within a year of its date\" - this means for each session in the pair, there is an EDSS event within 1 year of that session's date.\n\n\"choosing the pair whose score dates sit closest\" - among all valid pairs for a subject, pick the one where the two score dates (the EDSS dates) are closest to each other.\n\nThe output: both dates (presumably the session dates), the gap (session gap), and both scores (the EDSS values).\n\nLet me structure this:\n\n1. scope: cohort ms-cohort-a\n\n\n2. people: subjects in scope\n3. visits: sessions of people\n4. edss: EDSS events (kind = \"EDSS\")\n5. session_score: sessions with an EDSS within 1 year - I need to attach the score to the session\n6. pairs: pairs of sessions_with_score that are 4-5 years apart\n7. For each pair, compute the gap between EDSS dates\n8. answer: for each subject, pick the pair with minimum EDSS date gap\n\nI need to work out the time window. \"within a year\" means ±12 months or just +12 months? Given the rules about coarse dates as intervals, I'll treat it as a 12-month window around the session date. For the 4-5 year gap, that's 48-60 months between sessions.\n\nLet me use a reach parameter for the ±12 month window to find EDSS scores near each session, then attach those scores to create a qualifying set of sessions. For the pair matching, I'll define the gap as 48-60 months and find all valid session pairs within that range. Each pair will have two attached EDSS scores, and I'll compute the absolute difference between those score dates to find which pair has the closest alignment. Finally, I'll select the best pair per subject.",
+          "contentSignature": "add914e7d68ba84cf5d2e33c403227bebb262ca748f34f0a6bc3e4305aa4525b"
         },
         {
           "type": "text_start",
@@ -151,108 +161,108 @@
         {
           "type": "text_delta",
           "contentIndex": 1,
-          "delta": "{\""
+          "delta": "{\"ast_version\":1,\"params\":{\"window_1yr\":{\"type\":\"window\",\"value\":{\""
         },
         {
           "type": "text_delta",
           "contentIndex": 1,
-          "delta": "ast_version\":1,\"params\":{\"year_window\":{\"type\":\"window\",\"value\":{\"from\":-12,\"to\":12,\"unit\":\"month\"}},\"min_gap\":{\"type\":\"window\",\"value\":{\"from\":48"
+          "delta": "from\":-12,\"to\":12,\"unit\":\"month\"}},\"gap_min\":{\"type\":\"integer\",\"value\":48},\"gap_max\":{\"type\":\"integer\",\"value\":60"
         },
         {
           "type": "text_delta",
           "contentIndex": 1,
-          "delta": ",\"to\":60,\"unit\":\"month\"}}},\"sets\":{\"scope\":{\"grain\":\"cohort\",\"where\":[[\"=\",\"{}\",[\"field\",\"{}\",\"name\"],\""
+          "delta": "}},\"sets\":{\"scope\":{\"grain\":\"cohort\",\"where\":[[\"=\",\"{}\",\"field\",\"{}"
         },
         {
           "type": "text_delta",
           "contentIndex": 1,
-          "delta": "ms-cohort-a\"]]},\"people\":{\"grain\":\"subject\",\"of\":\"scope\"},\"sessions\":{\"grain\":\"session\",\"of\":\"people\"},\"edss\":{\"grain\":\"event\",\"where\":[[\"=\""
+          "delta": "\",\"name\"],\"ms-cohort-a\"]]},\"people\":{\"grain\":\"subject\",\"of\":\"scope\"},\"visits\":{\"grain\":\"session\",\"of\":\"people\"},\"edss\":{\"grain\":\"event\",\"where\":"
         },
         {
           "type": "text_delta",
           "contentIndex": 1,
-          "delta": ",\"{}\",[\"field\",\"{}\",\"kind\"],\"EDSS\"]]},\"with_score\":{\"grain\":\"session\",\"from\":\"sessions\",\"has\":[{\"set\":\"ed"
+          "delta": "[[\"=\",\"{}\",\"field\",\"{}\",\"kind\"],\"EDSS\"]]},\"scored\":{\"grain\":\"session\",\"from\":\"visits\",\"near\":[{\"as\":\"score\",\"set\":\"ed"
         },
         {
           "type": "text_delta",
           "contentIndex": 1,
-          "delta": "ss\",\"window\":[\"param\",\"{}\",\"year_window\"],\"min\":1}]},\"first\":{\"grain\":\"session\",\"of\":\"people\",\"from"
+          "delta": "ss\",\"window\":[\"param\",\"{}\",\"window_1yr\"],\"policy\":\"nearest\",\"tie\":\"earlier\"}]},\"pairs\":{\"grain\":\"session_pair\",\"from\":\"scored\",\"where"
         },
         {
           "type": "text_delta",
           "contentIndex": 1,
-          "delta": "\":\"with_score\",\"where\":[[\">=\",\"{}\",[\"field\",\"{}\",\"nominal\"],4]]},\"second\":{\"grain\":\"session\",\"of\":\"people"
+          "delta": "\":[[\"and\",\"{}\"],[[\">=\",\"{}\",\"ordinal\",[\"param\",\"{}\",\"gap"
         },
         {
           "type": "text_delta",
           "contentIndex": 1,
-          "delta": "\",\"from\":\"with_score\",\"where\":[[\"<=\",\"{}\",[\"field\",\"{}\",\"nominal\"],5]]},\"pairs\":{\"grain\":\"session_pair\",\"from\":\"first\",\"with\":\"second"
+          "delta": "_min\"]],[\"<=\",\"{}\",\"ordinal\",[\"param\",\"{}\",\"gap_max\"]]]],\"with\":\"scored\"},\"with_scores\":{\"grain\":\"session_pair\",\"from\":\"pairs\",\"attach\":[{\""
         },
         {
           "type": "text_delta",
           "contentIndex": 1,
-          "delta": "\",\"match\":[[\"=\",\"{}\",[\"subject\",\"{}\"],[\"subject\",\"{}\",\"second\"]]],\"where"
+          "delta": "as\":\"score_a\",\"set\":\"edss\",\"window\":[\"param\",\"{}\",\"window_1yr\"],\"policy\":\"nearest\",\"tie\":\"earlier\",\"on\":\"first"
         },
         {
           "type": "text_delta",
           "contentIndex": 1,
-          "delta": "\":[[\"=\",\"{}\",[\"field\",\"{}\",\"gap_months\"],\"param\",\"year_window\"]]},\"scored\":{\"grain\":\"session"
+          "delta": "\"},{\"as\":\"score_b\",\"set\":\"edss\",\"window\":[\"param\",\"{}\",\"window_1yr\"],\"policy\":\"nearest\",\"tie\":\"earlier\",\"on\":\"second\"}]},\"ranked\":{\"grain\":\"subject"
         },
         {
           "type": "text_delta",
           "contentIndex": 1,
-          "delta": "_pair\",\"from\":\"pairs\",\"near\":[{\"as\":\"e1\",\"set\":\"edss\",\"window\":[\"param\",\"{}\",\"year_window\"],\"policy\":\"nearest\",\"tie\":\""
+          "delta": "\",\"from\":\"people\",\"over\":\"with_scores\",\"rank_by\":[[\"abs\",[\"{}\",\"days_between\","
         },
         {
           "type": "text_delta",
           "contentIndex": 1,
-          "delta": "earlier\"},{\"as\":\"e2\",\"set\":\"edss\",\"window\":[\"param\",\"{}\",\"year_window\"],\"policy\":\"nearest\",\"tie\":\"earlier\"}]},\"closest\":{\"grain\":\"session_pair\",\"from"
+          "delta": "[\"field\",\"{}\",\"score_b\",{}\",\"date\"],[\"field\",\"{}\",\"score_a\",{}\",\"date\"]]]],\"order\":\""
         },
         {
           "type": "text_delta",
           "contentIndex": 1,
-          "delta": "\":\"scored\",\"pick\":{\"by\":[[[\"abs\",\"{}\",[\"-\",\"{}\",[\"field\",\"{}\",\"e2\",\"date"
+          "delta": "asc\"},\"answer\":{\"grain\":\"subject\",\"from\":\"ranked\",\"having\":[[\"=\",\"{}\",\"__rank\",1]]}},\"out\":{\"set"
         },
         {
           "type": "text_delta",
           "contentIndex": 1,
-          "delta": "\"],[\"field\",\"{}\",\"e1\",\"date\"]]],asc]],\"per\":\"subject\"}},\"answer\":{\"grain\":\"subject\",\"from\":\"people\",\"has\":[{\"set"
+          "delta": "\":\"answer\",\"level\":\"record\",\"columns\":[[\"field\",\"{}\",\"first\",{}\",\"label\"],[\"field\",\"{}\",\"second\",{}\",\"label\"],[\"ordinal"
         },
         {
           "type": "text_delta",
           "contentIndex": 1,
-          "delta": "\":\"closest\",\"min\":1}]}},\"out\":{\"set\":\"closest\",\"level\":\"record\",\"columns\":[[\"field\",\""
+          "delta": "\",[\"field\",\"{}\",\"first\"]],\"gap\"],[\"field\",\"{}\",\"score_a\",{}\",\"value\"],[\"field\",\"{}\",\"score"
         },
         {
           "type": "text_delta",
           "contentIndex": 1,
-          "delta": "{}\",\"first\",\"date\"],[\"field\",\"{}\",\"second\",\"date\"],[\"field\",\"{}\",\"gap_months\"],[\"field\",\"{}\",\"e1\",\"number\"],[\"field\",\"{}\",\"e2\",\"number\"]]}}"
+          "delta": "_b\",{}\",\"value\"]],\"order\":[[\"field\",\"{}\",\"code\"],\"asc\"]]}}"
         },
         {
           "type": "text_end",
           "contentIndex": 1,
-          "content": "{\"ast_version\":1,\"params\":{\"year_window\":{\"type\":\"window\",\"value\":{\"from\":-12,\"to\":12,\"unit\":\"month\"}},\"min_gap\":{\"type\":\"window\",\"value\":{\"from\":48,\"to\":60,\"unit\":\"month\"}}},\"sets\":{\"scope\":{\"grain\":\"cohort\",\"where\":[[\"=\",\"{}\",[\"field\",\"{}\",\"name\"],\"ms-cohort-a\"]]},\"people\":{\"grain\":\"subject\",\"of\":\"scope\"},\"sessions\":{\"grain\":\"session\",\"of\":\"people\"},\"edss\":{\"grain\":\"event\",\"where\":[[\"=\",\"{}\",[\"field\",\"{}\",\"kind\"],\"EDSS\"]]},\"with_score\":{\"grain\":\"session\",\"from\":\"sessions\",\"has\":[{\"set\":\"edss\",\"window\":[\"param\",\"{}\",\"year_window\"],\"min\":1}]},\"first\":{\"grain\":\"session\",\"of\":\"people\",\"from\":\"with_score\",\"where\":[[\">=\",\"{}\",[\"field\",\"{}\",\"nominal\"],4]]},\"second\":{\"grain\":\"session\",\"of\":\"people\",\"from\":\"with_score\",\"where\":[[\"<=\",\"{}\",[\"field\",\"{}\",\"nominal\"],5]]},\"pairs\":{\"grain\":\"session_pair\",\"from\":\"first\",\"with\":\"second\",\"match\":[[\"=\",\"{}\",[\"subject\",\"{}\"],[\"subject\",\"{}\",\"second\"]]],\"where\":[[\"=\",\"{}\",[\"field\",\"{}\",\"gap_months\"],\"param\",\"year_window\"]]},\"scored\":{\"grain\":\"session_pair\",\"from\":\"pairs\",\"near\":[{\"as\":\"e1\",\"set\":\"edss\",\"window\":[\"param\",\"{}\",\"year_window\"],\"policy\":\"nearest\",\"tie\":\"earlier\"},{\"as\":\"e2\",\"set\":\"edss\",\"window\":[\"param\",\"{}\",\"year_window\"],\"policy\":\"nearest\",\"tie\":\"earlier\"}]},\"closest\":{\"grain\":\"session_pair\",\"from\":\"scored\",\"pick\":{\"by\":[[[\"abs\",\"{}\",[\"-\",\"{}\",[\"field\",\"{}\",\"e2\",\"date\"],[\"field\",\"{}\",\"e1\",\"date\"]]],asc]],\"per\":\"subject\"}},\"answer\":{\"grain\":\"subject\",\"from\":\"people\",\"has\":[{\"set\":\"closest\",\"min\":1}]}},\"out\":{\"set\":\"closest\",\"level\":\"record\",\"columns\":[[\"field\",\"{}\",\"first\",\"date\"],[\"field\",\"{}\",\"second\",\"date\"],[\"field\",\"{}\",\"gap_months\"],[\"field\",\"{}\",\"e1\",\"number\"],[\"field\",\"{}\",\"e2\",\"number\"]]}}"
+          "content": "{\"ast_version\":1,\"params\":{\"window_1yr\":{\"type\":\"window\",\"value\":{\"from\":-12,\"to\":12,\"unit\":\"month\"}},\"gap_min\":{\"type\":\"integer\",\"value\":48},\"gap_max\":{\"type\":\"integer\",\"value\":60}},\"sets\":{\"scope\":{\"grain\":\"cohort\",\"where\":[[\"=\",\"{}\",\"field\",\"{}\",\"name\"],\"ms-cohort-a\"]]},\"people\":{\"grain\":\"subject\",\"of\":\"scope\"},\"visits\":{\"grain\":\"session\",\"of\":\"people\"},\"edss\":{\"grain\":\"event\",\"where\":[[\"=\",\"{}\",\"field\",\"{}\",\"kind\"],\"EDSS\"]]},\"scored\":{\"grain\":\"session\",\"from\":\"visits\",\"near\":[{\"as\":\"score\",\"set\":\"edss\",\"window\":[\"param\",\"{}\",\"window_1yr\"],\"policy\":\"nearest\",\"tie\":\"earlier\"}]},\"pairs\":{\"grain\":\"session_pair\",\"from\":\"scored\",\"where\":[[\"and\",\"{}\"],[[\">=\",\"{}\",\"ordinal\",[\"param\",\"{}\",\"gap_min\"]],[\"<=\",\"{}\",\"ordinal\",[\"param\",\"{}\",\"gap_max\"]]]],\"with\":\"scored\"},\"with_scores\":{\"grain\":\"session_pair\",\"from\":\"pairs\",\"attach\":[{\"as\":\"score_a\",\"set\":\"edss\",\"window\":[\"param\",\"{}\",\"window_1yr\"],\"policy\":\"nearest\",\"tie\":\"earlier\",\"on\":\"first\"},{\"as\":\"score_b\",\"set\":\"edss\",\"window\":[\"param\",\"{}\",\"window_1yr\"],\"policy\":\"nearest\",\"tie\":\"earlier\",\"on\":\"second\"}]},\"ranked\":{\"grain\":\"subject\",\"from\":\"people\",\"over\":\"with_scores\",\"rank_by\":[[\"abs\",[\"{}\",\"days_between\",[\"field\",\"{}\",\"score_b\",{}\",\"date\"],[\"field\",\"{}\",\"score_a\",{}\",\"date\"]]]],\"order\":\"asc\"},\"answer\":{\"grain\":\"subject\",\"from\":\"ranked\",\"having\":[[\"=\",\"{}\",\"__rank\",1]]}},\"out\":{\"set\":\"answer\",\"level\":\"record\",\"columns\":[[\"field\",\"{}\",\"first\",{}\",\"label\"],[\"field\",\"{}\",\"second\",{}\",\"label\"],[\"ordinal\",[\"field\",\"{}\",\"first\"]],\"gap\"],[\"field\",\"{}\",\"score_a\",{}\",\"value\"],[\"field\",\"{}\",\"score_b\",{}\",\"value\"]],\"order\":[[\"field\",\"{}\",\"code\"],\"asc\"]]}}"
         },
         {
           "type": "done",
           "reason": "stop",
           "usage": {
             "input": 0,
-            "output": 1245,
-            "cacheRead": 11708,
+            "output": 1191,
+            "cacheRead": 4169,
             "cacheWrite": 53,
-            "totalTokens": 13006,
+            "totalTokens": 5413,
             "cost": {
               "input": 0,
-              "output": 0.0014939999999999999,
-              "cacheRead": 0.00035123999999999995,
+              "output": 0.0014291999999999998,
+              "cacheRead": 0.00012507,
               "cacheWrite": 0,
-              "total": 0.0018452399999999997
+              "total": 0.0015542699999999997
             },
             "cacheWrite1h": 0,
-            "reasoning": 738
+            "reasoning": 687
           },
-          "responseId": "06f001d8b26e5426dc2831f16719fd45"
+          "responseId": "06f0089bb5c310c10d34feb86551148b"
         }
       ]
     }

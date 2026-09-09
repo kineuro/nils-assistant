@@ -511,21 +511,6 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": " ["
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "         "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
           "delta": " \"=\","
         },
         {
@@ -536,7 +521,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "         "
+          "delta": "       "
         },
         {
           "type": "text_delta",
@@ -551,7 +536,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "         "
+          "delta": "       "
         },
         {
           "type": "text_delta",
@@ -566,7 +551,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "           "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -591,7 +576,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "           "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -606,7 +591,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "           "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -631,7 +616,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "         "
+          "delta": "       "
         },
         {
           "type": "text_delta",
@@ -646,7 +631,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "         "
+          "delta": "       "
         },
         {
           "type": "text_delta",
@@ -677,21 +662,6 @@
           "type": "text_delta",
           "contentIndex": 0,
           "delta": "\""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "       "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ]"
         },
         {
           "type": "text_delta",
@@ -976,21 +946,6 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": " ["
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "         "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
           "delta": " \"=\","
         },
         {
@@ -1001,7 +956,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "         "
+          "delta": "       "
         },
         {
           "type": "text_delta",
@@ -1016,7 +971,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "         "
+          "delta": "       "
         },
         {
           "type": "text_delta",
@@ -1031,7 +986,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "           "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -1056,7 +1011,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "           "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -1071,7 +1026,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "           "
+          "delta": "         "
         },
         {
           "type": "text_delta",
@@ -1096,7 +1051,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "         "
+          "delta": "       "
         },
         {
           "type": "text_delta",
@@ -1111,7 +1066,7 @@
         {
           "type": "text_delta",
           "contentIndex": 0,
-          "delta": "         "
+          "delta": "       "
         },
         {
           "type": "text_delta",
@@ -1132,21 +1087,6 @@
           "type": "text_delta",
           "contentIndex": 0,
           "delta": "\""
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "\n"
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": "       "
-        },
-        {
-          "type": "text_delta",
-          "contentIndex": 0,
-          "delta": " ]"
         },
         {
           "type": "text_delta",
@@ -2576,18 +2516,18 @@
         {
           "type": "text_end",
           "contentIndex": 0,
-          "content": "{\n  \"ast_version\": 1,\n  \"params\": {\n    \"reach\": {\n      \"type\": \"window\",\n      \"value\": {\n        \"from\": -6,\n        \"to\": 6,\n        \"unit\": \"month\"\n      }\n    }\n  },\n  \"sets\": {\n    \"scope\": {\n      \"grain\": \"cohort\",\n      \"where\": [\n        [\n          \"=\",\n          {},\n          [\n            \"field\",\n            {},\n            \"name\"\n          ],\n          \"ms-cohort-a\"\n        ]\n      ]\n    },\n    \"people\": {\n      \"grain\": \"subject\",\n      \"of\": \"scope\"\n    },\n    \"diagnosis\": {\n      \"grain\": \"event\",\n      \"where\": [\n        [\n          \"=\",\n          {},\n          [\n            \"field\",\n            {},\n            \"kind\"\n          ],\n          \"Diagnosis\"\n        ]\n      ]\n    },\n    \"visits\": {\n      \"grain\": \"session\",\n      \"of\": \"people\"\n    },\n    \"answer\": {\n      \"grain\": \"session\",\n      \"from\": \"visits\",\n      \"near\": [\n        {\n          \"as\": \"dx\",\n          \"set\": \"diagnosis\",\n          \"window\": [\n            \"param\",\n            {},\n            \"reach\"\n          ],\n          \"policy\": \"nearest\",\n          \"tie\": \"earlier\"\n        }\n      ]\n    }\n  },\n  \"out\": {\n    \"set\": \"answer\",\n    \"level\": \"record\",\n    \"columns\": [\n      [\n        \"field\",\n        {},\n        \"id\"\n      ],\n      [\n        \"field\",\n        {},\n        \"label\"\n      ],\n      [\n        \"field\",\n        {},\n        \"first\"\n      ],\n      [\n        \"field\",\n        {},\n        \"last\"\n      ]\n    ],\n    \"order\": [\n      [\n        [\n          \"field\",\n          {},\n          \"first\"\n        ],\n        \"asc\"\n      ]\n    ]\n  }\n}"
+          "content": "{\n  \"ast_version\": 1,\n  \"params\": {\n    \"reach\": {\n      \"type\": \"window\",\n      \"value\": {\n        \"from\": -6,\n        \"to\": 6,\n        \"unit\": \"month\"\n      }\n    }\n  },\n  \"sets\": {\n    \"scope\": {\n      \"grain\": \"cohort\",\n      \"where\": [\n        \"=\",\n        {},\n        [\n          \"field\",\n          {},\n          \"name\"\n        ],\n        \"ms-cohort-a\"\n      ]\n    },\n    \"people\": {\n      \"grain\": \"subject\",\n      \"of\": \"scope\"\n    },\n    \"diagnosis\": {\n      \"grain\": \"event\",\n      \"where\": [\n        \"=\",\n        {},\n        [\n          \"field\",\n          {},\n          \"kind\"\n        ],\n        \"Diagnosis\"\n      ]\n    },\n    \"visits\": {\n      \"grain\": \"session\",\n      \"of\": \"people\"\n    },\n    \"answer\": {\n      \"grain\": \"session\",\n      \"from\": \"visits\",\n      \"near\": [\n        {\n          \"as\": \"dx\",\n          \"set\": \"diagnosis\",\n          \"window\": [\n            \"param\",\n            {},\n            \"reach\"\n          ],\n          \"policy\": \"nearest\",\n          \"tie\": \"earlier\"\n        }\n      ]\n    }\n  },\n  \"out\": {\n    \"set\": \"answer\",\n    \"level\": \"record\",\n    \"columns\": [\n      [\n        \"field\",\n        {},\n        \"id\"\n      ],\n      [\n        \"field\",\n        {},\n        \"label\"\n      ],\n      [\n        \"field\",\n        {},\n        \"first\"\n      ],\n      [\n        \"field\",\n        {},\n        \"last\"\n      ]\n    ],\n    \"order\": [\n      [\n        [\n          \"field\",\n          {},\n          \"first\"\n        ],\n        \"asc\"\n      ]\n    ]\n  }\n}"
         },
         {
           "type": "done",
           "reason": "stop",
           "usage": {
-            "input": 11601,
-            "output": 513,
+            "input": 4125,
+            "output": 501,
             "cacheRead": 0,
             "cacheWrite": 0,
             "reasoning": 0,
-            "totalTokens": 12114,
+            "totalTokens": 4626,
             "cost": {
               "input": 0,
               "output": 0,
@@ -2596,7 +2536,7 @@
               "total": 0
             }
           },
-          "responseId": "66a73879754648bbb681c58d4617115e"
+          "responseId": "bd57b88b975e4dafa8702f9feb219eef"
         }
       ]
     }
