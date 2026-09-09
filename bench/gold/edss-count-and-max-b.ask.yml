@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: For each subject in cohort B, the number of EDSS scores on record and the highest one.
+ast_version: 1
+name: EDSS count and maximum per subject in cohort B
+scheme: default
+sets:
+  scope:  {grain: cohort, where: [["=", {}, ["field", {}, "name"], "ms-cohort-b"]]}
+  people: {grain: subject, of: scope}
+  edss:   {grain: event, of: people, where: [["=", {}, ["field", {}, "kind"], "EDSS"]]}
+  per_subject:
+    grain: group
+    group: {of: edss, by: [["field", {}, "subject.code"]]}
+    bind:
+      n:       ["count", {set: edss}]
+      highest: ["max", {set: edss}, ["field", {}, "number"]]
+keep: [per_subject]
+out:
+  set: per_subject
+  level: aggregate
+  columns: [["field", {}, "subject.code"], ["field", {}, "n"], ["field", {}, "highest"]]
+  order: [[["field", {}, "subject.code"], asc]]

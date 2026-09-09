@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: How many subjects are in cohort A but not in cohort B?
+ast_version: 1
+name: subjects only in cohort A
+scheme: default
+sets:
+  a:      {grain: cohort, where: [["=", {}, ["field", {}, "name"], "ms-cohort-a"]]}
+  b:      {grain: cohort, where: [["=", {}, ["field", {}, "name"], "ms-cohort-b"]]}
+  in_a:   {grain: subject, of: a}
+  in_b:   {grain: subject, of: b}
+  only_a: {grain: subject, algebra: {op: except, sets: [in_a, in_b]}}
+keep: [only_a]
+out: {set: only_a, level: count}

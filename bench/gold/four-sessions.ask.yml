@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: Which subjects have had at least four sessions? Give the code and the number of sessions.
+ast_version: 1
+name: subjects with at least four sessions
+scheme: default
+sets:
+  scope:  {grain: cohort}
+  people: {grain: subject, of: scope}
+  visits: {grain: session, of: people}
+  found:
+    grain: subject
+    from: people
+    has: [{set: visits, min: 4, as: n_sessions}]
+keep: [found]
+out:
+  set: found
+  level: record
+  columns: [["field", {}, "code"], ["field", {}, "n_sessions"]]
+  order: [[["field", {}, "code"], asc]]

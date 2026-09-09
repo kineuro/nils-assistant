@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: How many sessions in cohort A have an MPRAGE with one millimetre slices?
+ast_version: 1
+name: sessions of cohort A with a 1 mm MPRAGE
+scheme: default
+sets:
+  scope:  {grain: cohort, where: [["=", {}, ["field", {}, "name"], "ms-cohort-a"]]}
+  people: {grain: subject, of: scope}
+  visits: {grain: session, of: people}
+  mprage:
+    grain: stack
+    of: visits
+    where:
+      - ["=", {}, ["axis", {}, "technique"], "MPRAGE"]
+      - ["~=", {tol: 0.05}, ["field", {}, "slice_thickness"], 1.0]
+  found:
+    grain: session
+    from: visits
+    has: [{set: mprage, min: 1}]
+keep: [found]
+out: {set: found, level: count}

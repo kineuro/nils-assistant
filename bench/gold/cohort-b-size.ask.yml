@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: How many subjects are in cohort B?
+ast_version: 1
+name: the size of cohort B
+scheme: default
+sets:
+  scope:  {grain: cohort, where: [["=", {}, ["field", {}, "name"], "ms-cohort-b"]]}
+  people: {grain: subject, of: scope}
+keep: [people]
+out: {set: people, level: count}

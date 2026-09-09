@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: Which subjects of cohort A had an EDSS score within six months of their first session? Show the code, the session date and the score.
+ast_version: 1
+name: an EDSS within six months of the first session
+scheme: default
+sets:
+  scope:  {grain: cohort, where: [["=", {}, ["field", {}, "name"], "ms-cohort-a"]]}
+  people: {grain: subject, of: scope}
+  edss:   {grain: event, where: [["=", {}, ["field", {}, "kind"], "EDSS"]]}
+  first_scored:
+    grain: session
+    of: people
+    bind: {n: ["ordinal", {}]}
+    near: [{as: score, set: edss, window: {from: -6, to: 6, unit: month}, policy: nearest, tie: earlier}]
+    where: [["=", {}, ["field", {}, "n"], 1]]
+keep: [first_scored]
+out:
+  set: first_scored
+  level: record
+  columns: [["field", {}, "subject.code"], ["field", {}, "first"], ["field", {}, "score.number"]]
+  order: [[["field", {}, "subject.code"], asc]]

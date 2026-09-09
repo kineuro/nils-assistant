@@ -1,4 +1,114 @@
 {
+  "after-transition.ask.yml": {
+    "hash": "e415de248b217f6ba71ee66b12dc601cd861956e5233ef88e4a5a04d82ef6b94",
+    "content_hash": "ffb00ce41a445519236341fc13fafe2f7938be5bf34171ad6346c7f5ac42a3fb",
+    "row_count": 12,
+    "truncated": false,
+    "columns": ["_key", "_subject", "subject.code", "first", "t.date"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "session",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "every member reached through people",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "none: every row of the set",
+      "denominator": "none: a count over the set",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
+  "age-at-first-session-b.ask.yml": {
+    "hash": "b2fbdde2fdc62d475c0efdf2616975c25a89af234080850746685e0a784c348b",
+    "content_hash": "3f82ec319fd3ab4ed6cf2fe66b6e1e6eb7afa6471133fb87a86a0656c1b1db94",
+    "row_count": 12,
+    "truncated": false,
+    "columns": ["_key", "_subject", "subject.code", "first", "age"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "session",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "every member of the source it starts from",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "none: every row of the set",
+      "denominator": "none: a count over the set",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
+  "both-field-strengths.ask.yml": {
+    "hash": "883f9fb0a251c8e9b6c885a4e275dd41b6167d955a2ec585f5c74843f224dfab",
+    "content_hash": "bdfbf31a19ba2a33a1a32392a17c3d962a684411f11fc90588c2357db8c4e891",
+    "row_count": 7,
+    "truncated": false,
+    "columns": ["_key", "_subject", "code"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "subject",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "in low at least 1 times; and in high at least 1 times",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "none: every row of the set",
+      "denominator": "none: a count over the set",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
+  "cohort-a-sessions.ask.yml": {
+    "hash": "541d00d80c83dd0f18e3374d3eddfcc2f4d0174c8bc2efcbb36a18ea2c83e9c6",
+    "content_hash": "cf9d5635647cc350a7b30fbff66e6fcc879eb26be8c84385fb9ba5cecd074569",
+    "row_count": 1,
+    "truncated": false,
+    "columns": ["rows", "subjects"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "session",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "every member reached through people",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "none: every row of the set",
+      "denominator": "none: a count over the set",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
+  "cohort-b-size.ask.yml": {
+    "hash": "9c21c566f91d820feeb089ad78cccee1d859dcbd3bf7fdb02d38a2eca3393e7d",
+    "content_hash": "f9b8dcd3ee9fb5d9cbb6fb7fb72cf49b6d64b8808ef5c82718411bc8a0c0435f",
+    "row_count": 1,
+    "truncated": false,
+    "columns": ["rows", "subjects"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "subject",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "every member reached through scope",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "none: every row of the set",
+      "denominator": "none: a count over the set",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
   "cohort-inventory.ask.yml": {
     "hash": "7c62cfd5745a1c51529b697fa2b49d2fcfcd8e3281aa99186ad0e28e726a1173",
     "content_hash": "be41f5b97b183b820934cc4b7d8835915a2820c19123d03f9f5b0d258ffb4054",
@@ -131,6 +241,28 @@
       "truncated": false
     }
   },
+  "dark-fluid-sessions.ask.yml": {
+    "hash": "65aa402cb0de3bea61b21c95526d61a3386ea180eb3a14c03bc889955a2e96a4",
+    "content_hash": "fcfe0bdf87113984fe6d4f961b5f3f8c11e6e3fd4b383ac95f37cd8a62a4faf7",
+    "row_count": 1,
+    "truncated": false,
+    "columns": ["rows", "subjects"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "session",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "in dark at least 1 times",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "none: every row of the set",
+      "denominator": "none: a count over the set",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
   "demographics.ask.yml": {
     "hash": "58f41d2ba039de12ab8f101a9ef028d261e2cfbc5232b24864e2971a0867886e",
     "content_hash": "05dc66a29c5d375129f7b1ac861ea69f3708e31927f0efc63db0a3ccca3ce361",
@@ -164,6 +296,50 @@
       "truncated": false
     }
   },
+  "diagnosed-before-thirty.ask.yml": {
+    "hash": "c600d4120db570dc412e522f0ca98ea0f7118c73d9fbff119f0d6b756ecf0291",
+    "content_hash": "821c9b98ea03a563bac81157b6c0c1ae9469564b51dd14cbd07069452281758d",
+    "row_count": 1,
+    "truncated": false,
+    "columns": ["rows", "subjects"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "subject",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "in early at least 1 times",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "none: every row of the set",
+      "denominator": "none: a count over the set",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
+  "diagnosed-count.ask.yml": {
+    "hash": "238e24166ff64fc8f8de20bd1afe6260ba9b7e758c9ff17fcf3dd27ce11a1208",
+    "content_hash": "52824d92a5ec4a370aeb072957f29191769f519516d0ffa8d0c9233045458f47",
+    "row_count": 1,
+    "truncated": false,
+    "columns": ["rows", "subjects"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "subject",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "in dx at least 1 times",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "none: every row of the set",
+      "denominator": "none: a count over the set",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
   "diagnostic-window.ask.yml": {
     "hash": "93ac62a09e1db1b5bff05b4cb3ed258108fe95900e701135e6b46922c8d170c0",
     "content_hash": "fcceefd981ac1d8304c70eb020b8971149d5abc78cdf159898c568f277cf8637",
@@ -179,6 +355,248 @@
         "digest": "37f53eb14839513e00f3f54494f1601b"
       },
       "membership": "every member of the source it starts from",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "none: every row of the set",
+      "denominator": "none: a count over the set",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
+  "edss-and-sdmt-a.ask.yml": {
+    "hash": "ecba7841dd36e72a6a0fe46409f675788e72b5f964a700dbfc4e018c6198b700",
+    "content_hash": "564a6f20199d4763e5e90d27dd7b47b93964dcd31c36eea590e29d69ddb4876a",
+    "row_count": 20,
+    "truncated": false,
+    "columns": ["_key", "_subject", "code"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "subject",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "in scored at least 1 times",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "none: every row of the set",
+      "denominator": "none: a count over the set",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
+  "edss-at-first-session.ask.yml": {
+    "hash": "7225bacc4fc02fe4e900e61dba35c7ed9ceeacf6e26a8d55b8cfffc51c77f1c7",
+    "content_hash": "ff4eb5ee89ca001d3307e8919899bcd66a220cfd8a600820f4082d9dfe8bc2a9",
+    "row_count": 38,
+    "truncated": false,
+    "columns": ["_key", "_subject", "subject.code", "first", "score.number"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "session",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "every member reached through people",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "none: every row of the set",
+      "denominator": "none: a count over the set",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
+  "edss-count-and-max-b.ask.yml": {
+    "hash": "e5cf163269b39c566eb8b7a74620053c8f4f038702daa0868c37aaaddad767cd",
+    "content_hash": "9c084773b853e63cefd1639944523723e9f196c9803f0bad1ed1c311d79bf3b9",
+    "row_count": 12,
+    "truncated": false,
+    "columns": ["_key", "_subject", "subject.code", "n", "highest"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "group",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "the whole grain",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "none: every row of the set",
+      "denominator": "none: a count over the set",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
+  "edss-six-or-more.ask.yml": {
+    "hash": "36a4353c5f91f49c317a4f4ea2c47c74d1e4dcbd545dc719927f2d02851995f6",
+    "content_hash": "c0433140ebe7f5ab9433d6d8412e074c7e9a364083c515fbc98fe991ae55790e",
+    "row_count": 37,
+    "truncated": false,
+    "columns": ["_key", "_subject", "code"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "subject",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "in high at least 1 times",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "none: every row of the set",
+      "denominator": "none: a count over the set",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
+  "female-share-a.ask.yml": {
+    "hash": "6a0139dccea7e8c46370416701136ff43f53966223293ed0694c7685ba0068eb",
+    "content_hash": "976e642b705c6eec5ee5f7f1a8d49bf3bddad9727d7381873af0b9a39745cb96",
+    "row_count": 2,
+    "truncated": false,
+    "columns": ["_key", "_subject", "sex", "subjects", "share"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "group",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "the whole grain",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "none: every row of the set",
+      "denominator": "none: a count over the set",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
+  "fifty-at-latest-a.ask.yml": {
+    "hash": "c9b97d116064c7a773ed5744dbec04dab124ce375aa68d156c7db7c0192cad28",
+    "content_hash": "e9afa232c593fab1bf60f562e8d3828fef1c2884ea45bd88ae7b000a3f6195b4",
+    "row_count": 1,
+    "truncated": false,
+    "columns": ["_key", "_subject", "subject.code", "first", "age"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "session",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "every member of the source it starts from",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "latest: one per subject by first desc, then id desc, ties report",
+      "denominator": "none: a count over the set",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
+  "first-session-before-2005.ask.yml": {
+    "hash": "41b617fec9e56b1c49ce5aaeffb3452f9a0165f2bf0459601cfc51fc6aa404b1",
+    "content_hash": "6a5830117133dd00c4f197804e281f3d614e32059a1a1acb04cd0a854c1561ad",
+    "row_count": 1,
+    "truncated": false,
+    "columns": ["rows", "subjects"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "subject",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "in early_first at least 1 times",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "none: every row of the set",
+      "denominator": "none: a count over the set",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
+  "first-to-second-gap-b.ask.yml": {
+    "hash": "39d2e62d38504d3ec84df1a1cced881dab1f4ffecab8bb8d68c4362941853a36",
+    "content_hash": "964561a9bc8fd32584ec9e577e90b651c51a87e5e24498c29815b32f254f1f32",
+    "row_count": 9,
+    "truncated": false,
+    "columns": ["_key", "_subject", "subject.code", "first", "gap"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "session",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "every member of the source it starts from",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "none: every row of the set",
+      "denominator": "none: a count over the set",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
+  "four-sessions.ask.yml": {
+    "hash": "f85a5c1b889dfc15fbb8251bca1662ea02c2d30267c4766bef37580ae4e37b57",
+    "content_hash": "a7359de6a3fbaa7dc244f0292dd60955fdf73c65fe9ab9e179d14f01a8b80fc5",
+    "row_count": 34,
+    "truncated": false,
+    "columns": ["_key", "_subject", "code", "n_sessions"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "subject",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "in visits at least 4 times",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "none: every row of the set",
+      "denominator": "n_sessions over visits",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
+  "hiv-status-a.ask.yml": {
+    "hash": "414d2448a5ef7749642b78086c1e78e42a7430a704e461fccbbf0cf1d4fbe85e",
+    "content_hash": "675cfcd56e5a65f0db0bdcec4ddb3fd30c39397f651637d3e68c986f4208ea9d",
+    "row_count": 1,
+    "truncated": false,
+    "columns": ["rows", "subjects"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "subject",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "in hiv at least 1 times",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "none: every row of the set",
+      "denominator": "none: a count over the set",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
+  "isotropic-flair-a.ask.yml": {
+    "hash": "83d169fa8752fb9160abfb5ecf3323bd9d080d2d3c105a232d8d638852b6c7cf",
+    "content_hash": "a3c6c3db3d45dec02a15044380e95fb7a5958f4a8cacfb76016825f794c42bd2",
+    "row_count": 3,
+    "truncated": false,
+    "columns": ["_key", "_subject", "code"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "subject",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "in flair at least 1 times",
       "key_namespace": "the registry's pseudonymous key",
       "pick_rule": "none: every row of the set",
       "denominator": "none: a count over the set",
@@ -204,6 +622,116 @@
       "key_namespace": "the registry's pseudonymous key",
       "pick_rule": "none: every row of the set",
       "denominator": "n_sessions over visits",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
+  "latest-edss-b.ask.yml": {
+    "hash": "81d6e99d4dbde96fca9bb59ad4286bc19ed5820bca53341e6ac1d51df47456f2",
+    "content_hash": "f3755cf635c5c3c2eadfac1d292e44893bdb5c1aeec886d4a95c030737befb50",
+    "row_count": 12,
+    "truncated": false,
+    "columns": ["_key", "_subject", "subject.code", "date", "number"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "event",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "every member reached through people",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "edss: one per subject by date desc, then id desc, ties report",
+      "denominator": "none: a count over the set",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
+  "low-field-subjects-b.ask.yml": {
+    "hash": "340e67e76323e5b38bf65782e7d15b839ece4f6827d7420e5894117146728469",
+    "content_hash": "1483ba27caf6d8669c17a54842cd0bcfb537b4a5e41d8baea79e09e5656dc9ba",
+    "row_count": 2,
+    "truncated": false,
+    "columns": ["_key", "_subject", "code"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "subject",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "in low at least 1 times",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "none: every row of the set",
+      "denominator": "none: a count over the set",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
+  "mean-edss-first-a.ask.yml": {
+    "hash": "9482b538da0ae2f516326a2a9edd9ec0fd21642da48dc292b219a6026e0f616e",
+    "content_hash": "f0b6027163a159c1be0f793f4a6e41b2e94c063250290e1cfb210690638cc13b",
+    "row_count": 1,
+    "truncated": false,
+    "columns": ["_key", "_subject", "n_sessions", "mean_edss"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "group",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "the whole grain",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "none: every row of the set",
+      "denominator": "none: a count over the set",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
+  "most-slices-mprage-a.ask.yml": {
+    "hash": "d2e5f4d74da84fc19240596650607d892fb97844bac30e937003c42cca5c27ad",
+    "content_hash": "ce80b46e0a6589fe4deb722781b43e62437b029a34e92d7308116839cd423520",
+    "row_count": 144,
+    "truncated": false,
+    "columns": ["_key", "_subject", "subject.code", "session.first", "id"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "stack",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "every member reached through visits",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "chosen: one per session by n_instances desc, then id asc, ties report",
+      "denominator": "none: a count over the set",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
+  "mprage-1mm-sessions-a.ask.yml": {
+    "hash": "d8a7cc3eefd80af09a47ebb5c7c8c4d10b9cf9864801099b0c5b5d97e9a8c907",
+    "content_hash": "b7403b15a6065735b089b2beabbd19aae5a2c0c5299346bc5f78ef477fbe1c37",
+    "row_count": 1,
+    "truncated": false,
+    "columns": ["rows", "subjects"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "session",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "in mprage at least 1 times",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "none: every row of the set",
+      "denominator": "none: a count over the set",
       "disclosure": "local, projecting quasiidentifying and sensitive",
       "truncated": false
     }
@@ -252,6 +780,72 @@
       "truncated": false
     }
   },
+  "only-in-a.ask.yml": {
+    "hash": "4807cea289fbac17431c72db42a0bb6a4ccd07f875ff234dd6b013c0b30c1d6c",
+    "content_hash": "2c67df217206b6565a92db5ff97e4b4a096354ca1db9b9c109b1dbb58310fb5d",
+    "row_count": 1,
+    "truncated": false,
+    "columns": ["rows", "subjects"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "subject",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "except of in_a, in_b",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "none: every row of the set",
+      "denominator": "none: a count over the set",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
+  "per-cohort-sessions.ask.yml": {
+    "hash": "899497b27135247969b437a6644f173e9e30e28050d8a14ec9ec264dad5639ec",
+    "content_hash": "4bafb6dd0c27985b576ca5de61727722359fbbc30778d89e2bd332de9ca26092",
+    "row_count": 2,
+    "truncated": false,
+    "columns": ["_key", "_subject", "cohort.id", "n_subjects", "n_sessions", "mean_sessions"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "group",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "the whole grain",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "none: every row of the set",
+      "denominator": "n_sessions over visits",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
+  "per-sex-age-a.ask.yml": {
+    "hash": "ff1d665a7bfdfaae4314b7b1908a32c089646d8ff3e1c20f9a9787dded956525",
+    "content_hash": "7d1a1ae73ff228156a844956f812b88433c623d8a9809f17f603f7a9f0adf834",
+    "row_count": 2,
+    "truncated": false,
+    "columns": ["_key", "_subject", "subject.sex", "n_subjects", "mean_age"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "group",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "the whole grain",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "none: every row of the set",
+      "denominator": "none: a count over the set",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
   "protocol-homogeneity.ask.yml": {
     "hash": "2297c88defdd5ab47169d22f486218a7a5b566dd22e6ecb32327c97a46e813c1",
     "content_hash": "a8667758528ead7b1e8b6bc856070d21e1ebf8508d5ccb3ba724fe4015547b2c",
@@ -267,6 +861,50 @@
         "digest": "37f53eb14839513e00f3f54494f1601b"
       },
       "membership": "the whole grain",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "none: every row of the set",
+      "denominator": "none: a count over the set",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
+  "rrms-to-spms.ask.yml": {
+    "hash": "26c23a763434c3d62e3f7d06c762b87bdf1148ac484a3d4de26b5ee8331d82c6",
+    "content_hash": "7357414b73fc10ea5f789dbfd7f9cf250a5885f98df937012c2e644ff7b879fb",
+    "row_count": 10,
+    "truncated": false,
+    "columns": ["_key", "_subject", "code", "transition.to_date"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "subject",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "every member reached through scope",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "none: every row of the set",
+      "denominator": "none: a count over the set",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
+  "scouts-a.ask.yml": {
+    "hash": "a8d4890d3cd2e50c63a08534f253d295fb649ba2a6fa738e3452c814f8c5ee54",
+    "content_hash": "ee4a0353da9d2e9527325bee5d5f61c9a4360e7a4879baa2bc58323423fa7a10",
+    "row_count": 1,
+    "truncated": false,
+    "columns": ["rows", "subjects"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "stack",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "every member reached through visits",
       "key_namespace": "the registry's pseudonymous key",
       "pick_rule": "none: every row of the set",
       "denominator": "none: a count over the set",
@@ -328,6 +966,94 @@
       "truncated": false
     }
   },
+  "sessions-of-b.ask.yml": {
+    "hash": "007a15d8616d3ea96ddf80f7e33eadecdab4b98babce29337e0bd332587dd5b3",
+    "content_hash": "e156e0fd4257fb2854a2592870eaa331dc15e782aa96dfaf39faf911111cb635",
+    "row_count": 47,
+    "truncated": false,
+    "columns": ["_key", "_subject", "subject.code", "first"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "session",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "every member reached through people",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "none: every row of the set",
+      "denominator": "none: a count over the set",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
+  "sessions-per-subject-b.ask.yml": {
+    "hash": "26c149ceeea8210f090e60909140d1c4d33b8c5c173e73c62401a337b60491b4",
+    "content_hash": "73d59ad7d3aaf5fc07f35b7ff6039d0ce4c22ac605b9e9817d48c203ba97f5f5",
+    "row_count": 12,
+    "truncated": false,
+    "columns": ["_key", "_subject", "subject.code", "n"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "group",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "the whole grain",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "none: every row of the set",
+      "denominator": "none: a count over the set",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
+  "sessions-per-year.ask.yml": {
+    "hash": "9b5185ad5361fd94fdfb84ac8bd30f422653307d45704d70f688ec5b9b17a4af",
+    "content_hash": "7fdc75199bf1d1130e8f05b812b8c4dbf323b7b6667aa06ca9924ca8a1df4884",
+    "row_count": 36,
+    "truncated": false,
+    "columns": ["_key", "_subject", "year", "n"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "group",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "the whole grain",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "none: every row of the set",
+      "denominator": "none: a count over the set",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
+  "stacks-at-15t.ask.yml": {
+    "hash": "35c4d0159d0e212710446412133c380a6e109b218a81b9e442bf96b4fbbb77b2",
+    "content_hash": "4d67e810dcf80956e78652dd356ff0590bbcde93c08474b08c72efe0fe942852",
+    "row_count": 1,
+    "truncated": false,
+    "columns": ["rows", "subjects"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "stack",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "every member reached through visits",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "none: every row of the set",
+      "denominator": "none: a count over the set",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
   "t2-exact-resolution.ask.yml": {
     "hash": "eb9b63c3d70ce4457719ee4ed5db3d9d4a4da24b6bdfa4d283e0623c51156bbc",
     "content_hash": "5a3c172e216c3a989e6f5065e24927e6b1243e30c253a5466c3d041382b7b362",
@@ -356,6 +1082,72 @@
     "row_count": 1,
     "truncated": false,
     "columns": ["_key", "_subject", "res", "n"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "group",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "the whole grain",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "none: every row of the set",
+      "denominator": "none: a count over the set",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
+  "thinnest-t2-a.ask.yml": {
+    "hash": "5175fb1af0c734976682db5c1bbd32959d7f36a7b65c69a32b4ce50509872155",
+    "content_hash": "20d61faa6a242c3a517f26177e782455be0ac677d5660bed25a618dece30e0e3",
+    "row_count": 1,
+    "truncated": false,
+    "columns": ["_key", "_subject", "thinnest"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "group",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "the whole grain",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "none: every row of the set",
+      "denominator": "none: a count over the set",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
+  "tse-without-flair.ask.yml": {
+    "hash": "97100c416c18996278e4e2f77f5efc5ce3efae8be71e0230647a5213349a4431",
+    "content_hash": "380ca70f1c69889f618ca0377ee38cce448224585fe4e6cc6b6fd2bf086b183a",
+    "row_count": 16,
+    "truncated": false,
+    "columns": ["_key", "_subject", "subject.code", "first"],
+    "epoch": 1,
+    "pack": "mri 0.1.1",
+    "declaration": {
+      "grain": "session",
+      "session_scheme": {
+        "name": "default",
+        "digest": "37f53eb14839513e00f3f54494f1601b"
+      },
+      "membership": "in tse at least 1 times; and in flair at least 1 and at most 0 times",
+      "key_namespace": "the registry's pseudonymous key",
+      "pick_rule": "none: every row of the set",
+      "denominator": "none: a count over the set",
+      "disclosure": "local, projecting quasiidentifying and sensitive",
+      "truncated": false
+    }
+  },
+  "two-sessions-one-year.ask.yml": {
+    "hash": "6a22367a9444e37664f7650651dc5dc3c6cf571650ba70763f892f742b47de11",
+    "content_hash": "98b1275c063333bd73c257fce8b741e5cb5c7ffd35096e3b4042914e23e4301f",
+    "row_count": 32,
+    "truncated": false,
+    "columns": ["_key", "_subject", "subject.code", "year", "n"],
     "epoch": 1,
     "pack": "mri 0.1.1",
     "declaration": {

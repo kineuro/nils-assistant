@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: Which subjects have more than one session in the same calendar year? Show the subject, the year and how many.
+ast_version: 1
+name: subjects with several sessions in one year
+scheme: default
+sets:
+  scope:  {grain: cohort}
+  people: {grain: subject, of: scope}
+  visits:
+    grain: session
+    of: people
+    bind: {year: ["part", {unit: year}, ["field", {}, "first"]]}
+  per_year:
+    grain: group
+    group: {of: visits, by: [["field", {}, "subject.code"], ["field", {}, "year"]]}
+    bind: {n: ["count", {set: visits}]}
+    where: [[">", {}, ["field", {}, "n"], 1]]
+keep: [per_year]
+out:
+  set: per_year
+  level: aggregate
+  columns: [["field", {}, "subject.code"], ["field", {}, "year"], ["field", {}, "n"]]
+  order: [[["field", {}, "subject.code"], asc], [["field", {}, "year"], asc]]

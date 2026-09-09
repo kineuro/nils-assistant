@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: Which subjects of cohort A were 50 or older at their latest session?
+ast_version: 1
+name: fifty or older at the latest session in cohort A
+scheme: default
+sets:
+  scope:  {grain: cohort, where: [["=", {}, ["field", {}, "name"], "ms-cohort-a"]]}
+  people: {grain: subject, of: scope}
+  latest:
+    grain: session
+    of: people
+    bind: {age: ["age_at", {}, ["field", {}, "subject.birth_date"], ["field", {}, "first"]]}
+    pick: {per: subject, n: 1, ties: report, by: [[["field", {}, "first"], desc], [["field", {}, "id"], desc]]}
+  old_enough:
+    grain: session
+    from: latest
+    where: [[">=", {}, ["field", {}, "age"], 50]]
+keep: [old_enough]
+out:
+  set: old_enough
+  level: record
+  columns: [["field", {}, "subject.code"], ["field", {}, "first"], ["field", {}, "age"]]
+  order: [[["field", {}, "subject.code"], asc]]

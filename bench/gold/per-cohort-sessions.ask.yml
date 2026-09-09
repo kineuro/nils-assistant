@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: Per cohort, how many subjects, how many sessions, and the average number of sessions per subject.
+ast_version: 1
+name: subjects and sessions per cohort
+scheme: default
+sets:
+  scope:    {grain: cohort}
+  everyone: {grain: subject, of: scope}
+  visits:   {grain: session, of: everyone}
+  people:
+    grain: subject
+    of: scope
+    has: [{set: visits, min: 0, as: n_sessions}]
+  by_cohort:
+    grain: group
+    group: {of: people, by: [["field", {}, "cohort.id"]]}
+    bind:
+      n_subjects: ["count", {set: people}]
+      n_sessions: ["sum", {set: people}, ["field", {}, "n_sessions"]]
+      mean_sessions: ["avg", {set: people}, ["field", {}, "n_sessions"]]
+keep: [by_cohort]
+out:
+  set: by_cohort
+  level: aggregate
+  columns: [["field", {}, "cohort.id"], ["field", {}, "n_subjects"], ["field", {}, "n_sessions"], ["field", {}, "mean_sessions"]]
+  order: [[["field", {}, "cohort.id"], asc]]
