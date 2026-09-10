@@ -46,6 +46,14 @@ export function capabilities(
       "POST /plans/{id}/confirm",
       "POST /plans/{id}/proposals/{n}/decide",
       "GET /inbox",
+      "GET /teaching/corrections",
+      "GET /teaching/sets",
+      "POST /teaching/sets",
+      "POST /teaching/sets/{id}/fine-tune",
+      "GET /teaching/candidates",
+      "POST /teaching/candidates/{id}/admit",
+      "POST /teaching/candidates/{id}/bench",
+      "POST /teaching/candidates/{id}/promote",
     ],
   };
 }

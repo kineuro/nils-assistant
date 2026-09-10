@@ -5,6 +5,7 @@
 // one before expiry; Kvasir is reached with the app's minted key, one
 // provider per station carrying its purpose.
 
+import { existsSync, readFileSync } from "node:fs";
 import { setProvider } from "@flue/runtime";
 import { createAgentRouter } from "@flue/runtime/routing";
 import { Hono } from "hono";
@@ -15,6 +16,17 @@ import { LadderStore } from "./host/ladder-store.ts";
 import { subjectOf } from "./host/notes.ts";
 import { Runs } from "./host/runs.ts";
 import { inboxOf, Scheduler } from "./host/scheduler.ts";
+import {
+  corrections as correctionsOf,
+  KvasirRefused,
+  kvasirLifecycle,
+  parseRecipe,
+  type ReviewItem,
+  recordedBench,
+  scriptRunner,
+  Teaching,
+  TeachingStore,
+} from "./host/teaching.ts";
 import { interceptTurn } from "./host/turns.ts";
 import { kvasirProvider, readCatalog } from "./providers/kvasir.ts";
 import { agentIds, delegationsOf, delegationView, registerAgent } from "./seam/delegations.ts";
@@ -118,6 +130,28 @@ function engineAuthOffNow(): boolean {
   return engineAuthOff;
 }
 
+// teaching (Wave 5 section 9.5): the corrections, the sets, the fine-tune job, the two gates, promotion gated;
+// its seam reads the decided review items with the person's own token and nothing else
+registerStation({
+  id: "teaching",
+  version: c.version,
+  grant: { review: {}, capabilities: {} },
+  ceiling: "reviewer",
+  content: "catalog",
+  model: "none",
+  standing: true,
+});
+const teachingStore = new TeachingStore(c.teaching, c.teachingDir);
+const teaching = new Teaching({
+  store: teachingStore,
+  runner: scriptRunner(new URL("../bench/finetune.py", import.meta.url).pathname),
+  bench: recordedBench(new URL("../bench/gate", import.meta.url).pathname, (p) =>
+    existsSync(p) ? readFileSync(p, "utf8") : null,
+  ),
+  backend: c.teachingBackend,
+  threshold: (of) => Math.ceil(of * c.benchThreshold),
+});
+
 const app = new Hono();
 
 /** The person's token, from the desk on every request; kept per conversation for the turn. */
@@ -146,7 +180,7 @@ app.get("/capabilities", (ctx) =>
           writes: m?.writes ?? [],
         };
       }),
-      { teaching_open: false, conversations: 0 },
+      { teaching_open: true, conversations: 0 },
     ),
   ),
 );
@@ -438,12 +472,149 @@ app.post("/plans/:id/proposals/:n/decide", async (ctx) => {
   return "refused" in r ? ctx.json({ error: r.refused }, 409) : ctx.json(r);
 });
 
-/** The inbox (section 9.4): what the assistant and the engine did for this person. */
+/** The inbox (section 9.4): what the assistant and the engine did for this person, the teaching jobs among them. */
 app.get("/inbox", async (ctx) => {
   const who = await personOf(ctx);
   if (!who) return ctx.json({ error: "no token" }, 401);
-  return ctx.json(inboxOf(ladder, who.subject));
+  return ctx.json({
+    ...inboxOf(ladder, who.subject),
+    teaching: teachingStore.jobs(who.subject).map(jobView),
+  });
 });
+
+// teaching (Wave 5 section 9.5)
+
+function jobView(j: ReturnType<TeachingStore["jobs"]>[number]): Record<string, unknown> {
+  return {
+    ...j,
+    started_at: new Date(j.started_at).toISOString(),
+    finished_at: j.finished_at === null ? null : new Date(j.finished_at).toISOString(),
+  };
+}
+
+function bearerOf(ctx: { req: { header: (k: string) => string | undefined } }): string | null {
+  const auth = ctx.req.header("authorization") ?? "";
+  return auth.startsWith("Bearer ") ? auth.slice(7) : null;
+}
+
+/** The decided review items, read with the person's token; the ledger says which a station had decided before. */
+async function reviewFor(token: string | null): Promise<{ items: ReviewItem[]; byStation: Set<number> }> {
+  const conversation = `teaching-${Date.now().toString(36)}`;
+  if (token) tokens.put(conversation, token);
+  const seam = seamFor("teaching", conversation);
+  const a = await seam.call({
+    method: "GET",
+    path: "/api/review?status=decided&limit=500",
+    toolCallId: "corrections",
+    phase: "grant",
+  });
+  tokens.forget(conversation);
+  const items = a.kind === "ok" ? (((a.body as { items?: ReviewItem[] }).items ?? []) as ReviewItem[]) : [];
+  const byStation = new Set<number>();
+  for (const r of theLedger().rows(undefined, 5000)) {
+    const m = /review\/(\d+)\/apply/u.exec(r.operation);
+    if (m && r.outcome === "ok" && r.station !== "desk" && r.station !== "scheduler")
+      byStation.add(Number(m[1]));
+  }
+  return { items, byStation };
+}
+
+app.get("/teaching/corrections", async (ctx) => {
+  const who = await personOf(ctx);
+  if (!who) return ctx.json({ error: "no token" }, 401);
+  const { items, byStation } = await reviewFor(bearerOf(ctx));
+  const list = correctionsOf(theLineage(), items, byStation);
+  return ctx.json({ count: list.length, corrections: list });
+});
+
+app.get("/teaching/sets", async (ctx) => {
+  const who = await personOf(ctx);
+  if (!who) return ctx.json({ error: "no token" }, 401);
+  return ctx.json({
+    sets: teachingStore.sets().map((s) => ({ ...s, created_at: new Date(s.created_at).toISOString() })),
+  });
+});
+
+app.post("/teaching/sets", async (ctx) => {
+  const who = await personOf(ctx);
+  if (!who) return ctx.json({ error: "no token" }, 401);
+  if (!opens(who.roles, "reviewer"))
+    return ctx.json({ error: "curating a set asks for the reviewer role" }, 403);
+  const body = (await ctx.req.json().catch(() => ({}))) as { name?: unknown; corrections?: unknown };
+  const name = typeof body.name === "string" && body.name.trim() ? body.name.trim() : "";
+  const ids = Array.isArray(body.corrections)
+    ? body.corrections.filter((x): x is string => typeof x === "string")
+    : [];
+  if (!name || ids.length === 0)
+    return ctx.json({ error: "a set has a name and at least one correction" }, 400);
+  const { items, byStation } = await reviewFor(bearerOf(ctx));
+  const all = correctionsOf(theLineage(), items, byStation);
+  const chosen = all.filter((x) => ids.includes(x.id));
+  if (chosen.length === 0) return ctx.json({ error: "none of the corrections named exists" }, 404);
+  const s = teachingStore.curate(name, who.subject, chosen);
+  return ctx.json({ ...s, created_at: new Date(s.created_at).toISOString() }, 201);
+});
+
+app.post("/teaching/sets/:id/fine-tune", async (ctx) => {
+  const who = await personOf(ctx);
+  if (!who) return ctx.json({ error: "no token" }, 401);
+  if (!opens(who.roles, "operator"))
+    return ctx.json({ error: "a fine-tune asks for the operator role" }, 403);
+  const set = teachingStore.set(Number(ctx.req.param("id")));
+  if (!set) return ctx.json({ error: "no such set" }, 404);
+  const body = (await ctx.req.json().catch(() => ({}))) as { recipe?: unknown };
+  const recipe = parseRecipe(body.recipe);
+  if ("refused" in recipe) return ctx.json({ error: recipe.refused }, 400);
+  const { job } = teaching.fineTune(set, who.subject, recipe, kvasirLifecycle(c.kvasir, bearerOf(ctx)));
+  return ctx.json(jobView(job), 202);
+});
+
+app.get("/teaching/candidates", async (ctx) => {
+  const who = await personOf(ctx);
+  if (!who) return ctx.json({ error: "no token" }, 401);
+  try {
+    return ctx.json(await teaching.candidates(kvasirLifecycle(c.kvasir, bearerOf(ctx))));
+  } catch (e) {
+    return kvasirError(ctx, e);
+  }
+});
+
+app.post("/teaching/candidates/:id/:verb", async (ctx) => {
+  const who = await personOf(ctx);
+  if (!who) return ctx.json({ error: "no token" }, 401);
+  if (!opens(who.roles, "operator")) return ctx.json({ error: "the gates ask for the operator role" }, 403);
+  const kv = kvasirLifecycle(c.kvasir, bearerOf(ctx));
+  const id = Number(ctx.req.param("id"));
+  const verb = ctx.req.param("verb");
+  try {
+    if (verb === "admit") return ctx.json(await kv.admit(id));
+    const cand = (await kv.list()).candidates.find((x) => x.id === id);
+    if (!cand) return ctx.json({ error: `no candidate ${id}` }, 404);
+    if (verb === "bench") {
+      const b = await teaching.bench(cand, who.subject);
+      return ctx.json({ ...b, at: new Date(b.at).toISOString() });
+    }
+    if (verb === "promote") {
+      const body = (await ctx.req.json().catch(() => ({}))) as { proposal?: { id?: unknown } };
+      const pid =
+        typeof body.proposal?.id === "number" || typeof body.proposal?.id === "string"
+          ? body.proposal.id
+          : `desk-${Date.now().toString(36)}`;
+      const r = await teaching.promote(cand, { id: pid, principal: who.subject }, kv);
+      return r.ok
+        ? ctx.json({ promoted: id, result: r.result })
+        : ctx.json({ error: r.refused, refused: true }, 409);
+    }
+    return ctx.json({ error: `${verb} is not a teaching verb` }, 404);
+  } catch (e) {
+    return kvasirError(ctx, e);
+  }
+});
+
+function kvasirError(ctx: { json: (b: unknown, s: number) => Response }, e: unknown): Response {
+  if (e instanceof KvasirRefused) return ctx.json({ error: e.message }, e.status as 400);
+  return ctx.json({ error: e instanceof Error ? e.message : String(e) }, 502);
+}
 
 // a user turn may carry the rail's typed context, the document and its lineage (Wave 5 D1): the host keeps them and hands the runtime the words
 const routers = new Map<string, Hono>();
