@@ -19,7 +19,7 @@ grant:
     calls: 2
 brief:
   path: SKILL.md
-  hash: 53e9148c408006d448bd85851d576575739821b9184182c7a0d4d5d1a5f87edd
+  hash: 394734c13be560f4580896b2a65b86651584cd628e33bca4af68327859216e37
 result:
   type: object
   required:

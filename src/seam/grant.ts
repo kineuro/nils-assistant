@@ -54,11 +54,22 @@ export interface Decision {
   reason: string | null;
 }
 
+/** The operations a person's standing grant may name that a station's manifest grant may not (Wave 5 section 9.1): rung-two jobs whose result is a new object beside the old. */
+export const STANDING_ONLY: readonly string[] = ["sessions/rebuild"];
+
 export class GrantKeeper {
   private readonly used = new Map<string, number>();
-  constructor(readonly grant: Grant) {
+  /**
+   * A station's manifest grant refuses every decision apply verb. A person's
+   * standing grant (Wave 5 section 9.1) is the person's own consent for a
+   * rung-two job and may name a session rebuild, but never a decision.
+   */
+  constructor(
+    readonly grant: Grant,
+    readonly standing = false,
+  ) {
     for (const f of FORBIDDEN) {
-      if (f in grant)
+      if (f in grant && !(standing && STANDING_ONLY.includes(f)))
         throw new Error(`a grant may not hold ${f}: a decision apply is a person's (Wave 4c section 9.6)`);
     }
   }

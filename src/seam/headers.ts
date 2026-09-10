@@ -12,6 +12,8 @@ export interface Actor {
   model: string;
   version: string;
   conversation: string;
+  /** Wave 5 section 9.1: the standing grant a job was queued under, so the engine's audit row names the person and the grant. */
+  grant?: number;
 }
 
 export function actorHeader(a: Actor): string {
@@ -21,6 +23,7 @@ export function actorHeader(a: Actor): string {
     model: a.model,
     version: a.version,
     conversation: a.conversation,
+    ...(typeof a.grant === "number" ? { grant: a.grant } : {}),
   });
 }
 

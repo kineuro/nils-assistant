@@ -14,7 +14,7 @@ import { Tokens } from "./tokens.ts";
 
 let ledger: Ledger | null = null;
 /** Whether the engine serves with its authentication off, read once from its capabilities; unknown counts as on. */
-let engineAuthOff = false;
+export let engineAuthOff = false;
 export async function probeEngineAuth(engine: string, dial: typeof fetch = fetch): Promise<boolean> {
   try {
     const r = await dial(`${engine.replace(/\/+$/u, "")}/api/capabilities`);

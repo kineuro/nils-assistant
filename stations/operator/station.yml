@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# The operator (Wave 5 section 9.3), as contracts/suite/v1/station.schema.json fixes a manifest.
+id: operator
+app: nils-assistant
+purpose: assistant.operator
+content: catalog
+ceiling: operator
+grant:
+  capabilities:
+    calls: 2
+  batches:
+    calls: 3
+  documents:
+    calls: 3
+  jobs:
+    calls: 2
+brief:
+  path: SKILL.md
+  hash: 97ff5461e8c7b0831ad5980d544a8f460dbaed0b5497fab4eb0a60c9fa67b8da
+result:
+  type: object
+  required:
+  - sentence
+  - plan
+  properties:
+    sentence:
+      type: string
+      description: the plan restated in the person's words, one line per step, the rung of each named
+    plan:
+      type: string
+      description: the id the plan tool answered
+    steps:
+      type: array
+      items:
+        type: object
+      description: the steps as planned, with their rungs, from the plan tool
+    proposals:
+      type: array
+      items:
+        type: object
+      description: the rung-three acts, proposed for a person to accept
+checks:
+- no_sql
+- planned
+- rungs_from_policy
+budget:
+  turns: 6
+  tool_calls: 10
+  wall_clock_seconds: 120
+  input_tokens: 100000
+writes: []
+phases:
+  initial: read
+  follow_up: read
+  transitions:
+  - from: read
+    to: plan
+  - from: plan
+    to: finish
+evals: evals
