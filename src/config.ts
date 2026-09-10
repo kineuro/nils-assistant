@@ -24,6 +24,13 @@ export interface Config {
   ladder: string;
   /** C49, off by default: when on, a person without the `assist-run` entitlement has an empty rung two whatever they tick. */
   requireAssistRun: boolean;
+  /** Teaching (Wave 5 section 9.5): its own SQLite file and the directory of curated sets and adapters. */
+  teaching: string;
+  teachingDir: string;
+  /** The share of the bench a candidate must pass before promotion is offered; 1 = every question. */
+  benchThreshold: number;
+  /** The backend a fine-tuned candidate is registered on in Kvasir. */
+  teachingBackend: string;
   /** Days the seam's rows and the assistant's transcripts are kept (C24: 90 by default). */
   retentionDays: number;
   /** The directories station manifests are loaded from (§4.4). */
@@ -48,6 +55,10 @@ export function config(env: NodeJS.ProcessEnv = process.env): Config {
     lineage: env.ASSISTANT_LINEAGE ?? "./data/lineage.sqlite",
     ladder: env.ASSISTANT_LADDER ?? "./data/ladder.sqlite",
     requireAssistRun: env.ASSISTANT_REQUIRE_ASSIST_RUN === "1",
+    teaching: env.ASSISTANT_TEACHING ?? "./data/teaching.sqlite",
+    teachingDir: env.ASSISTANT_TEACHING_DIR ?? "./data/teaching",
+    benchThreshold: Math.min(1, Math.max(0, Number(env.ASSISTANT_BENCH_THRESHOLD ?? 1))),
+    teachingBackend: env.ASSISTANT_TEACHING_BACKEND ?? "card0",
     retentionDays: Number(env.ASSISTANT_RETENTION_DAYS ?? 90),
     stationDirs: (env.ASSISTANT_STATIONS ?? "./stations").split(":").filter(Boolean),
     origin: (env.DESK_ORIGIN ?? "http://127.0.0.1:7200").replace(/\/+$/u, ""),
