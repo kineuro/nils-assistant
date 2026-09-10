@@ -5,6 +5,7 @@
 // id and nothing else.
 
 import { config } from "../config.ts";
+import { Lineage } from "../host/lineage.ts";
 import { Notes, subjectOf } from "../host/notes.ts";
 import type { Verdict } from "../stations/verdict.ts";
 import { Seam, type Station } from "./client.ts";
@@ -28,10 +29,11 @@ export const tokens = new Tokens();
 /** The settled verdict of a conversation, for the host to answer beside the run; the record log keeps it durably. */
 export const verdicts = new Map<string, Verdict>();
 
-/** One proposal the desk accepted or rejected (section 7.7): the document it named and the sentence it carried. */
+/** One proposal the desk accepted or rejected (section 7.7): the document it named, the sentence it carried, and why, when the person said. */
 export interface Feedback {
   document: number;
   sentence: string;
+  why?: string;
 }
 const feedback = new Map<string, { accepted: Feedback[]; rejected: Feedback[] }>();
 
@@ -42,9 +44,15 @@ export function recordFeedback(
 ): void {
   const rows = (list: unknown[] | undefined): Feedback[] =>
     (list ?? []).flatMap((r) => {
-      const o = r as { document?: unknown; sentence?: unknown };
+      const o = r as { document?: unknown; sentence?: unknown; why?: unknown };
       return typeof o?.document === "number"
-        ? [{ document: o.document, sentence: typeof o.sentence === "string" ? o.sentence : "" }]
+        ? [
+            {
+              document: o.document,
+              sentence: typeof o.sentence === "string" ? o.sentence : "",
+              ...(typeof o.why === "string" && o.why ? { why: o.why } : {}),
+            },
+          ]
         : [];
     });
   const cur = feedback.get(conversation) ?? { accepted: [], rejected: [] };
@@ -60,7 +68,7 @@ export function recordFeedback(
       subject,
       kind: "correction",
       station: "desk",
-      text: `rejected document ${r.document}${r.sentence ? `: ${r.sentence}` : ""}`,
+      text: `rejected document ${r.document}${r.sentence ? `: ${r.sentence}` : ""}${r.why ? ` (${r.why})` : ""}`,
     });
 }
 
@@ -82,6 +90,16 @@ let notes: Notes | null = null;
 export function theNotes(): Notes {
   if (!notes) notes = new Notes(config().notes);
   return notes;
+}
+let lineage: Lineage | null = null;
+/** The conversations by lineage, the proposals with their bases, the rail's context (Wave 5 D1). */
+export function theLineage(): Lineage {
+  if (!lineage) {
+    const c = config();
+    lineage = new Lineage(c.lineage);
+    lineage.sweep(c.retentionDays);
+  }
+  return lineage;
 }
 /** The person a conversation belongs to, from the token the desk handed. */
 export function subjectOfConversation(conversation: string): string {

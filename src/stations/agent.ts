@@ -23,7 +23,8 @@ import {
 import * as v from "valibot";
 import { providerId } from "../providers/kvasir.ts";
 import type { Seam } from "../seam/client.ts";
-import { feedbackOf, seamFor, subjectOfConversation, theNotes, verdicts } from "../seam/for.ts";
+import { renderContext } from "../seam/context.ts";
+import { feedbackOf, seamFor, subjectOfConversation, theLineage, theNotes, verdicts } from "../seam/for.ts";
 import { initialState, Machine, type RunState } from "./machine.ts";
 import type { Manifest, TerminalReason } from "./manifest.ts";
 import { preludeOf } from "./prelude.ts";
@@ -178,6 +179,14 @@ export function stationAgent(
       PART_KINDS.map((k) => [k, useDataWriter(k, { schema: PART })]),
     ) as Record<PartKind, (p: Part) => void>;
     const emit = (p: Part) => {
+      // a document version proposed is recorded against the base it was made on (Wave 5 D1), so the desk's accept can be refused when the document moved
+      if (p.kind === "move_proposal")
+        theLineage().proposed({
+          conversation: id,
+          document: p.document,
+          parent: p.parent,
+          sentence: p.sentence,
+        });
       try {
         writers[p.kind](p);
       } catch {
@@ -430,7 +439,12 @@ export function stationAgent(
     const feedbackText =
       fb.rejected.length + fb.accepted.length === 0
         ? ""
-        : `\n\nThe person's feedback on earlier proposals:${fb.accepted.map((f) => `\n- accepted document ${f.document}${f.sentence ? ` (${f.sentence})` : ""}: it is the base now`).join("")}${fb.rejected.map((f) => `\n- rejected document ${f.document}${f.sentence ? ` (${f.sentence})` : ""}: do not propose it or the same change again`).join("")}`;
+        : `\n\nThe person's feedback on earlier proposals:${fb.accepted.map((f) => `\n- accepted document ${f.document}${f.sentence ? ` (${f.sentence})` : ""}: it is the base now`).join("")}${fb.rejected.map((f) => `\n- rejected document ${f.document}${f.sentence ? ` (${f.sentence})` : ""}${f.why ? `, because ${f.why}` : ""}: do not propose it or the same change again`).join("")}`;
+    // where the person is (Wave 5 section 9.2): the page's typed context the desk sent with the turn, identifiers only, one line per item; it varies per turn, so it sits at the tail
+    const whereText = (() => {
+      const w = renderContext(theLineage().contextOf(id));
+      return w ? `\n\n${w}` : "";
+    })();
     // memory across threads (section 9.9): the person's own index, five lines at most, and the group's structural corrections; read once per conversation and held, so the note this very run leaves at settle does not change the instructions under it (a change would cost a model turn)
     const [heldMemory, setHeldMemory] = usePersistentState<string | null>("memory", null);
     const memoryNow = (): string => {
@@ -451,7 +465,7 @@ export function stationAgent(
       if (heldMemory === null) setHeldMemory(memoryText);
     });
     // the instructions are the same on every render of every conversation of this person: the station's own text, the brief, the registry, the standing sentence; what varies (feedback, memory) comes last, so a runtime's prefix cache serves the rest
-    return `${def.instructions}${def.briefInline ? `\n\n${def.brief}` : ""}${warm ? `\n\n${warm}` : ""}\n\nYou are the ${m.id} station of ${m.app}, at the ${m.ceiling} ceiling. The phases: ${m.phases.initial}${m.phases.transitions.map((t) => ` then ${t.to}`).join("")}. ${def.advance === false ? "A tool moves the run to its phase." : "Move with advance."} End with settle.${examplesText ? `\n\n${examplesText}` : ""}${feedbackText}${memoryText}`;
+    return `${def.instructions}${def.briefInline ? `\n\n${def.brief}` : ""}${warm ? `\n\n${warm}` : ""}\n\nYou are the ${m.id} station of ${m.app}, at the ${m.ceiling} ceiling. The phases: ${m.phases.initial}${m.phases.transitions.map((t) => ` then ${t.to}`).join("")}. ${def.advance === false ? "A tool moves the run to its phase." : "Move with advance."} End with settle.${examplesText ? `\n\n${examplesText}` : ""}${whereText}${feedbackText}${memoryText}`;
   };
   return Object.assign(agent, { agentName: m.id });
 }

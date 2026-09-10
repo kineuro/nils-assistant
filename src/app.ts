@@ -11,6 +11,7 @@ import { Hono } from "hono";
 import { config } from "./config.ts";
 import { capabilities } from "./host/capabilities.ts";
 import { Runs } from "./host/runs.ts";
+import { interceptTurn } from "./host/turns.ts";
 import { kvasirProvider, readCatalog } from "./providers/kvasir.ts";
 import { agentIds, delegationsOf, delegationView, registerAgent } from "./seam/delegations.ts";
 import {
@@ -22,6 +23,7 @@ import {
   stationList,
   subjectOfConversation,
   theLedger,
+  theLineage,
   theNotes,
   tokens,
   verdicts,
@@ -153,10 +155,39 @@ app.get("/runs/:id", (ctx) => {
   return run ? ctx.json(run) : ctx.json({ error: `no run ${ctx.req.param("id")}` }, 404);
 });
 
-/** Accepted and rejected proposals come back as feedback (§7.7): the next turn's prompt names them, and the ledger counts them. */
+/** Accepted and rejected proposals come back as feedback (§7.7): the next turn's prompt names them, and the ledger counts them. A proposal whose base is no longer where the desk is reads as stale and is refused (Wave 5 D1). */
 app.post("/conversations/:id/feedback", async (ctx) => {
   const body = (await ctx.req.json().catch(() => ({}))) as { accepted?: unknown[]; rejected?: unknown[] };
-  recordFeedback(ctx.req.param("id"), body);
+  const conversation = ctx.req.param("id");
+  const store = theLineage();
+  const rows = (list: unknown[] | undefined) =>
+    (list ?? []).flatMap((r) => {
+      const o = r as { document?: unknown; sentence?: unknown; why?: unknown; current?: unknown };
+      return typeof o?.document === "number"
+        ? [
+            {
+              document: o.document,
+              sentence: typeof o.sentence === "string" ? o.sentence : undefined,
+              why: typeof o.why === "string" ? o.why : undefined,
+              current: typeof o.current === "number" ? o.current : undefined,
+            },
+          ]
+        : [];
+    });
+  for (const d of rows(body.accepted)) {
+    const v = store.stale(conversation, d);
+    if (!v.ok)
+      return ctx.json(
+        {
+          error: `document ${d.document} was proposed on ${v.base}, and the question moved on to ${v.moved_to}`,
+          ...v,
+        },
+        409,
+      );
+  }
+  for (const d of rows(body.accepted)) store.decide(conversation, "accepted", d);
+  for (const d of rows(body.rejected)) store.decide(conversation, "rejected", d);
+  recordFeedback(conversation, body);
   theLedger().record({
     at: Date.now(),
     conversation: ctx.req.param("id"),
@@ -177,6 +208,37 @@ app.post("/conversations/:id/feedback", async (ctx) => {
 });
 
 app.get("/conversations/:id/feedback", (ctx) => ctx.json(feedbackOf(ctx.req.param("id"))));
+
+/** The conversations of one document lineage, newest first (Wave 5 section 7.4): what was proposed, accepted and rejected and why, and the handles each conversation produced, from the ledger. */
+app.get("/conversations", (ctx) => {
+  const lineage = Number(ctx.req.query("lineage"));
+  if (!Number.isFinite(lineage)) return ctx.json({ error: "lineage" }, 400);
+  const store = theLineage();
+  const ledger = theLedger();
+  const conversations = store.list(lineage).map((c) => ({
+    id: c.id,
+    station: c.station,
+    document: c.document,
+    created_at: new Date(c.created_at).toISOString(),
+    proposals: c.proposals.map((p) => ({
+      document: p.document,
+      parent: p.parent,
+      base_document: p.base_document,
+      base_hash: p.base_hash,
+      sentence: p.sentence,
+      at: new Date(p.at).toISOString(),
+      decided: p.decided,
+      why: p.why,
+      decided_at: p.decided_at === null ? null : new Date(p.decided_at).toISOString(),
+      stale: p.decided === null && !store.stale(c.id, { document: p.document }).ok,
+    })),
+    handles: ledger
+      .rows(c.id, 500)
+      .filter((r) => r.handle !== null)
+      .map((r) => ({ handle: r.handle, operation: r.operation, at: new Date(r.at).toISOString() })),
+  }));
+  return ctx.json({ lineage, head: store.headOf(lineage), conversations });
+});
 
 /** The delegations of a conversation, from the store (section 9.12): the desk renders a delegate's verdict from here, never from the concierge's words. */
 app.get("/conversations/:id/delegations", (ctx) =>
@@ -220,6 +282,13 @@ app.post("/notes/institutional", async (ctx) => {
 
 app.get("/ledger/:id", (ctx) => ctx.json({ rows: theLedger().rows(ctx.req.param("id")) }));
 
-for (const [id, agent] of agents) app.route(`/agents/${id}`, createAgentRouter(agent));
+// a user turn may carry the rail's typed context, the document and its lineage (Wave 5 D1): the host keeps them and hands the runtime the words
+const routers = new Map<string, Hono>();
+for (const [id, agent] of agents) routers.set(id, createAgentRouter(agent) as unknown as Hono);
+app.post(
+  "/agents/:station/:id",
+  interceptTurn({ routers, lineage: theLineage, subject: subjectOfConversation }) as never,
+);
+for (const [id, router] of routers) app.route(`/agents/${id}`, router);
 
 export default app;
