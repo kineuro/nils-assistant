@@ -20,6 +20,10 @@ export interface Config {
   notes: string;
   /** The conversations by lineage, the proposals and the rail's context (Wave 5 D1), their own SQLite file. */
   lineage: string;
+  /** The ladder (Wave 5 section 9.1 to 9.4): standing grants, plans and their steps, their own SQLite file. */
+  ladder: string;
+  /** C49, off by default: when on, a person without the `assist-run` entitlement has an empty rung two whatever they tick. */
+  requireAssistRun: boolean;
   /** Days the seam's rows and the assistant's transcripts are kept (C24: 90 by default). */
   retentionDays: number;
   /** The directories station manifests are loaded from (§4.4). */
@@ -42,6 +46,8 @@ export function config(env: NodeJS.ProcessEnv = process.env): Config {
     ledger: env.ASSISTANT_LEDGER ?? "./data/seam.sqlite",
     notes: env.ASSISTANT_NOTES ?? "./data/notes.sqlite",
     lineage: env.ASSISTANT_LINEAGE ?? "./data/lineage.sqlite",
+    ladder: env.ASSISTANT_LADDER ?? "./data/ladder.sqlite",
+    requireAssistRun: env.ASSISTANT_REQUIRE_ASSIST_RUN === "1",
     retentionDays: Number(env.ASSISTANT_RETENTION_DAYS ?? 90),
     stationDirs: (env.ASSISTANT_STATIONS ?? "./stations").split(":").filter(Boolean),
     origin: (env.DESK_ORIGIN ?? "http://127.0.0.1:7200").replace(/\/+$/u, ""),

@@ -10,11 +10,16 @@ import { createAgentRouter } from "@flue/runtime/routing";
 import { Hono } from "hono";
 import { config } from "./config.ts";
 import { capabilities } from "./host/capabilities.ts";
+import { ladderOf, opens, type PolicyRow, rungOf } from "./host/ladder.ts";
+import { LadderStore } from "./host/ladder-store.ts";
+import { subjectOf } from "./host/notes.ts";
 import { Runs } from "./host/runs.ts";
+import { inboxOf, Scheduler } from "./host/scheduler.ts";
 import { interceptTurn } from "./host/turns.ts";
 import { kvasirProvider, readCatalog } from "./providers/kvasir.ts";
 import { agentIds, delegationsOf, delegationView, registerAgent } from "./seam/delegations.ts";
 import {
+  engineAuthOff,
   feedbackOf,
   probeEngineAuth,
   recordFeedback,
@@ -34,6 +39,8 @@ import { Echo } from "./stations/echo.ts";
 import { IdentityCheck } from "./stations/identity-check-agent.ts";
 import { KeywordTune } from "./stations/keyword-tune-agent.ts";
 import { loadManifests } from "./stations/manifest.ts";
+import { useLadderStore } from "./stations/operator.ts";
+import { Operator } from "./stations/operator-agent.ts";
 import { warmPrelude } from "./stations/prelude.ts";
 
 const c = config();
@@ -58,6 +65,7 @@ if (manifests.has("ask-help")) agents.set("ask-help", AskHelp);
 if (manifests.has("concierge")) agents.set("concierge", Concierge);
 if (manifests.has("keyword-tune")) agents.set("keyword-tune", KeywordTune);
 if (manifests.has("identity-check")) agents.set("identity-check", IdentityCheck);
+if (manifests.has("operator")) agents.set("operator", Operator);
 agents.set("echo", Echo);
 // the stations a concierge may delegate to, by id (section 9.12)
 for (const [id, a] of agents) registerAgent(id, a);
@@ -83,6 +91,32 @@ if (await probeEngineAuth(c.engine))
   console.error(
     "nils-assistant: the engine serves with its authentication off; turns without a token are allowed",
   );
+
+// the ladder (Wave 5 sections 9.1 to 9.4): standing grants, plans and the scheduler that runs them under the person's own token
+const ladder = new LadderStore(c.ladder);
+ladder.sweep(c.retentionDays);
+useLadderStore(() => ladder);
+registerStation({
+  id: "scheduler",
+  version: c.version,
+  grant: { jobs: {}, "sessions/rebuild": {}, batches: {}, "jobs/{id}": {}, capabilities: {} },
+  ceiling: "operator",
+  content: "catalog",
+  model: "none",
+  standing: true,
+});
+const scheduler = new Scheduler({
+  store: ladder,
+  seamFor: (conversation) =>
+    tokens.get(conversation) || engineAuthOffNow() ? seamFor("scheduler", conversation) : null,
+  mayRun: c.requireAssistRun ? (subject) => assistRun.get(subject) === true : undefined,
+});
+if (process.env.NODE_ENV !== "test") scheduler.start(Number(process.env.ASSISTANT_SCHEDULER_MS ?? 15_000));
+/** C49: the persons the deployment's entitlements open rung two to, read from the engine's capabilities with their token. */
+const assistRun = new Map<string, boolean>();
+function engineAuthOffNow(): boolean {
+  return engineAuthOff;
+}
 
 const app = new Hono();
 
@@ -281,6 +315,135 @@ app.post("/notes/institutional", async (ctx) => {
 });
 
 app.get("/ledger/:id", (ctx) => ctx.json({ rows: theLedger().rows(ctx.req.param("id")) }));
+
+// the ladder (Wave 5 section 9.1): a person's standing grants, per verb, revocable, never beyond the person
+
+/** The person a request comes from, by the token the desk sent with it; and their roles, read from the engine with that token. */
+async function personOf(ctx: {
+  req: { header: (k: string) => string | undefined };
+}): Promise<{ subject: string; roles: string[]; entitlements: string[]; policy: PolicyRow[] } | null> {
+  const auth = ctx.req.header("authorization") ?? "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
+  if (!token && !engineAuthOff) return null;
+  const conversation = `person-${subjectOfConversation(token ? `t:${token.slice(0, 12)}` : "anonymous")}-${Date.now().toString(36)}`;
+  if (token) tokens.put(conversation, token);
+  const seam = seamFor("scheduler", conversation);
+  const a = await seam.call({
+    method: "GET",
+    path: "/api/capabilities",
+    toolCallId: "person",
+    phase: "grant",
+  });
+  tokens.forget(conversation);
+  if (a.kind !== "ok") return null;
+  const b = a.body as { principal?: string; roles?: string[]; entitlements?: string[]; policy?: PolicyRow[] };
+  const subject = typeof b.principal === "string" && b.principal ? b.principal : subjectOf(token);
+  const roles = Array.isArray(b.roles) ? b.roles.map(String) : [];
+  const entitlements = Array.isArray(b.entitlements) ? b.entitlements.map(String) : roles;
+  assistRun.set(subject, entitlements.includes("assist-run"));
+  return { subject, roles, entitlements, policy: Array.isArray(b.policy) ? b.policy : [] };
+}
+
+app.get("/grants", async (ctx) => {
+  const who = await personOf(ctx);
+  if (!who) return ctx.json({ error: "no token" }, 401);
+  const all = who.roles.includes("admin") && ctx.req.query("all") === "1";
+  return ctx.json({
+    subject: who.subject,
+    grants: ladder.grants(all ? null : who.subject).map((g) => ({
+      id: g.id,
+      subject: g.subject,
+      door: g.door,
+      created_at: new Date(g.created_at).toISOString(),
+      revoked_at: g.revoked_at === null ? null : new Date(g.revoked_at).toISOString(),
+    })),
+    ladder: ladderOf(who.policy),
+  });
+});
+
+app.post("/grants", async (ctx) => {
+  const who = await personOf(ctx);
+  if (!who) return ctx.json({ error: "no token" }, 401);
+  const body = (await ctx.req.json().catch(() => ({}))) as { door?: unknown };
+  const door = typeof body.door === "string" ? body.door : "";
+  const row = who.policy.find((r) => r.door === door);
+  if (!row) return ctx.json({ error: `${door || "(none)"} is not a door the engine serves` }, 404);
+  if (rungOf(row) !== 2)
+    return ctx.json({ error: `${door} is rung ${rungOf(row)}; a standing grant is for rung two only` }, 409);
+  if (!opens(who.roles, row.role))
+    return ctx.json(
+      {
+        error: `${door} asks for the ${row.role} role, which you do not hold; a grant never exceeds the person`,
+      },
+      403,
+    );
+  if (c.requireAssistRun && !who.entitlements.includes("assist-run"))
+    return ctx.json({ error: "rung two is closed here without the assist-run entitlement (C49)" }, 403);
+  const g = ladder.grant(who.subject, door);
+  return ctx.json(
+    { id: g.id, subject: g.subject, door: g.door, created_at: new Date(g.created_at).toISOString() },
+    201,
+  );
+});
+
+app.delete("/grants/:id", async (ctx) => {
+  const who = await personOf(ctx);
+  if (!who) return ctx.json({ error: "no token" }, 401);
+  const g = ladder.revoke(Number(ctx.req.param("id")), who.roles.includes("admin") ? null : who.subject);
+  return g
+    ? ctx.json({
+        id: g.id,
+        door: g.door,
+        revoked_at: g.revoked_at === null ? null : new Date(g.revoked_at).toISOString(),
+      })
+    : ctx.json({ error: "no such grant of yours" }, 404);
+});
+
+// the plan (section 9.3): the person sees it restated and confirms it once; the scheduler does the rest
+app.get("/plans/:id", async (ctx) => {
+  const who = await personOf(ctx);
+  if (!who) return ctx.json({ error: "no token" }, 401);
+  const p = ladder.planById(ctx.req.param("id"));
+  if (!p || (p.subject !== who.subject && !who.roles.includes("admin")))
+    return ctx.json({ error: "no such plan of yours" }, 404);
+  return ctx.json({ ...p, steps: ladder.steps(p.id) });
+});
+
+app.post("/plans/:id/confirm", async (ctx) => {
+  const who = await personOf(ctx);
+  if (!who) return ctx.json({ error: "no token" }, 401);
+  const r = ladder.confirm(ctx.req.param("id"), who.subject);
+  if ("refused" in r) return ctx.json({ error: r.refused }, 409);
+  // fire what is due at once, so a plan of "now" steps does not wait a tick
+  const fired = await scheduler.tick();
+  return ctx.json({
+    ...r,
+    steps: ladder.steps(r.id),
+    fired: fired.filter((f) => ladder.step(f.step)?.plan === r.id),
+  });
+});
+
+/** A person decided on a rung-three proposal on the desk, through its own closure panel; the assistant records it and does nothing else. */
+app.post("/plans/:id/proposals/:n/decide", async (ctx) => {
+  const who = await personOf(ctx);
+  if (!who) return ctx.json({ error: "no token" }, 401);
+  const body = (await ctx.req.json().catch(() => ({}))) as { verdict?: unknown };
+  const verdict = body.verdict === "accepted" ? "accepted" : body.verdict === "rejected" ? "rejected" : null;
+  if (!verdict) return ctx.json({ error: "verdict is accepted or rejected" }, 400);
+  const step = ladder
+    .steps(ctx.req.param("id"))
+    .find((s) => s.n === Number(ctx.req.param("n")) && s.rung === 3);
+  if (!step) return ctx.json({ error: "no such proposal" }, 404);
+  const r = ladder.decide(step.id, verdict, who.subject);
+  return "refused" in r ? ctx.json({ error: r.refused }, 409) : ctx.json(r);
+});
+
+/** The inbox (section 9.4): what the assistant and the engine did for this person. */
+app.get("/inbox", async (ctx) => {
+  const who = await personOf(ctx);
+  if (!who) return ctx.json({ error: "no token" }, 401);
+  return ctx.json(inboxOf(ladder, who.subject));
+});
 
 // a user turn may carry the rail's typed context, the document and its lineage (Wave 5 D1): the host keeps them and hands the runtime the words
 const routers = new Map<string, Hono>();

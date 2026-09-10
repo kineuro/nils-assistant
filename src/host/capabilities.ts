@@ -38,6 +38,14 @@ export function capabilities(
       "POST /conversations/{id}/feedback",
       "GET /agents/{station}/{id}",
       "POST /agents/{station}/{id}",
+      "GET /conversations",
+      "GET /grants",
+      "POST /grants",
+      "DELETE /grants/{id}",
+      "GET /plans/{id}",
+      "POST /plans/{id}/confirm",
+      "POST /plans/{id}/proposals/{n}/decide",
+      "GET /inbox",
     ],
   };
 }

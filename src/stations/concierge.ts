@@ -92,7 +92,7 @@ export function conciergeTools(): StationTool[] {
     {
       name: "delegate",
       description:
-        "Hand the work to a station by a brief in the person's own terms, and get a task id back at once. The station runs on its own; you will be woken when it settles. Stations: ask-help (words to a document, or one step of a document tuned; name the base document in the brief when there is one).",
+        "Hand the work to a station by a brief in the person's own terms, and get a task id back at once. The station runs on its own; you will be woken when it settles. Stations: ask-help (words to a document, or one step of a document tuned; name the base document in the brief when there is one); operator (an instruction that names more than one act, or a time: it becomes a plan the person confirms once).",
       input: v.object({ station: v.string(), brief: v.string() }),
       phases: ["hold"],
       salient: ["station"],

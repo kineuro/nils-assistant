@@ -30,6 +30,8 @@ export interface Station {
   ceiling: Ceiling;
   content: ContentClass;
   model: string;
+  /** Wave 5 section 9.1: the grant is a person's standing grant, not a station manifest's. */
+  standing?: boolean;
 }
 
 export interface Call {
@@ -41,6 +43,8 @@ export interface Call {
   phase: string;
   /** The rows the call asks for, for the cap. */
   rows?: number;
+  /** Wave 5 section 9.1: the standing grant this call runs under; named in the actor header. */
+  grant?: number;
 }
 
 export type Answer =
@@ -69,7 +73,7 @@ export class Seam {
   private readonly dial: typeof fetch;
   private readonly now: () => number;
   constructor(private readonly o: SeamOptions) {
-    this.keeper = new GrantKeeper(o.station.grant);
+    this.keeper = new GrantKeeper(o.station.grant, o.station.standing === true);
     this.dial = o.fetch ?? fetch;
     this.now = o.now ?? Date.now;
   }
@@ -83,13 +87,14 @@ export class Seam {
     return this.keeper.counts();
   }
 
-  private actor(): Actor {
+  private actor(grant?: number): Actor {
     return {
       kind: "agent",
       name: this.o.station.id,
       model: this.o.station.model,
       version: this.o.station.version,
       conversation: this.o.conversation,
+      ...(typeof grant === "number" ? { grant } : {}),
     };
   }
 
@@ -171,7 +176,7 @@ export class Seam {
       ...(token ? { authorization: `Bearer ${token}` } : {}),
       "content-type": "application/json",
       "x-nils-ceiling": this.o.station.ceiling,
-      "x-nils-actor": actorHeader(this.actor()),
+      "x-nils-actor": actorHeader(this.actor(c.grant)),
     };
     let key: string | null = null;
     if (IDEMPOTENT.has(decision.operation)) {
