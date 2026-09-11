@@ -1,22 +1,52 @@
 # nils-assistant
 
-**The assistant of NILS.** Stations on Flue, each one decision point with a manifest, a brief, a grant and a budget; the one seam through which any of them reaches the engine; and the bench that measures them before and after every change (`kineuro/nils`, `docs/specs/wave4c-the-assistant.md`, §9).
+**The assistant of NILS**: it turns a question asked in words into one the NILS engine answers, and offers what it proposes as a change a person accepts or rejects. It never decides anything on its own.
 
-> **Pre-alpha.** Built in the open as part of Wave 4c of NILS v1. Flue is pinned exact (2.0.3) and with it the pi-ai version Flue pins (0.83.0), the same pin as Kvasir.
+It is part of [NILS](https://github.com/kineuro/nils). The desk hands it the signed-in person's token, so it reaches the engine with that person's own permissions, and it reaches a model only through [Kvasir](https://github.com/kineuro/kvasir), the gateway.
 
-## Where things are
+> **Pre-alpha.** The assistant installs and runs, and its interfaces still change between releases.
+
+## Install
+
+The NILS setup wizard installs the assistant and its gateway: choose "Everything" at the first step.
+
+```sh
+curl -fsSL https://nils.kineuro.se/get | sh
+```
+
+It needs a model to talk to: a model server on the machine or another one you reach, or a commercial provider. The wizard reads the graphics card and says what it can serve.
+
+## Documentation
+
+**[kineuro.se/nils/docs](https://kineuro.se/nils/docs/)**
+
+- [What the assistant is made of](https://kineuro.se/nils/docs/assistant/what-it-is/)
+- [The model and the gateway](https://kineuro.se/nils/docs/assistant/kvasir/)
+- [Install the assistant](https://kineuro.se/nils/docs/assistant/install/) and [connect the desk](https://kineuro.se/nils/docs/assistant/connect/), without the wizard
+
+## The parts of NILS
+
+| Repository | Part |
+|---|---|
+| [kineuro/nils](https://github.com/kineuro/nils) | The engine: the registry, the rule packs, the `nils` command and the setup wizard. Everything else talks to it. |
+| [kineuro/nils-desk](https://github.com/kineuro/nils-desk) | The desk: the web application over the engine, and where people sign in. |
+| **kineuro/nils-assistant** | The assistant: turns a question in words into one the engine answers. |
+| [kineuro/kvasir](https://github.com/kineuro/kvasir) | The model gateway: every call the assistant makes to a model goes through it. |
+
+## Building from source
+
+```sh
+npm ci && npm run build && npm test
+node bin/serve.mjs    # listens on 127.0.0.1, PORT and HOST to change it
+```
 
 | | |
 |---|---|
-| [`kineuro/nils`](https://github.com/kineuro/nils) | The engine, the design record, the specification (§9) and the contracts (`contracts/suite/v1/station.schema.json`) this service is built against. |
-| [`bench/`](bench/README.md) | The bench of §9.10: the corpus, the taxonomy, the deterministic gate, the attribution order, the change manifests, the baseline. Built before the first station. |
-| `src/` | The service: the host, the seam, the station framework, the stations (D2 onwards). |
-| `test/` | Vitest, with no network. |
+| `stations/` | The stations: each one decision point, with its brief, the tools it may call and its budget. |
+| `src/` | The service: the host, the seam to the engine, the station framework. |
+| [`bench/`](bench/README.md) | The bench that measures the stations before and after every change. |
+| [`docs/teaching.md`](docs/teaching.md) | How corrections become a better model, with every gate kept. |
 
 ## License
 
-AGPL-3.0-only, under the same [Contributor License Agreement](CLA.md) as the engine.
-
-## Teaching (Wave 5 section 9.5)
-
-The loop of section 9.9 made visible with its gates kept. `GET /teaching/corrections` lists what the group corrected: proposals rejected with their reasons, review decisions by a person that overturned a station or the pack; identifiers, names, counts and the person's words, never a row. A reviewer curates them into a set (`POST /teaching/sets`), a JSONL file under the teaching directory. An operator starts a fine-tune as a job on a set (`POST /teaching/sets/{id}/fine-tune` with a recipe of base, method lora, steps, rank, lr): `bench/finetune.py` runs a LoRA when torch, transformers and peft are importable and the base is a local model, and records a dry outcome with the recipe and the set's digest when they are not; either way the job registers a candidate in Kvasir's lifecycle with its recipe and appears in the inbox. `GET /teaching/candidates` shows every candidate with the admission suite and the bench beside each other; `POST /teaching/candidates/{id}/admit` runs Kvasir's suite, `.../bench` runs the bench (the recorded numbers of the base model until the candidate is served, marked dry), and `.../promote` is refused with a sentence until both gates are green, then sends Kvasir's promote with the proposal. `ASSISTANT_TEACHING`, `ASSISTANT_TEACHING_DIR`, `ASSISTANT_BENCH_THRESHOLD` (the share of the bench a candidate must pass, 1 by default) and `ASSISTANT_TEACHING_BACKEND` configure it. Kvasir is dialled with the person's own token, so the lifecycle's admin rule holds.
+AGPL-3.0-only, under the same [contributor license agreement](CLA.md) as the engine. See [CONTRIBUTING.md](CONTRIBUTING.md).
