@@ -18,10 +18,18 @@ jobs:
       - name: SPDX headers on every source file
         run: |
           bad=0
-          for f in $(git ls-files 'src/*.ts' 'test/*.ts' 'bench/*.ts' 'bench/**/*.ts'); do
+          for f in $(git ls-files 'src/*.ts' 'test/*.ts' 'bench/*.ts' 'bench/**/*.ts' 'bin/*.mjs'); do
             head -2 "$f" | grep -q 'SPDX-License-Identifier: AGPL-3.0-only' || { echo "no SPDX header: $f"; bad=1; }
           done
           exit $bad
       - run: npm run check
       - run: npm test
       - run: npm run build
+      - name: the start entry listens on loopback and stops cleanly
+        run: |
+          PORT=7399 node bin/serve.mjs & pid=$!
+          for i in $(seq 1 60); do ss -ltn | grep -q ':7399 ' && break; sleep 0.5; done
+          ss -ltn | grep ':7399 '
+          ss -ltn | grep -q '127.0.0.1:7399 ' || { echo "the assistant is not on loopback"; exit 1; }
+          kill -TERM "$pid"
+          wait "$pid"
