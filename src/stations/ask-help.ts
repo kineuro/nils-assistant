@@ -135,7 +135,7 @@ export function askHelpTools(): StationTool[] {
             output: {
               axis: axis.name,
               values: axis.values.map((x) => x.id),
-              note: 'an axis, answered from the registry; compare it with ["axis", {}, "' + axis.name + '"]',
+              note: `an axis, answered from the registry; compare it with ["axis", {}, "${axis.name}"]`,
             } as JsonValue,
           };
         const a = await ctx.seam.call({
