@@ -5,11 +5,23 @@
 // replays and a recovery path is asserted from the transition, the matrix
 // and the split.
 
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { ORDER, path, prompt } from "../bench/attribution.ts";
+
+/// The first twelve hex of sha256 of each cohort name the corpus must never
+/// contain. Held as hashes so this file names none of them.
+const COHORT_HASHES = new Set([
+  "fd66d52c49b5",
+  "6571f16bdeba",
+  "246616512a40",
+  "bd81b119bfe1",
+  "efd140efde49",
+  "ee7637bd419d",
+]);
 import { type Fixture, recorded, textOf, withRecovery } from "../bench/gate/replay.ts";
 import { cell, direction, judge } from "../bench/manifest/matrix.ts";
 import { heldOut, report, split } from "../bench/manifest/split.ts";
@@ -115,7 +127,14 @@ describe("the corpus", () => {
     expect(text).not.toMatch(/\b[0-9a-f]{16}\b/u);
     expect(text).not.toMatch(/\b\d+(?:\.\d+){5,}\b/u);
     expect(text).not.toMatch(/\/(?:mnt|fast|srv|home)\//u);
-    expect(text).not.toMatch(/\b(?:kipro|broms|stopms|iaid|nmosd|als)\b/iu);
+    // The cohort names are checked by hash, not written out: a guard that
+    // spells the private identifiers it guards against publishes them, and
+    // this file is public. Same strength, since the check is still exact.
+    const tokens = new Set(text.toLowerCase().match(/[a-z0-9_]+/gu) ?? []);
+    const named = [...tokens].find((t) =>
+      COHORT_HASHES.has(createHash("sha256").update(t).digest("hex").slice(0, 12)),
+    );
+    expect(named).toBeUndefined();
   });
 });
 
