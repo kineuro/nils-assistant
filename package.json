@@ -33,7 +33,7 @@
     "yaml": "^2.8.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.1.0",
+    "@biomejs/biome": "2.5.12",
     "@types/node": "^22.15.0",
     "openapi-typescript": "^7.13.0",
     "typescript": "^5.8.0",
