@@ -99,6 +99,22 @@ afterAll(() => flue.stop());
 
 const POISON_VALUES = ["S-0001", "S-0002", "1961-04-02", "3.5", "x".repeat(300), "the person said"];
 
+/**
+ * Does the text hold this value *as a value*, rather than inside a longer run
+ * of digits? A record carries ISO timestamps, and `06:37:03.571Z` contains the
+ * characters `3.5` without holding the row that does. A plain substring test
+ * made this gate fail about one run in ten on whichever second it happened to
+ * be. A numeric value has to stand on its own to count; anything else is
+ * matched as written.
+ */
+function holds(text: string, value: string): boolean {
+  const escaped = value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  const pattern = /^[\d.-]+$/u.test(value)
+    ? new RegExp(`(?<![\\d.])${escaped}(?![\\d.])`, "u")
+    : new RegExp(escaped, "u");
+  return pattern.test(text);
+}
+
 /** The context of one page kind, with the rows a page holds beside what it declares. */
 function pageContext(kind: string, id: string | null) {
   return {
@@ -146,11 +162,11 @@ describe("the gate of the typed context", () => {
     expect(shown).toContain("the open document: 12 (hash 9f3c2b1a9f3c)");
     expect(shown).toContain("people (subject)");
     expect(shown).toContain("people 48");
-    for (const p of POISON_VALUES) expect(shown, p).not.toContain(p);
+    for (const p of POISON_VALUES) expect(holds(shown, p), p).toBe(false);
     // every other page's admitted context is row-free as well
     for (const [kind] of PAGES) {
       const kept = JSON.stringify(theLineage().contextOf(`gate-${kind}`));
-      for (const p of POISON_VALUES) expect(kept, `${kind}: ${p}`).not.toContain(p);
+      for (const p of POISON_VALUES) expect(holds(kept, p), `${kind}: ${p}`).toBe(false);
     }
     // the record of the run: the tool's answer is counts and ids, the settle is a sentence; no row anywhere
     const db = new DatabaseSync(join(dir, "s.sqlite"));
@@ -160,6 +176,6 @@ describe("the gate of the typed context", () => {
     db.close();
     const record = rows.map((r) => r.data).join("\n");
     expect(record).toContain('"count":48');
-    for (const p of POISON_VALUES) expect(record, p).not.toContain(p);
+    for (const p of POISON_VALUES) expect(holds(record, p), p).toBe(false);
   }, 60_000);
 });
