@@ -15,7 +15,7 @@
     "bench:gold": "tsc -p tsconfig.build.json && node dist/bench/gold.js",
     "bench:baseline": "tsc -p tsconfig.build.json && node dist/bench/baseline.js",
     "dev": "vite dev",
-    "start": "node dist/app/server.mjs",
+    "start": "node bin/serve.mjs",
     "records:export": "tsc -p tsconfig.build.json && node dist/src/host/records.js export",
     "records:import": "tsc -p tsconfig.build.json && node dist/src/host/records.js import",
     "pretest": "tsc -p tsconfig.build.json",
