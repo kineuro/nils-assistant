@@ -181,7 +181,9 @@ for (const s of shapes) {
   else {
     // unnamed: a named handle is unique in the registry and the baseline runs again and again
     const ran = await engine("/api/ask/run", { document });
-    const want = expect[s.rebased.gold!];
+    // The gold is set on every rebased shape; the caller filters on it above.
+    const gold = s.rebased.gold ?? "";
+    const want = expect[gold];
     if (ran.error) why = `the engine refused: ${String(ran.error).slice(0, 120)}`;
     else if (ran.truncated) why = "truncated";
     else if (want?.content_hash && ran.content_hash === want.content_hash) passed = true;

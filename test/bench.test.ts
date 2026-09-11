@@ -11,17 +11,6 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { ORDER, path, prompt } from "../bench/attribution.ts";
-
-/// The first twelve hex of sha256 of each cohort name the corpus must never
-/// contain. Held as hashes so this file names none of them.
-const COHORT_HASHES = new Set([
-  "fd66d52c49b5",
-  "6571f16bdeba",
-  "246616512a40",
-  "bd81b119bfe1",
-  "efd140efde49",
-  "ee7637bd419d",
-]);
 import { type Fixture, recorded, textOf, withRecovery } from "../bench/gate/replay.ts";
 import { cell, direction, judge } from "../bench/manifest/matrix.ts";
 import { heldOut, report, split } from "../bench/manifest/split.ts";
@@ -33,6 +22,17 @@ import {
   SILENT_DECISIONS,
   tally,
 } from "../bench/taxonomy.ts";
+
+/// The first twelve hex of sha256 of each cohort name the corpus must never
+/// contain. Held as hashes so this file names none of them.
+const COHORT_HASHES = new Set([
+  "fd66d52c49b5",
+  "6571f16bdeba",
+  "246616512a40",
+  "bd81b119bfe1",
+  "efd140efde49",
+  "ee7637bd419d",
+]);
 
 const root = join(import.meta.dirname, "..");
 const shapes = (
