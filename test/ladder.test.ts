@@ -147,8 +147,8 @@ function harness(engine: string) {
 
 /** The overnight instruction as the operator station plans it (section 9.3). */
 const OVERNIGHT = [
-  { verb: "digest", args: { batch: 2 }, when: { on_event: "batch_landed" } },
-  { verb: "classify", args: { batch: 2 }, when: { on_event: "job_finished" } },
+  { verb: "digest", args: { place: "scanner" }, when: { on_event: "batch_landed" } },
+  { verb: "classify", args: {}, when: { on_event: "job_finished" } },
   { verb: "run", args: { document: 41 }, when: { on_event: "job_finished" } },
   { verb: "release", args: { nothing: true } },
 ];
@@ -202,9 +202,11 @@ describe("the plan", () => {
     ]);
     expect(p.refused).toEqual([]);
     const words = restate(p);
-    expect(words).toContain("1. [rung 2, under a standing grant] digest batch 2 when the next batch lands");
     expect(words).toContain(
-      "2. [rung 2, under a standing grant] classify batch 2 with the same pack when the step before it finishes",
+      "1. [rung 2, under a standing grant] digest the source place scanner when the next batch lands",
+    );
+    expect(words).toContain(
+      "2. [rung 2, under a standing grant] classify every stack with the default pack when the step before it finishes",
     );
     expect(words).toContain("4. [rung 3, proposed for a person to accept] release nothing");
   });
@@ -213,19 +215,45 @@ describe("the plan", () => {
       [
         { verb: "shred", args: {} },
         { verb: "digest", args: {}, when: "now" },
-        { verb: "digest", args: { batch: 1 }, when: { on_event: "moon" } },
+        { verb: "digest", args: { place: "scanner" }, when: { on_event: "moon" } },
       ],
       POLICY,
     );
     expect(p.refused.map((r) => r.why)).toEqual([
       expect.stringMatching(/no verb named shred/u),
-      expect.stringMatching(/digest names a batch or a root/u),
+      expect.stringMatching(/digest names a source place/u),
       expect.stringMatching(/when is now/u),
     ]);
     expect(whenOf(undefined)).toBe("now");
     expect(whenOf({ after_job: 7 })).toEqual({ after_job: 7 });
     expect(whenOf({ at: "2026-09-11T02:00:00Z" })).toEqual({ at: "2026-09-11T02:00:00.000Z" });
     expect(Object.keys(VERBS)).toContain("rebuild");
+  });
+  it("the job verbs queue command lines the engine's job door accepts, and refuse what it would refuse", () => {
+    const job = (command: string[]) => ({ path: "/api/jobs", body: { command } });
+    // a source place by its name, or a folder inside it, as the door resolves @name/relative
+    expect(VERBS.digest.call({ place: "scanner" })).toEqual(job(["digest", "@scanner"]));
+    expect(VERBS.digest.call({ place: "@scanner", path: "2026/week-37" })).toEqual(
+      job(["digest", "@scanner/2026/week-37"]),
+    );
+    expect(VERBS.classify.call({})).toEqual(job(["classify"]));
+    expect(VERBS.classify.call({ pack: "mri" })).toEqual(job(["classify", "--pack", "mri"]));
+    expect(VERBS.fingerprint.call({})).toEqual(job(["fingerprint"]));
+    const refused: [string, Record<string, unknown>][] = [
+      ["digest", {}],
+      ["digest", { place: "scanner/2026" }],
+      ["digest", { place: "scanner", path: "/etc" }],
+      ["digest", { place: "scanner", path: "2026/../../x" }],
+      ["digest", { place: "scanner", batch: 2 }],
+      ["classify", { batch: 2 }],
+      ["fingerprint", { batch: 2 }],
+    ];
+    for (const [verb, args] of refused) expect(VERBS[verb].call(args), verb).toHaveProperty("refused");
+    expect(VERBS.digest.words({ place: "scanner", path: "2026/week-37" })).toBe(
+      "digest 2026/week-37 in the source place scanner",
+    );
+    expect(VERBS.classify.words({ pack: "mri" })).toBe("classify every stack with pack mri");
+    expect(VERBS.fingerprint.words({})).toBe("fingerprint every stack that has no fingerprint yet");
   });
   it("the operator manifest runs nothing, holds a read-only grant and checks its plan against the policy", () => {
     const m = loadManifests(["./stations"]).get("operator");
@@ -284,13 +312,16 @@ describe("the overnight instruction runs as a plan (bar 3)", () => {
     const queued = e.seen.filter((s) => s.method === "POST" && s.path === "/api/jobs");
     expect(queued.length).toBe(1);
     expect(queued[0].actor).toMatchObject({ kind: "agent", name: "scheduler", grant: digest.id });
-    expect(queued[0].body).toEqual({ command: ["digest", "--batch", "2"] });
+    expect(queued[0].body).toEqual({ command: ["digest", "@scanner"] });
     // classify waits for the step before it
     expect(store.steps("plan-night")[1].state).toBe("waiting");
     e.state.jobs.set(100, "done");
     fired = await scheduler.tick();
     expect(store.steps("plan-night")[0].state).toBe("done");
     expect(store.steps("plan-night")[1]).toMatchObject({ state: "queued", job: 101, grant: digest.id });
+    expect(e.seen.filter((s) => s.method === "POST" && s.path === "/api/jobs")[1].body).toEqual({
+      command: ["classify"],
+    });
     e.state.jobs.set(101, "done");
     await scheduler.tick();
     await scheduler.tick();
@@ -335,7 +366,7 @@ describe("the overnight instruction runs as a plan (bar 3)", () => {
       instruction: "digest then classify",
       planned: planFrom(
         [
-          { verb: "digest", args: { batch: 2 }, when: "now" },
+          { verb: "digest", args: { place: "scanner" }, when: "now" },
           { verb: "run", args: { document: 3 }, when: { on_event: "job_finished" } },
         ],
         POLICY,
@@ -375,7 +406,7 @@ describe("the overnight instruction runs as a plan (bar 3)", () => {
       conversation: "c-c49",
       subject,
       instruction: "digest",
-      planned: planFrom([{ verb: "digest", args: { batch: 2 } }], POLICY),
+      planned: planFrom([{ verb: "digest", args: { place: "scanner" } }], POLICY),
     });
     store.confirm("plan-c49", subject);
     const scheduler = new Scheduler({ store, seamFor, mayRun: () => false });

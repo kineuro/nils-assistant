@@ -72,47 +72,74 @@ const int = (v: unknown): number | null =>
       ? Number(v)
       : null;
 const text = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
+/** A source place's name, given with or without the @ the job door reads. */
+const placeOf = (v: unknown): string | null => text(v)?.replace(/^@/u, "") || null;
+
+/** The engine scopes none of its job verbs to a batch: a step naming one would run wider than its words, so it is refused. */
+function batchless(verb: string, runs: string, a: Record<string, unknown>): { refused: string } | null {
+  return a.batch === undefined || a.batch === null ? null : { refused: `${verb} takes no batch: it ${runs}` };
+}
+
+/**
+ * The tree a digest walks, as the engine's job door resolves it (4c section 6.5): `@name` for a source
+ * place, one of the names the capabilities list under ingest_roots, or `@name/relative` for a folder
+ * inside it. Never a path of the host, and never a relative part that leaves the place: the door refuses
+ * both, so the plan refuses them first.
+ */
+function treeOf(a: Record<string, unknown>): string | { refused: string } {
+  const name = placeOf(a.place);
+  if (name === null)
+    return { refused: "digest names a source place, one of the ingest_roots the capabilities list" };
+  if (name.includes("/"))
+    return { refused: "digest names the source place alone, and a folder inside it as path" };
+  const rel = text(a.path);
+  if (rel === null) return `@${name}`;
+  if (rel.startsWith("/") || rel.split("/").includes(".."))
+    return { refused: `digest path ${rel} is not a folder inside the source place ${name}` };
+  return `@${name}/${rel}`;
+}
 
 export const VERBS: Record<string, VerbSpec> = {
   digest: {
     door: "POST /api/jobs",
     method: "POST",
     call: (a) => {
-      const batch = int(a.batch);
-      const root = text(a.root);
-      if (batch === null && root === null) return { refused: "digest names a batch or a root" };
-      return {
-        path: "/api/jobs",
-        body: { command: batch !== null ? ["digest", "--batch", String(batch)] : ["digest", "--root", root] },
-      };
+      const tree = batchless("digest", "walks a source place", a) ?? treeOf(a);
+      return typeof tree === "string" ? { path: "/api/jobs", body: { command: ["digest", tree] } } : tree;
     },
-    words: (a) =>
-      int(a.batch) !== null ? `digest batch ${int(a.batch)}` : `digest ${text(a.root) ?? "the root"}`,
+    words: (a) => {
+      const name = placeOf(a.place);
+      const place = name === null ? "a source place" : `the source place ${name}`;
+      const rel = text(a.path);
+      return rel === null ? `digest ${place}` : `digest ${rel} in ${place}`;
+    },
   },
   classify: {
     door: "POST /api/jobs",
     method: "POST",
     call: (a) => {
-      const batch = int(a.batch);
       const pack = text(a.pack);
-      if (batch === null) return { refused: "classify names a batch" };
-      return {
-        path: "/api/jobs",
-        body: { command: ["classify", "--batch", String(batch), ...(pack ? ["--pack", pack] : [])] },
-      };
+      return (
+        batchless("classify", "judges every stack", a) ?? {
+          path: "/api/jobs",
+          body: { command: pack === null ? ["classify"] : ["classify", "--pack", pack] },
+        }
+      );
     },
-    words: (a) =>
-      `classify batch ${int(a.batch)}${text(a.pack) ? ` with pack ${text(a.pack)}` : " with the same pack"}`,
+    words: (a) => {
+      const pack = text(a.pack);
+      return `classify every stack with ${pack === null ? "the default pack" : `pack ${pack}`}`;
+    },
   },
   fingerprint: {
     door: "POST /api/jobs",
     method: "POST",
-    call: (a) => {
-      const batch = int(a.batch);
-      if (batch === null) return { refused: "fingerprint names a batch" };
-      return { path: "/api/jobs", body: { command: ["fingerprint", "--batch", String(batch)] } };
-    },
-    words: (a) => `fingerprint batch ${int(a.batch)}`,
+    call: (a) =>
+      batchless("fingerprint", "fingerprints every stack that has none yet", a) ?? {
+        path: "/api/jobs",
+        body: { command: ["fingerprint"] },
+      },
+    words: () => "fingerprint every stack that has no fingerprint yet",
   },
   rebuild: {
     door: "POST /api/sessions/rebuild",
