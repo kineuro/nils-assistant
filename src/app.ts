@@ -6,15 +6,17 @@
 // provider per station carrying its purpose.
 
 import { existsSync, readFileSync } from "node:fs";
-import { setProvider } from "@flue/runtime";
+import { observe, setProvider } from "@flue/runtime";
 import { createAgentRouter } from "@flue/runtime/routing";
 import { Hono } from "hono";
 import { config } from "./config.ts";
 import { guard, personIn } from "./host/access.ts";
 import { capabilities } from "./host/capabilities.ts";
+import { type Observe, watchContext } from "./host/context.ts";
 import { ladderOf, opens, type PolicyRow, rungOf } from "./host/ladder.ts";
 import { LadderStore } from "./host/ladder-store.ts";
 import type { ConversationRow } from "./host/lineage.ts";
+import { modelList, setModels } from "./host/models.ts";
 import { bareOf, People, type Person } from "./host/people.ts";
 import { Runs } from "./host/runs.ts";
 import { inboxOf, Scheduler } from "./host/scheduler.ts";
@@ -98,8 +100,12 @@ const catalog = await readCatalog(c.kvasir, c.kvasirKey).catch((e: Error) => {
   console.error(`nils-assistant: Kvasir did not answer at start: ${e.message}`);
   return { baseUrl: `${c.kvasir}/v1`, models: [] };
 });
+// each model's window and largest answer, for compaction and the desk's meter (the chat, slice 3)
+setModels(catalog.models);
 for (const s of stationList())
   setProvider(kvasirProvider({ station: s.id, purpose: `assistant.${s.id}`, catalog, key: c.kvasirKey }));
+// how full each conversation's context is, from the runtime's own events
+watchContext({ observe: observe as unknown as Observe, lineage: theLineage });
 
 // an engine serving with its authentication off takes a turn without a token (section 5.5); anything else refuses it
 if (await probeEngineAuth(c.engine))
@@ -216,7 +222,7 @@ app.get("/capabilities", (ctx) =>
           writes: m?.writes ?? [],
         };
       }),
-      { teaching_open: true, conversations: 0 },
+      { teaching_open: true, conversations: 0, models: modelList() },
     ),
   ),
 );
@@ -352,6 +358,12 @@ function conversationView(r: ConversationRow): Record<string, unknown> {
     pinned: r.pinned_at !== null,
     archived: r.archived_at !== null,
     forked_from: r.forked_from,
+    context: {
+      tokens: r.context_tokens,
+      window: r.context_window,
+      compactions: r.compactions ?? 0,
+      compacted_at: iso(r.compacted_at),
+    },
   };
 }
 

@@ -243,11 +243,44 @@ export class Seam {
   }
 }
 
+/** The most characters of one tool result the model reads (the chat, slice 3): a larger answer is shortened to its shape, so one call cannot fill the window. */
+export const TOOL_RESULT_CHARS = 24_000;
+
+/** A value shortened to fit: long lists keep their first items and say how many more there were, long strings their start. */
+export function shorten(value: JsonValue, cap = TOOL_RESULT_CHARS): JsonValue {
+  const text = JSON.stringify(value);
+  if (text === undefined || text.length <= cap) return value;
+  const cut = (v: JsonValue, items: number, chars: number): JsonValue => {
+    if (typeof v === "string")
+      return v.length > chars ? `${v.slice(0, chars)}… (${v.length - chars} more characters)` : v;
+    if (Array.isArray(v)) {
+      const kept = v.slice(0, items).map((x) => cut(x, items, chars));
+      return v.length > items ? [...kept, `… ${v.length - items} more items`] : kept;
+    }
+    if (v && typeof v === "object")
+      return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, cut(x as JsonValue, items, chars)]));
+    return v;
+  };
+  for (const [items, chars] of [
+    [50, 2000],
+    [20, 500],
+    [5, 200],
+  ] as const) {
+    const shorter = cut(value, items, chars);
+    if (JSON.stringify(shorter).length <= cap) return shorter;
+  }
+  return {
+    shortened: true,
+    characters: text.length,
+    start: text.slice(0, Math.min(Math.floor(cap / 2), 4000)),
+  };
+}
+
 /** What a tool returns to the model when the seam did not dial: a reason, never a stack. */
 export function toolResult(a: Answer): { output: JsonValue } {
   switch (a.kind) {
     case "ok":
-      return { output: (a.body ?? null) as JsonValue };
+      return { output: shorten((a.body ?? null) as JsonValue) };
     case "blocked":
       return { output: { blocked: true, operation: a.operation, reason: a.reason } };
     case "refused":
