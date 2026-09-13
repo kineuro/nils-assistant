@@ -37,6 +37,12 @@ export interface ConversationRow {
   context_window: number | null;
   compactions: number | null;
   compacted_at: number | null;
+  /** The chat, slice 4: the conversation a version was first made from, the message it was sent instead of, where that message was first sent, where the copy of its stream ends, and its own first message once sent. */
+  fork_root: string | null;
+  fork_slot: string | null;
+  fork_origin: string | null;
+  fork_offset: number | null;
+  branch_message: string | null;
 }
 
 /** Whether a row written under an older key is this person's: their principal, the bare `sub` their token gave, or `anonymous` while the engine serves with its authentication off. */
@@ -63,6 +69,15 @@ export interface ProposalRow {
   decided: "accepted" | "rejected" | null;
   why: string | null;
   decided_at: number | null;
+}
+
+/** The owner's verdict on one answer (the chat, slice 4). */
+export interface RatingRow {
+  conversation: string;
+  message: string;
+  verdict: "up" | "down";
+  reason: string | null;
+  at: number;
 }
 
 export interface Decision {
@@ -116,6 +131,15 @@ export class Lineage {
       json TEXT NOT NULL,
       at INTEGER NOT NULL
     )`);
+    // the chat, slice 4: the owner's verdict on an answer, up or down with a reason
+    this.db.exec(`CREATE TABLE IF NOT EXISTS rating (
+      conversation TEXT NOT NULL,
+      message TEXT NOT NULL,
+      verdict TEXT NOT NULL,
+      reason TEXT,
+      at INTEGER NOT NULL,
+      PRIMARY KEY (conversation, message)
+    )`);
     // the chat, slice 1: a conversation has an owner, a title and a life of its own; a file made before gains the columns
     const have = new Set(
       (this.db.prepare("PRAGMA table_info(conversation)").all() as { name: string }[]).map((c) => c.name),
@@ -134,9 +158,15 @@ export class Lineage {
       ["context_window", "INTEGER"],
       ["compactions", "INTEGER"],
       ["compacted_at", "INTEGER"],
+      ["fork_root", "TEXT"],
+      ["fork_slot", "TEXT"],
+      ["fork_origin", "TEXT"],
+      ["fork_offset", "INTEGER"],
+      ["branch_message", "TEXT"],
     ])
       if (!have.has(name)) this.db.exec(`ALTER TABLE conversation ADD COLUMN ${name} ${type}`);
     this.db.exec("CREATE INDEX IF NOT EXISTS conversation_owner ON conversation (owner, updated_at)");
+    this.db.exec("CREATE INDEX IF NOT EXISTS conversation_family ON conversation (fork_root)");
   }
 
   /** The first turn opens the conversation; a later turn may name the document it moved to. */
@@ -247,6 +277,11 @@ export class Lineage {
       "owner = ?",
       "deleted_at IS NULL",
       o.archived ? "archived_at IS NOT NULL" : "archived_at IS NULL",
+      // one row per conversation: of its versions, the one used last, the first made when two tie
+      `NOT EXISTS (SELECT 1 FROM conversation o WHERE COALESCE(o.fork_root, o.id) = COALESCE(conversation.fork_root, conversation.id)
+        AND o.id != conversation.id AND o.deleted_at IS NULL
+        AND (COALESCE(o.updated_at, o.created_at) > COALESCE(conversation.updated_at, conversation.created_at)
+          OR (COALESCE(o.updated_at, o.created_at) = COALESCE(conversation.updated_at, conversation.created_at) AND o.created_at < conversation.created_at)))`,
     ];
     const params: (string | number)[] = [owner];
     const q = (o.q ?? "").trim();
@@ -267,34 +302,186 @@ export class Lineage {
       .all(...params, limit) as unknown as ConversationRow[];
   }
 
-  /** What a person changes about their conversation: its title, whether it is pinned, whether it is archived. */
+  /** What a person changes about their conversation: its title, whether it is pinned, whether it is archived, every version of it alike; and which version it opens on. */
   patch(
     id: string,
-    p: { title?: string | null; pinned?: boolean; archived?: boolean },
+    p: { title?: string | null; pinned?: boolean; archived?: boolean; current?: boolean },
   ): ConversationRow | null {
+    const family = this.familyOf(id);
+    if (family === null) return null;
     const now = Date.now();
+    const where = "WHERE COALESCE(fork_root, id) = ?";
     if (p.title !== undefined) {
       const title = tidy(p.title);
       this.db
-        .prepare("UPDATE conversation SET title = ?, title_by = ? WHERE id = ?")
-        .run(title, title === null ? null : "person", id);
+        .prepare(`UPDATE conversation SET title = ?, title_by = ? ${where}`)
+        .run(title, title === null ? null : "person", family);
     }
     if (p.pinned !== undefined)
-      this.db.prepare("UPDATE conversation SET pinned_at = ? WHERE id = ?").run(p.pinned ? now : null, id);
+      this.db.prepare(`UPDATE conversation SET pinned_at = ? ${where}`).run(p.pinned ? now : null, family);
     if (p.archived !== undefined)
       this.db
-        .prepare("UPDATE conversation SET archived_at = ? WHERE id = ?")
-        .run(p.archived ? now : null, id);
+        .prepare(`UPDATE conversation SET archived_at = ? ${where}`)
+        .run(p.archived ? now : null, family);
+    // the version a person switched to is the one the lists show from now on
+    if (p.current) this.db.prepare("UPDATE conversation SET updated_at = ? WHERE id = ?").run(now, id);
     return this.conversation(id);
   }
 
-  /** Deleted by its owner: gone from every list and every door at once; its rows go with the retention. */
+  /** Deleted by its owner: every version gone from every list and every door at once; its rows go with the retention. */
   remove(id: string): boolean {
+    const family = this.familyOf(id);
+    if (family === null) return false;
     return (
       this.db
-        .prepare("UPDATE conversation SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL")
-        .run(Date.now(), id).changes > 0
+        .prepare(
+          "UPDATE conversation SET deleted_at = ? WHERE COALESCE(fork_root, id) = ? AND deleted_at IS NULL",
+        )
+        .run(Date.now(), family).changes > 0
     );
+  }
+
+  /** The family a conversation's versions share: the conversation every version of it was first made from. */
+  familyOf(id: string): string | null {
+    const r = this.db
+      .prepare("SELECT COALESCE(fork_root, id) AS family FROM conversation WHERE id = ?")
+      .get(id) as { family: string } | undefined;
+    return r?.family ?? null;
+  }
+
+  /** An id nobody can guess, for a conversation the host makes. */
+  newId(): string {
+    return `c-${randomBytes(16).toString("hex")}`;
+  }
+
+  /**
+   * A conversation continued from another's stream (the chat, slice 4). One made at a message is a version
+   * of the same conversation: it shares the name, the pin and the archive, and it is listed in place of the
+   * others once it has been used since. A copy of the whole conversation, made at no message, is a
+   * conversation of its own.
+   */
+  branch(o: {
+    id: string;
+    source: ConversationRow;
+    slot: string | null;
+    origin: string | null;
+    offset: number;
+  }): ConversationRow {
+    const now = Date.now();
+    const s = o.source;
+    const version = o.slot !== null;
+    const title = version ? s.title : tidy(s.title ? `${s.title} (continued)` : null);
+    const owner = s.owner ?? s.subject;
+    this.db
+      .prepare(
+        "INSERT INTO conversation (id, station, subject, lineage, document, created_at, owner, title, title_by, updated_at, pinned_at, archived_at, forked_from, forked_at, fork_root, fork_slot, fork_origin, fork_offset) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      )
+      .run(
+        o.id,
+        s.station,
+        owner,
+        s.lineage,
+        s.document,
+        now,
+        owner,
+        title,
+        title === null ? null : (s.title_by ?? "person"),
+        version ? (s.updated_at ?? s.created_at) : now,
+        version ? s.pinned_at : null,
+        version ? s.archived_at : null,
+        s.id,
+        now,
+        version ? (s.fork_root ?? s.id) : o.id,
+        o.slot,
+        o.origin,
+        o.offset,
+      );
+    return this.conversation(o.id) as ConversationRow;
+  }
+
+  /** A version's first message, once it is known. */
+  setBranchMessage(id: string, message: string): void {
+    this.db
+      .prepare("UPDATE conversation SET branch_message = ? WHERE id = ? AND branch_message IS NULL")
+      .run(message, id);
+  }
+
+  /** The versions in a conversation's family whose first message is not known yet. */
+  unsent(id: string): ConversationRow[] {
+    const family = this.familyOf(id);
+    if (family === null) return [];
+    return this.db
+      .prepare(
+        "SELECT * FROM conversation WHERE COALESCE(fork_root, id) = ? AND fork_slot IS NOT NULL AND branch_message IS NULL AND deleted_at IS NULL",
+      )
+      .all(family) as unknown as ConversationRow[];
+  }
+
+  /** Where a message sits among its versions: a version's first message stands in the place of the message it was sent instead of; any other message is a place of its own. */
+  slotOf(message: string): { slot: string; origin: string | null } {
+    const r = this.db
+      .prepare(
+        "SELECT fork_slot, fork_origin FROM conversation WHERE branch_message = ? AND fork_slot IS NOT NULL LIMIT 1",
+      )
+      .get(message) as { fork_slot: string; fork_origin: string | null } | undefined;
+    return r ? { slot: r.fork_slot, origin: r.fork_origin } : { slot: message, origin: null };
+  }
+
+  /** The version a message of `source` was first sent in: up through the versions whose copies carried it, by the batch it sits in. */
+  originOf(source: ConversationRow, seq: number): string {
+    let cur = source;
+    for (let hop = 0; hop < 1000; hop++) {
+      if (
+        cur.forked_from === null ||
+        cur.fork_slot === null ||
+        cur.fork_offset === null ||
+        seq >= cur.fork_offset
+      )
+        break;
+      const up = this.conversation(cur.forked_from);
+      if (!up) break;
+      cur = up;
+    }
+    return cur.id;
+  }
+
+  /** The places in a conversation's family sent more than one way: the message first sent, then each sent instead, oldest first. */
+  versions(id: string): { slot: string; versions: { conversation: string; message: string }[] }[] {
+    const family = this.familyOf(id);
+    if (family === null) return [];
+    const rows = this.db
+      .prepare(
+        "SELECT id, fork_slot, fork_origin, branch_message FROM conversation WHERE COALESCE(fork_root, id) = ? AND fork_slot IS NOT NULL AND branch_message IS NOT NULL AND deleted_at IS NULL ORDER BY created_at, id",
+      )
+      .all(family) as { id: string; fork_slot: string; fork_origin: string | null; branch_message: string }[];
+    const slots = new Map<string, { conversation: string; message: string }[]>();
+    for (const r of rows) {
+      const list =
+        slots.get(r.fork_slot) ??
+        (r.fork_origin ? [{ conversation: r.fork_origin, message: r.fork_slot }] : []);
+      list.push({ conversation: r.id, message: r.branch_message });
+      slots.set(r.fork_slot, list);
+    }
+    return [...slots.entries()].map(([slot, versions]) => ({ slot, versions }));
+  }
+
+  /** What a copy carries beside its stream: the page's context, the proposals made before the cut with their decisions, and the verdicts on the answers it carries. */
+  copyState(from: string, to: string, o: { cutAt: number | null; messages: string[] }): void {
+    this.db
+      .prepare(
+        "INSERT INTO context (conversation, json, at) SELECT ?, json, at FROM context WHERE conversation = ? ON CONFLICT(conversation) DO NOTHING",
+      )
+      .run(to, from);
+    this.db
+      .prepare(
+        "INSERT INTO proposal (conversation, document, parent, base_document, base_hash, sentence, at, decided, why, decided_at) SELECT ?, document, parent, base_document, base_hash, sentence, at, decided, why, decided_at FROM proposal WHERE conversation = ? AND (? IS NULL OR at < ?) ORDER BY at, id",
+      )
+      .run(to, from, o.cutAt, o.cutAt);
+    this.db
+      .prepare(
+        "INSERT INTO rating (conversation, message, verdict, reason, at) SELECT ?, message, verdict, reason, at FROM rating WHERE conversation = ? AND message IN (SELECT value FROM json_each(?))",
+      )
+      .run(to, from, JSON.stringify(o.messages));
   }
 
   /** How full the conversation's context stood after its latest turn, and its model's window when known (the chat, slice 3). */
@@ -313,6 +500,36 @@ export class Lineage {
         "UPDATE conversation SET compactions = COALESCE(compactions, 0) + 1, compacted_at = ? WHERE id = ?",
       )
       .run(Date.now(), id);
+  }
+
+  /** The owner's verdict on one answer: up or down, with a reason of at most 500 characters when one is given; none takes it back. */
+  rate(
+    conversation: string,
+    message: string,
+    verdict: "up" | "down" | null,
+    reason?: string | null,
+  ): RatingRow | null {
+    if (verdict === null) {
+      this.db.prepare("DELETE FROM rating WHERE conversation = ? AND message = ?").run(conversation, message);
+      return null;
+    }
+    const why = (reason ?? "").trim().slice(0, 500) || null;
+    this.db
+      .prepare(
+        "INSERT INTO rating (conversation, message, verdict, reason, at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(conversation, message) DO UPDATE SET verdict = excluded.verdict, reason = excluded.reason, at = excluded.at",
+      )
+      .run(conversation, message, verdict, why, Date.now());
+    return (
+      (this.db
+        .prepare("SELECT * FROM rating WHERE conversation = ? AND message = ?")
+        .get(conversation, message) as RatingRow | undefined) ?? null
+    );
+  }
+
+  ratings(conversation: string): RatingRow[] {
+    return this.db
+      .prepare("SELECT * FROM rating WHERE conversation = ? ORDER BY at, message")
+      .all(conversation) as unknown as RatingRow[];
   }
 
   conversation(id: string): ConversationRow | null {
@@ -457,6 +674,7 @@ export class Lineage {
     const cut = Date.now() - days * 24 * 60 * 60 * 1000;
     this.db.prepare("DELETE FROM proposal WHERE at < ?").run(cut);
     this.db.prepare("DELETE FROM context WHERE at < ?").run(cut);
+    this.db.prepare("DELETE FROM rating WHERE at < ?").run(cut);
     this.db.prepare("DELETE FROM conversation WHERE COALESCE(updated_at, created_at) < ?").run(cut);
   }
 }

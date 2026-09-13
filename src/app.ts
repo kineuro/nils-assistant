@@ -13,6 +13,7 @@ import { config } from "./config.ts";
 import { guard, personIn } from "./host/access.ts";
 import { capabilities } from "./host/capabilities.ts";
 import { type Observe, watchContext } from "./host/context.ts";
+import { ForkRefused, firstUserMessage, forkStream, type Sql, sqlFor, streamPath } from "./host/fork.ts";
 import { ladderOf, opens, type PolicyRow, rungOf } from "./host/ladder.ts";
 import { LadderStore } from "./host/ladder-store.ts";
 import type { ConversationRow } from "./host/lineage.ts";
@@ -342,6 +343,44 @@ app.post("/conversations/:id/feedback", async (ctx) => {
 
 app.get("/conversations/:id/feedback", (ctx) => ctx.json(feedbackOf(ctx.req.param("id"))));
 
+/** The owner's verdict on one answer, up or down with a reason (the chat, slice 4): kept with the conversation, counted in the ledger, and taken back by a verdict of null. */
+app.post("/conversations/:id/ratings", async (ctx) => {
+  const body = (await ctx.req.json().catch(() => ({}))) as {
+    message?: unknown;
+    verdict?: unknown;
+    reason?: unknown;
+  };
+  const message = typeof body.message === "string" ? body.message.trim() : "";
+  if (message === "" || message.length > 200)
+    return ctx.json({ error: "message: the id of the answer rated" }, 400);
+  if (body.verdict !== "up" && body.verdict !== "down" && body.verdict !== null)
+    return ctx.json({ error: "verdict: up, down, or null to take it back" }, 400);
+  const conversation = ctx.req.param("id");
+  const row = theLineage().rate(
+    conversation,
+    message,
+    body.verdict,
+    typeof body.reason === "string" ? body.reason : null,
+  );
+  theLedger().record({
+    at: Date.now(),
+    conversation,
+    station: "desk",
+    phase: "rating",
+    operation: "rating",
+    argument_digest: String(body.verdict),
+    granted: true,
+    reason: null,
+    outcome: "ok",
+    status: 200,
+    handle: null,
+    ms: 0,
+    ceiling: "reader",
+    idempotency_key: null,
+  });
+  return ctx.json({ message, verdict: row?.verdict ?? null, reason: row?.reason ?? null });
+});
+
 /** The conversations of one document lineage, newest first (Wave 5 section 7.4): what was proposed, accepted and rejected and why, and the handles each conversation produced, from the ledger. */
 /** A conversation as the desk lists it. */
 function conversationView(r: ConversationRow): Record<string, unknown> {
@@ -358,6 +397,7 @@ function conversationView(r: ConversationRow): Record<string, unknown> {
     pinned: r.pinned_at !== null,
     archived: r.archived_at !== null,
     forked_from: r.forked_from,
+    fork_slot: r.fork_slot,
     context: {
       tokens: r.context_tokens,
       window: r.context_window,
@@ -441,12 +481,14 @@ app.post("/conversations", async (ctx) => {
 });
 
 /** One conversation: what the list says, with its proposals and their decisions, so a reload shows what was accepted. */
-app.get("/conversations/:id", (ctx) => {
+app.get("/conversations/:id", async (ctx) => {
   const store = theLineage();
   const row = store.conversation(ctx.req.param("id"));
   if (!row) return ctx.json({ error: `no conversation ${ctx.req.param("id")}` }, 404);
+  await nameVersions(row.id);
   return ctx.json({
     ...conversationView(row),
+    versions: store.versions(row.id),
     proposals: store.proposals(row.id).map((p) => ({
       document: p.document,
       parent: p.parent,
@@ -457,7 +499,73 @@ app.get("/conversations/:id", (ctx) => {
       decided_at: p.decided_at === null ? null : new Date(p.decided_at).toISOString(),
       stale: p.decided === null && !store.stale(row.id, { document: p.document }).ok,
     })),
+    ratings: store.ratings(row.id).map((r) => ({
+      message: r.message,
+      verdict: r.verdict,
+      reason: r.reason,
+      at: new Date(r.at).toISOString(),
+    })),
   });
+});
+
+/** The first message of each version in a conversation's family that has been sent since it was made, read once from its stream (the chat, slice 4). */
+async function nameVersions(id: string, open?: Sql): Promise<void> {
+  const store = theLineage();
+  const unsent = store.unsent(id);
+  if (unsent.length === 0) return;
+  const sql = open ?? sqlFor(c.store);
+  try {
+    for (const b of unsent) {
+      const first = await firstUserMessage(sql, streamPath(b.station, b.id), b.fork_offset ?? 0);
+      if (first) store.setBranchMessage(b.id, first);
+    }
+  } finally {
+    if (!open) await sql.close();
+  }
+}
+
+/**
+ * The owner continues a conversation from one of its messages, or copies it whole (the chat, slice 4): a
+ * new conversation of theirs whose model reads what the old one read up to there. Made before a message,
+ * it is another version of that message, and the desk sends the edited words, or the same words again,
+ * into it next; made at no message, it is a conversation of its own. The old one stays as it was.
+ */
+app.post("/conversations/:id/fork", async (ctx) => {
+  const who = personIn(ctx.req.raw);
+  if (!who) return ctx.json({ error: "no person" }, 401);
+  const body = (await ctx.req.json().catch(() => ({}))) as { before?: unknown };
+  const before = typeof body.before === "string" && body.before !== "" ? body.before : undefined;
+  const store = theLineage();
+  const source = store.conversation(ctx.req.param("id"));
+  if (!source) return ctx.json({ error: `no conversation ${ctx.req.param("id")}` }, 404);
+  const sql = sqlFor(c.store);
+  try {
+    await nameVersions(source.id, sql);
+    const id = store.newId();
+    const plan = await forkStream(sql, {
+      from: { agentName: source.station, instanceId: source.id },
+      to: { agentName: source.station, instanceId: id },
+      before,
+    });
+    let slot: string | null = null;
+    let origin: string | null = null;
+    if (before !== undefined) {
+      const placed = store.slotOf(before);
+      slot = placed.slot;
+      origin = placed.origin ?? store.originOf(source, plan.cutSeq ?? 0);
+    }
+    const row = store.branch({ id, source, slot, origin, offset: plan.offset });
+    store.copyState(source.id, id, { cutAt: plan.cutAt, messages: plan.messages });
+    return ctx.json(
+      { ...conversationView(row), fork: { from: source.id, before: before ?? null, slot } },
+      201,
+    );
+  } catch (e) {
+    if (e instanceof ForkRefused) return ctx.json({ error: e.message }, e.status);
+    throw e;
+  } finally {
+    await sql.close();
+  }
 });
 
 /** The owner renames, pins, unpins, archives or restores a conversation. */
@@ -466,11 +574,13 @@ app.patch("/conversations/:id", async (ctx) => {
     title?: unknown;
     pinned?: unknown;
     archived?: unknown;
+    current?: unknown;
   };
   const row = theLineage().patch(ctx.req.param("id"), {
     ...(typeof body.title === "string" || body.title === null ? { title: body.title as string | null } : {}),
     ...(typeof body.pinned === "boolean" ? { pinned: body.pinned } : {}),
     ...(typeof body.archived === "boolean" ? { archived: body.archived } : {}),
+    ...(body.current === true ? { current: true } : {}),
   });
   return row
     ? ctx.json(conversationView(row))
