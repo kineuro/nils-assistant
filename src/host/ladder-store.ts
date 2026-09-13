@@ -188,6 +188,20 @@ export class LadderStore {
       .all(...params) as unknown as PlanRow[];
   }
 
+  /** Plans made in the chat under a person's older key become their principal's (the chat, slice 1), so the person who confirms is the person they were made for. */
+  adopt(principal: string, o: { bare: string; authOff: boolean }): number {
+    let n = 0;
+    if (o.bare && o.bare !== principal)
+      n += Number(
+        this.db.prepare("UPDATE plan SET subject = ? WHERE subject = ?").run(principal, o.bare).changes,
+      );
+    if (o.authOff)
+      n += Number(
+        this.db.prepare("UPDATE plan SET subject = ? WHERE subject = 'anonymous'").run(principal).changes,
+      );
+    return n;
+  }
+
   /** The person confirms the plan once (section 9.3); a plan confirmed by someone else's subject is refused. */
   confirm(id: string, subject: string): PlanRow | { refused: string } {
     const p = this.planById(id);

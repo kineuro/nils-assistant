@@ -24,7 +24,7 @@ export function capabilities(
 ): Record<string, unknown> {
   return {
     assistant: { name: "nils-assistant", version: c.version },
-    runtime: { flue: "2.0.3", pi_ai: "0.83.0" },
+    runtime: { flue: "2.0.5", pi_ai: "0.83.0" },
     stations,
     teaching: { open: extra.teaching_open },
     telemetry: { content: "off", exporter: null },

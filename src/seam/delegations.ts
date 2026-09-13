@@ -8,7 +8,7 @@
 
 import { type AgentReply, init, type JsonValue } from "@flue/runtime";
 import type { Verdict } from "../stations/verdict.ts";
-import { tokens, verdicts } from "./for.ts";
+import { lineageIfOpen, tokens, verdicts } from "./for.ts";
 
 type AgentFn = Parameters<typeof init>[0];
 
@@ -89,6 +89,11 @@ export function delegate(o: {
   byParent.set(o.parent, list);
   const token = tokens.get(o.parent);
   if (token) tokens.put(child, token);
+  // the child is the parent's owner's, so a plan or a note a delegate makes is theirs (the chat, slice 1)
+  const store = lineageIfOpen();
+  const parentRow = store?.conversation(o.parent) ?? null;
+  if (store && parentRow)
+    store.open({ id: child, station: o.station, subject: parentRow.subject, owner: parentRow.owner });
   const handle = init(agent, { id: child });
   handle
     .dispatch(o.brief)

@@ -39,6 +39,8 @@ export function interceptTurn(o: {
   routers: Map<string, Hono>;
   lineage: () => Lineage;
   subject: (conversation: string) => string;
+  /** The person the host's guard named for the request (the chat, slice 1); the conversation is theirs when it opens. */
+  owner?: (req: Request) => string | null;
   onContext?: (conversation: string, c: PageContext) => void;
 }) {
   return async (ctx: {
@@ -55,7 +57,14 @@ export function interceptTurn(o: {
     const t = splitTurn(raw);
     if (t.forward.kind === "user") {
       const store = o.lineage();
-      store.open({ id, station, subject: o.subject(id), lineage: t.lineage, document: t.document });
+      store.open({
+        id,
+        station,
+        subject: o.subject(id),
+        owner: o.owner?.(ctx.req.raw) ?? null,
+        lineage: t.lineage,
+        document: t.document,
+      });
       if (t.context !== undefined) {
         const admitted = store.contextPut(id, t.context);
         o.onContext?.(id, admitted);

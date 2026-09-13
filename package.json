@@ -24,9 +24,9 @@
   },
   "dependencies": {
     "@earendil-works/pi-ai": "0.83.0",
-    "@flue/postgres": "2.0.3",
-    "@flue/runtime": "2.0.3",
-    "@flue/vite": "2.0.3",
+    "@flue/postgres": "2.0.5",
+    "@flue/runtime": "2.0.5",
+    "@flue/vite": "2.0.5",
     "hono": "^4.13.7",
     "postgres": "^3.4.9",
     "valibot": "^1.4.2",
