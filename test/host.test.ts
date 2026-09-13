@@ -42,7 +42,7 @@ describe("the host", () => {
     );
     expect(doc).toMatchObject({
       assistant: { name: "nils-assistant" },
-      runtime: { flue: "2.0.3", pi_ai: "0.83.0" },
+      runtime: { flue: "2.0.5", pi_ai: "0.83.0" },
       telemetry: { content: "off" },
     });
     expect((doc.stations as unknown[]).length).toBe(1);

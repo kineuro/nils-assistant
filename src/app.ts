@@ -10,10 +10,12 @@ import { setProvider } from "@flue/runtime";
 import { createAgentRouter } from "@flue/runtime/routing";
 import { Hono } from "hono";
 import { config } from "./config.ts";
+import { guard, personIn } from "./host/access.ts";
 import { capabilities } from "./host/capabilities.ts";
 import { ladderOf, opens, type PolicyRow, rungOf } from "./host/ladder.ts";
 import { LadderStore } from "./host/ladder-store.ts";
-import { subjectOf } from "./host/notes.ts";
+import type { ConversationRow } from "./host/lineage.ts";
+import { bareOf, People, type Person } from "./host/people.ts";
 import { Runs } from "./host/runs.ts";
 import { inboxOf, Scheduler } from "./host/scheduler.ts";
 import {
@@ -33,6 +35,7 @@ import { agentIds, delegationsOf, delegationView, registerAgent } from "./seam/d
 import {
   engineAuthOff,
   feedbackOf,
+  forgetSeam,
   probeEngineAuth,
   recordFeedback,
   registerStation,
@@ -154,6 +157,39 @@ const teaching = new Teaching({
 
 const app = new Hono();
 
+/** The person a request comes from, read from the engine with the token the desk sent (the chat, slice 1). */
+const people = new People(async (token) => {
+  if (!token && !engineAuthOff) return null;
+  const conversation = `person-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  if (token) tokens.put(conversation, token);
+  try {
+    const a = await seamFor("scheduler", conversation).call({
+      method: "GET",
+      path: "/api/capabilities",
+      toolCallId: "person",
+      phase: "grant",
+    });
+    return a.kind === "ok" ? (a.body as Record<string, unknown>) : null;
+  } finally {
+    tokens.forget(conversation);
+    forgetSeam("scheduler", conversation);
+  }
+});
+
+/** Rows written under a person's older key become their principal's, once per process: notes, plans, conversations. */
+const adopted = new Set<string>();
+function adopt(p: Person): void {
+  if (adopted.has(p.principal)) return;
+  adopted.add(p.principal);
+  const bare = bareOf(p.principal);
+  theNotes().adopt(p.principal, { bare, authOff: engineAuthOff });
+  ladder.adopt(p.principal, { bare, authOff: engineAuthOff });
+  theLineage().adopt(p.principal, { authOff: engineAuthOff });
+}
+
+// every door that names a conversation asks who the person is and whether it is theirs, before anything else runs
+app.use("*", guard({ people, lineage: theLineage, authOff: () => engineAuthOff, onPerson: adopt }));
+
 /** The person's token, from the desk on every request; kept per conversation for the turn. */
 app.use("*", async (ctx, next) => {
   const auth = ctx.req.header("authorization") ?? "";
@@ -189,9 +225,10 @@ app.get("/capabilities", (ctx) =>
 app.post("/conversations/:id/token", async (ctx) => {
   const body = (await ctx.req.json().catch(() => ({}))) as { token?: string };
   if (!body.token) return ctx.json({ error: "token" }, 400);
-  const h = tokens.put(ctx.req.param("id"), body.token);
+  const id = ctx.req.param("id");
+  const h = tokens.put(id, body.token);
   // the registry's context for this person, fetched now so the first render finds it in the instructions
-  void warmPrelude(seamFor("ask-help", ctx.req.param("id")), subjectOfConversation(ctx.req.param("id")));
+  void warmPrelude(seamFor("ask-help", id), personIn(ctx.req.raw)?.principal ?? subjectOfConversation(id));
   return ctx.json({ conversation: ctx.req.param("id"), expires_at: h.expiresAt });
 });
 
@@ -202,24 +239,46 @@ app.post("/stations/:id/runs", async (ctx) => {
   if (!agent) return ctx.json({ error: `no station ${station}` }, 404);
   const body = (await ctx.req.json().catch(() => ({}))) as { message?: string; conversation?: string };
   if (!body.message) return ctx.json({ error: "message" }, 400);
-  const conversation = body.conversation ?? `run-${Date.now().toString(36)}`;
+  const who = personIn(ctx.req.raw);
+  const store = theLineage();
+  // a run in a conversation is its owner's to start (the chat, slice 1)
+  if (
+    body.conversation &&
+    (!who || store.access(body.conversation, who.principal, { authOff: engineAuthOff }) === "none")
+  )
+    return ctx.json({ error: `no conversation ${body.conversation}` }, 404);
+  const conversation =
+    body.conversation ?? `run-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   const auth = ctx.req.header("authorization") ?? "";
   if (auth.startsWith("Bearer ")) tokens.put(conversation, auth.slice(7));
+  const subject = who?.principal ?? subjectOfConversation(conversation);
+  store.open({ id: conversation, station, subject, owner: who?.principal ?? null });
   // the registry's context for this person, fetched before the first render so it sits in the instructions
-  await warmPrelude(seamFor(station, conversation), subjectOfConversation(conversation));
+  await warmPrelude(seamFor(station, conversation), subject);
   const run = runs.start(station, agent, body.message, conversation);
   return ctx.json({ run: run.id, conversation, state: run.state }, 202);
 });
 
+/** A run is read by the person whose conversation it ran in (the chat, slice 1). */
+function runOf(id: string, req: Request) {
+  const run = runs.get(id);
+  const who = personIn(req);
+  return run &&
+    who &&
+    theLineage().access(run.conversation, who.principal, { authOff: engineAuthOff }) === "owner"
+    ? run
+    : null;
+}
+
 app.get("/runs/:id/verdict", (ctx) => {
-  const run = runs.get(ctx.req.param("id"));
+  const run = runOf(ctx.req.param("id"), ctx.req.raw);
   if (!run) return ctx.json({ error: `no run ${ctx.req.param("id")}` }, 404);
   const v = verdicts.get(run.conversation);
   return v ? ctx.json(v) : ctx.json({ error: "the run has not settled" }, 404);
 });
 
 app.get("/runs/:id", (ctx) => {
-  const run = runs.get(ctx.req.param("id"));
+  const run = runOf(ctx.req.param("id"), ctx.req.raw);
   return run ? ctx.json(run) : ctx.json({ error: `no run ${ctx.req.param("id")}` }, 404);
 });
 
@@ -278,34 +337,140 @@ app.post("/conversations/:id/feedback", async (ctx) => {
 app.get("/conversations/:id/feedback", (ctx) => ctx.json(feedbackOf(ctx.req.param("id"))));
 
 /** The conversations of one document lineage, newest first (Wave 5 section 7.4): what was proposed, accepted and rejected and why, and the handles each conversation produced, from the ledger. */
+/** A conversation as the desk lists it. */
+function conversationView(r: ConversationRow): Record<string, unknown> {
+  const iso = (n: number | null) => (n === null ? null : new Date(n).toISOString());
+  return {
+    id: r.id,
+    station: r.station,
+    title: r.title,
+    title_by: r.title_by,
+    lineage: r.lineage,
+    document: r.document,
+    created_at: iso(r.created_at),
+    updated_at: iso(r.updated_at ?? r.created_at),
+    pinned: r.pinned_at !== null,
+    archived: r.archived_at !== null,
+    forked_from: r.forked_from,
+  };
+}
+
 app.get("/conversations", (ctx) => {
+  const who = personIn(ctx.req.raw);
+  if (!who) return ctx.json({ error: "no person" }, 401);
+  const store = theLineage();
+  if (ctx.req.query("lineage") === undefined) {
+    // a person's own conversations, the pinned first (the chat, slice 1)
+    const before = Date.parse(ctx.req.query("before") ?? "");
+    const limit = Math.min(Math.max(Number(ctx.req.query("limit")) || 50, 1), 200);
+    const rows = store.mine(who.principal, {
+      q: ctx.req.query("q"),
+      archived: ctx.req.query("archived") === "1",
+      before: Number.isFinite(before) ? before : undefined,
+      limit,
+    });
+    const last = rows.at(-1);
+    return ctx.json({
+      conversations: rows.map(conversationView),
+      next: rows.length === limit && last ? new Date(last.updated_at ?? last.created_at).toISOString() : null,
+    });
+  }
   const lineage = Number(ctx.req.query("lineage"));
   if (!Number.isFinite(lineage)) return ctx.json({ error: "lineage" }, 400);
-  const store = theLineage();
   const ledger = theLedger();
-  const conversations = store.list(lineage).map((c) => ({
-    id: c.id,
-    station: c.station,
-    document: c.document,
-    created_at: new Date(c.created_at).toISOString(),
-    proposals: c.proposals.map((p) => ({
+  const conversations = store
+    .list(lineage, { principal: who.principal, authOff: engineAuthOff })
+    .map((c) => ({
+      id: c.id,
+      station: c.station,
+      document: c.document,
+      created_at: new Date(c.created_at).toISOString(),
+      proposals: c.proposals.map((p) => ({
+        document: p.document,
+        parent: p.parent,
+        base_document: p.base_document,
+        base_hash: p.base_hash,
+        sentence: p.sentence,
+        at: new Date(p.at).toISOString(),
+        decided: p.decided,
+        why: p.why,
+        decided_at: p.decided_at === null ? null : new Date(p.decided_at).toISOString(),
+        stale: p.decided === null && !store.stale(c.id, { document: p.document }).ok,
+      })),
+      handles: ledger
+        .rows(c.id, 500)
+        .filter((r) => r.handle !== null)
+        .map((r) => ({ handle: r.handle, operation: r.operation, at: new Date(r.at).toISOString() })),
+    }));
+  return ctx.json({ lineage, head: store.headOf(lineage), conversations });
+});
+
+/** A new conversation, named by the host and owned by the person who asks (the chat, slice 1). */
+app.post("/conversations", async (ctx) => {
+  const who = personIn(ctx.req.raw);
+  if (!who) return ctx.json({ error: "no person" }, 401);
+  const body = (await ctx.req.json().catch(() => ({}))) as {
+    station?: unknown;
+    title?: unknown;
+    lineage?: unknown;
+    document?: unknown;
+  };
+  const station = typeof body.station === "string" ? body.station : "";
+  if (!agents.has(station)) return ctx.json({ error: `no station ${station || "(none)"}` }, 404);
+  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+  const row = theLineage().create({
+    station,
+    owner: who.principal,
+    title: typeof body.title === "string" ? body.title : null,
+    lineage: num(body.lineage),
+    document: num(body.document),
+  });
+  return ctx.json(conversationView(row), 201);
+});
+
+/** One conversation: what the list says, with its proposals and their decisions, so a reload shows what was accepted. */
+app.get("/conversations/:id", (ctx) => {
+  const store = theLineage();
+  const row = store.conversation(ctx.req.param("id"));
+  if (!row) return ctx.json({ error: `no conversation ${ctx.req.param("id")}` }, 404);
+  return ctx.json({
+    ...conversationView(row),
+    proposals: store.proposals(row.id).map((p) => ({
       document: p.document,
       parent: p.parent,
-      base_document: p.base_document,
-      base_hash: p.base_hash,
       sentence: p.sentence,
       at: new Date(p.at).toISOString(),
       decided: p.decided,
       why: p.why,
       decided_at: p.decided_at === null ? null : new Date(p.decided_at).toISOString(),
-      stale: p.decided === null && !store.stale(c.id, { document: p.document }).ok,
+      stale: p.decided === null && !store.stale(row.id, { document: p.document }).ok,
     })),
-    handles: ledger
-      .rows(c.id, 500)
-      .filter((r) => r.handle !== null)
-      .map((r) => ({ handle: r.handle, operation: r.operation, at: new Date(r.at).toISOString() })),
-  }));
-  return ctx.json({ lineage, head: store.headOf(lineage), conversations });
+  });
+});
+
+/** The owner renames, pins, unpins, archives or restores a conversation. */
+app.patch("/conversations/:id", async (ctx) => {
+  const body = (await ctx.req.json().catch(() => ({}))) as {
+    title?: unknown;
+    pinned?: unknown;
+    archived?: unknown;
+  };
+  const row = theLineage().patch(ctx.req.param("id"), {
+    ...(typeof body.title === "string" || body.title === null ? { title: body.title as string | null } : {}),
+    ...(typeof body.pinned === "boolean" ? { pinned: body.pinned } : {}),
+    ...(typeof body.archived === "boolean" ? { archived: body.archived } : {}),
+  });
+  return row
+    ? ctx.json(conversationView(row))
+    : ctx.json({ error: `no conversation ${ctx.req.param("id")}` }, 404);
+});
+
+/** The owner deletes a conversation: gone from every list and door at once. */
+app.delete("/conversations/:id", (ctx) => {
+  const id = ctx.req.param("id");
+  theLineage().remove(id);
+  tokens.forget(id);
+  return ctx.json({ deleted: id });
 });
 
 /** The delegations of a conversation, from the store (section 9.12): the desk renders a delegate's verdict from here, never from the concierge's words. */
@@ -313,25 +478,31 @@ app.get("/conversations/:id/delegations", (ctx) =>
   ctx.json({ stations: agentIds(), tasks: delegationsOf(ctx.req.param("id")).map(delegationView) }),
 );
 
-/** Memory (section 9.9): a person's own notes, read and deleted by the subject the desk's token names for the conversation. */
+/** Memory (section 9.9): a person's own notes, read and deleted by the person the token names. */
 app.get("/conversations/:id/notes", (ctx) => {
-  const subject = subjectOfConversation(ctx.req.param("id"));
-  return ctx.json({ subject, notes: theNotes().list(subject) });
+  const who = personIn(ctx.req.raw);
+  if (!who) return ctx.json({ error: "no person" }, 401);
+  return ctx.json({ subject: who.principal, notes: theNotes().list(who.principal) });
 });
 app.delete("/conversations/:id/notes", (ctx) => {
-  const subject = subjectOfConversation(ctx.req.param("id"));
-  return ctx.json({ subject, deleted: theNotes().deleteSubject(subject) });
+  const who = personIn(ctx.req.raw);
+  if (!who) return ctx.json({ error: "no person" }, 401);
+  return ctx.json({ subject: who.principal, deleted: theNotes().deleteSubject(who.principal) });
 });
 /** Institutional corrections: structural only, accepted by a named person; the row has no field a value fits. */
 app.get("/notes/institutional", (ctx) =>
   ctx.json({ corrections: theNotes().institutional(ctx.req.query("station") || undefined) }),
 );
 app.post("/notes/institutional", async (ctx) => {
+  // accepted by a named person: the one the token names, holding the reviewer role (the chat, slice 1)
+  const who = personIn(ctx.req.raw);
+  if (!who) return ctx.json({ error: "no person" }, 401);
+  if (!who.roles.some((r) => r === "reviewer" || r === "operator" || r === "admin"))
+    return ctx.json({ error: "an institutional correction is accepted by a reviewer" }, 403);
   const body = (await ctx.req.json().catch(() => ({}))) as {
     station?: string;
     axis?: string;
     check?: string;
-    accepted_by?: string;
   };
   try {
     return ctx.json(
@@ -339,7 +510,7 @@ app.post("/notes/institutional", async (ctx) => {
         station: String(body.station ?? ""),
         axis: String(body.axis ?? ""),
         check: String(body.check ?? ""),
-        accepted_by: String(body.accepted_by ?? ""),
+        accepted_by: who.principal,
       }),
       201,
     );
@@ -356,26 +527,11 @@ app.get("/ledger/:id", (ctx) => ctx.json({ rows: theLedger().rows(ctx.req.param(
 async function personOf(ctx: {
   req: { header: (k: string) => string | undefined };
 }): Promise<{ subject: string; roles: string[]; entitlements: string[]; policy: PolicyRow[] } | null> {
-  const auth = ctx.req.header("authorization") ?? "";
-  const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
-  if (!token && !engineAuthOff) return null;
-  const conversation = `person-${subjectOfConversation(token ? `t:${token.slice(0, 12)}` : "anonymous")}-${Date.now().toString(36)}`;
-  if (token) tokens.put(conversation, token);
-  const seam = seamFor("scheduler", conversation);
-  const a = await seam.call({
-    method: "GET",
-    path: "/api/capabilities",
-    toolCallId: "person",
-    phase: "grant",
-  });
-  tokens.forget(conversation);
-  if (a.kind !== "ok") return null;
-  const b = a.body as { principal?: string; roles?: string[]; entitlements?: string[]; policy?: PolicyRow[] };
-  const subject = typeof b.principal === "string" && b.principal ? b.principal : subjectOf(token);
-  const roles = Array.isArray(b.roles) ? b.roles.map(String) : [];
-  const entitlements = Array.isArray(b.entitlements) ? b.entitlements.map(String) : roles;
-  assistRun.set(subject, entitlements.includes("assist-run"));
-  return { subject, roles, entitlements, policy: Array.isArray(b.policy) ? b.policy : [] };
+  const p = await people.of(bearerOf(ctx));
+  if (!p) return null;
+  adopt(p);
+  assistRun.set(p.principal, p.entitlements.includes("assist-run"));
+  return { subject: p.principal, roles: p.roles, entitlements: p.entitlements, policy: p.policy };
 }
 
 app.get("/grants", async (ctx) => {
@@ -621,7 +777,12 @@ const routers = new Map<string, Hono>();
 for (const [id, agent] of agents) routers.set(id, createAgentRouter(agent) as unknown as Hono);
 app.post(
   "/agents/:station/:id",
-  interceptTurn({ routers, lineage: theLineage, subject: subjectOfConversation }) as never,
+  interceptTurn({
+    routers,
+    lineage: theLineage,
+    subject: subjectOfConversation,
+    owner: (req) => personIn(req)?.principal ?? null,
+  }) as never,
 );
 for (const [id, router] of routers) app.route(`/agents/${id}`, router);
 

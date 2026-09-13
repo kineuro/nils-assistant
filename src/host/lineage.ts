@@ -8,10 +8,12 @@
 // as stale and cannot be accepted. The rail's typed context is kept here
 // per conversation too. One SQLite file, like the notes and the ledger.
 
+import { randomBytes } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { admit, type PageContext } from "../seam/context.ts";
+import { bareOf } from "./people.ts";
 
 export interface ConversationRow {
   id: string;
@@ -20,6 +22,27 @@ export interface ConversationRow {
   lineage: number | null;
   document: number | null;
   created_at: number;
+  /** The chat, slice 1: the person's principal, null on a row written before owners were kept. */
+  owner: string | null;
+  title: string | null;
+  title_by: "model" | "person" | null;
+  updated_at: number | null;
+  pinned_at: number | null;
+  archived_at: number | null;
+  deleted_at: number | null;
+  forked_from: string | null;
+  forked_at: number | null;
+}
+
+/** Whether a row written under an older key is this person's: their principal, the bare `sub` their token gave, or `anonymous` while the engine serves with its authentication off. */
+function claims(subject: string, principal: string, authOff: boolean): boolean {
+  return subject === principal || subject === bareOf(principal) || (authOff && subject === "anonymous");
+}
+
+/** A title as people read it: one line of at most 120 characters, or none. */
+function tidy(title: string | null | undefined): string | null {
+  const t = (title ?? "").replace(/\s+/gu, " ").trim().slice(0, 120);
+  return t === "" ? null : t;
 }
 
 export interface ProposalRow {
@@ -88,6 +111,23 @@ export class Lineage {
       json TEXT NOT NULL,
       at INTEGER NOT NULL
     )`);
+    // the chat, slice 1: a conversation has an owner, a title and a life of its own; a file made before gains the columns
+    const have = new Set(
+      (this.db.prepare("PRAGMA table_info(conversation)").all() as { name: string }[]).map((c) => c.name),
+    );
+    for (const [name, type] of [
+      ["owner", "TEXT"],
+      ["title", "TEXT"],
+      ["title_by", "TEXT"],
+      ["updated_at", "INTEGER"],
+      ["pinned_at", "INTEGER"],
+      ["archived_at", "INTEGER"],
+      ["deleted_at", "INTEGER"],
+      ["forked_from", "TEXT"],
+      ["forked_at", "INTEGER"],
+    ])
+      if (!have.has(name)) this.db.exec(`ALTER TABLE conversation ADD COLUMN ${name} ${type}`);
+    this.db.exec("CREATE INDEX IF NOT EXISTS conversation_owner ON conversation (owner, updated_at)");
   }
 
   /** The first turn opens the conversation; a later turn may name the document it moved to. */
@@ -95,6 +135,8 @@ export class Lineage {
     id: string;
     station: string;
     subject: string;
+    /** The person who opens it, once the host knows them; the subject then is that principal too. */
+    owner?: string | null;
     lineage?: number | null;
     document?: number | null;
   }): ConversationRow {
@@ -103,19 +145,147 @@ export class Lineage {
     if (!have) {
       this.db
         .prepare(
-          "INSERT INTO conversation (id, station, subject, lineage, document, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+          "INSERT INTO conversation (id, station, subject, lineage, document, created_at, owner, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         )
-        .run(o.id, o.station, o.subject, o.lineage ?? null, o.document ?? null, now);
+        .run(
+          o.id,
+          o.station,
+          o.owner ?? o.subject,
+          o.lineage ?? null,
+          o.document ?? null,
+          now,
+          o.owner ?? null,
+          now,
+        );
     } else {
       this.db
         .prepare(
-          "UPDATE conversation SET lineage = COALESCE(?, lineage), document = COALESCE(?, document) WHERE id = ?",
+          "UPDATE conversation SET lineage = COALESCE(?, lineage), document = COALESCE(?, document), updated_at = ? WHERE id = ?",
         )
-        .run(o.lineage ?? null, o.document ?? null, o.id);
+        .run(o.lineage ?? null, o.document ?? null, now, o.id);
     }
     const row = this.conversation(o.id) as ConversationRow;
     if (row.lineage !== null && typeof o.document === "number") this.setHead(row.lineage, o.document);
     return row;
+  }
+
+  /** A conversation the host names: an id nobody can guess, owned by the person who asked for it. */
+  create(o: {
+    station: string;
+    owner: string;
+    title?: string | null;
+    lineage?: number | null;
+    document?: number | null;
+  }): ConversationRow {
+    const id = `c-${randomBytes(16).toString("hex")}`;
+    const now = Date.now();
+    const title = tidy(o.title);
+    this.db
+      .prepare(
+        "INSERT INTO conversation (id, station, subject, lineage, document, created_at, owner, title, title_by, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      )
+      .run(
+        id,
+        o.station,
+        o.owner,
+        o.lineage ?? null,
+        o.document ?? null,
+        now,
+        o.owner,
+        title,
+        title === null ? null : "person",
+        now,
+      );
+    return this.conversation(id) as ConversationRow;
+  }
+
+  /**
+   * What a person may do with a conversation: `owner`, `none`, or `unknown` when the host has never seen
+   * it. A deleted conversation is nobody's. One opened before owners were kept belongs to the person its
+   * subject named, and becomes theirs the first time they ask.
+   */
+  access(id: string, principal: string, o: { authOff: boolean }): "owner" | "none" | "unknown" {
+    const row = this.conversation(id);
+    if (!row) return "unknown";
+    if (row.deleted_at !== null) return "none";
+    if (row.owner === principal) return "owner";
+    if (row.owner === null && claims(row.subject, principal, o.authOff)) {
+      this.db
+        .prepare("UPDATE conversation SET owner = ?, subject = ? WHERE id = ? AND owner IS NULL")
+        .run(principal, principal, id);
+      return "owner";
+    }
+    return "none";
+  }
+
+  /** Every conversation written under the person's older key becomes theirs, so their list shows it. */
+  adopt(principal: string, o: { authOff: boolean }): number {
+    return Number(
+      this.db
+        .prepare(
+          "UPDATE conversation SET owner = ?, subject = ? WHERE owner IS NULL AND (subject = ? OR subject = ? OR (? = 1 AND subject = 'anonymous'))",
+        )
+        .run(principal, principal, principal, bareOf(principal), o.authOff ? 1 : 0).changes,
+    );
+  }
+
+  /** A person's conversations: pinned first, then the latest used; the archived apart, the deleted never. */
+  mine(
+    owner: string,
+    o: { q?: string; archived?: boolean; before?: number; limit?: number } = {},
+  ): ConversationRow[] {
+    const where = [
+      "owner = ?",
+      "deleted_at IS NULL",
+      o.archived ? "archived_at IS NOT NULL" : "archived_at IS NULL",
+    ];
+    const params: (string | number)[] = [owner];
+    const q = (o.q ?? "").trim();
+    if (q) {
+      where.push("title LIKE ? ESCAPE '\\'");
+      params.push(`%${q.replace(/[\\%_]/gu, (c) => `\\${c}`)}%`);
+    }
+    if (o.before !== undefined) {
+      // a later page: the pinned were on the first
+      where.push("pinned_at IS NULL", "COALESCE(updated_at, created_at) < ?");
+      params.push(o.before);
+    }
+    const limit = Math.min(Math.max(Math.trunc(o.limit ?? 50), 1), 200);
+    return this.db
+      .prepare(
+        `SELECT * FROM conversation WHERE ${where.join(" AND ")} ORDER BY pinned_at IS NULL, COALESCE(updated_at, created_at) DESC, id LIMIT ?`,
+      )
+      .all(...params, limit) as unknown as ConversationRow[];
+  }
+
+  /** What a person changes about their conversation: its title, whether it is pinned, whether it is archived. */
+  patch(
+    id: string,
+    p: { title?: string | null; pinned?: boolean; archived?: boolean },
+  ): ConversationRow | null {
+    const now = Date.now();
+    if (p.title !== undefined) {
+      const title = tidy(p.title);
+      this.db
+        .prepare("UPDATE conversation SET title = ?, title_by = ? WHERE id = ?")
+        .run(title, title === null ? null : "person", id);
+    }
+    if (p.pinned !== undefined)
+      this.db.prepare("UPDATE conversation SET pinned_at = ? WHERE id = ?").run(p.pinned ? now : null, id);
+    if (p.archived !== undefined)
+      this.db
+        .prepare("UPDATE conversation SET archived_at = ? WHERE id = ?")
+        .run(p.archived ? now : null, id);
+    return this.conversation(id);
+  }
+
+  /** Deleted by its owner: gone from every list and every door at once; its rows go with the retention. */
+  remove(id: string): boolean {
+    return (
+      this.db
+        .prepare("UPDATE conversation SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL")
+        .run(Date.now(), id).changes > 0
+    );
   }
 
   conversation(id: string): ConversationRow | null {
@@ -218,11 +388,23 @@ export class Lineage {
     };
   }
 
-  /** The conversations of one lineage, newest first, each with its proposals and decisions. */
-  list(lineage: number): (ConversationRow & { proposals: ProposalRow[] })[] {
-    const rows = this.db
-      .prepare("SELECT * FROM conversation WHERE lineage = ? ORDER BY created_at DESC, id")
-      .all(lineage) as unknown as ConversationRow[];
+  /** The conversations of one lineage, newest first, each with its proposals and decisions; only the person's own when a person is named. */
+  list(
+    lineage: number,
+    who?: { principal: string; authOff: boolean },
+  ): (ConversationRow & { proposals: ProposalRow[] })[] {
+    const rows = (
+      this.db
+        .prepare(
+          "SELECT * FROM conversation WHERE lineage = ? AND deleted_at IS NULL ORDER BY created_at DESC, id",
+        )
+        .all(lineage) as unknown as ConversationRow[]
+    ).filter(
+      (r) =>
+        !who ||
+        r.owner === who.principal ||
+        (r.owner === null && claims(r.subject, who.principal, who.authOff)),
+    );
     return rows.map((r) => ({ ...r, proposals: this.proposals(r.id) }));
   }
 
@@ -248,6 +430,6 @@ export class Lineage {
     const cut = Date.now() - days * 24 * 60 * 60 * 1000;
     this.db.prepare("DELETE FROM proposal WHERE at < ?").run(cut);
     this.db.prepare("DELETE FROM context WHERE at < ?").run(cut);
-    this.db.prepare("DELETE FROM conversation WHERE created_at < ?").run(cut);
+    this.db.prepare("DELETE FROM conversation WHERE COALESCE(updated_at, created_at) < ?").run(cut);
   }
 }

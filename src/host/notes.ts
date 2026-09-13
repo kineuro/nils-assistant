@@ -87,6 +87,20 @@ export class Notes {
     return Number(this.db.prepare("DELETE FROM note WHERE subject = ?").run(subject).changes);
   }
 
+  /** Notes written under a person's older key become their principal's (the chat, slice 1): the bare `sub` a token gave, or `anonymous` while the engine serves with its authentication off. */
+  adopt(principal: string, o: { bare: string; authOff: boolean }): number {
+    let n = 0;
+    if (o.bare && o.bare !== principal)
+      n += Number(
+        this.db.prepare("UPDATE note SET subject = ? WHERE subject = ?").run(principal, o.bare).changes,
+      );
+    if (o.authOff)
+      n += Number(
+        this.db.prepare("UPDATE note SET subject = ? WHERE subject = 'anonymous'").run(principal).changes,
+      );
+    return n;
+  }
+
   /**
    * The one-line index a prompt carries: the newest five of a subject, one
    * line each, a staleness caveat on anything older than a day. The selector

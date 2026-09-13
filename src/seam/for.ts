@@ -5,7 +5,7 @@
 // id and nothing else.
 
 import { config } from "../config.ts";
-import { Lineage } from "../host/lineage.ts";
+import { Lineage, type ProposalRow } from "../host/lineage.ts";
 import { Notes, subjectOf } from "../host/notes.ts";
 import type { Verdict } from "../stations/verdict.ts";
 import { Seam, type Station } from "./client.ts";
@@ -73,7 +73,19 @@ export function recordFeedback(
 }
 
 export function feedbackOf(conversation: string): { accepted: Feedback[]; rejected: Feedback[] } {
-  return feedback.get(conversation) ?? { accepted: [], rejected: [] };
+  const held = feedback.get(conversation);
+  if (held) return held;
+  // after a restart the decisions are the store's, so the next turn's prompt still names them
+  const decided = lineage?.proposals(conversation).filter((p) => p.decided !== null) ?? [];
+  const row = (p: ProposalRow): Feedback => ({
+    document: p.document,
+    sentence: p.sentence,
+    ...(p.why ? { why: p.why } : {}),
+  });
+  return {
+    accepted: decided.filter((p) => p.decided === "accepted").map(row),
+    rejected: decided.filter((p) => p.decided === "rejected").map(row),
+  };
 }
 const stations = new Map<string, Station>();
 const seams = new Map<string, Seam>();
@@ -101,9 +113,14 @@ export function theLineage(): Lineage {
   }
   return lineage;
 }
-/** The person a conversation belongs to, from the token the desk handed. */
+/** The lineage store once the host has opened it; a test that never did gets null. */
+export function lineageIfOpen(): Lineage | null {
+  return lineage;
+}
+
+/** The person a conversation belongs to: its owner, once the host keeps one; before that, the token the desk handed. */
 export function subjectOfConversation(conversation: string): string {
-  return subjectOf(tokens.get(conversation));
+  return lineage?.conversation(conversation)?.owner ?? subjectOf(tokens.get(conversation));
 }
 
 export function theLedger(): Ledger {
@@ -113,6 +130,11 @@ export function theLedger(): Ledger {
     ledger.sweep(c.retentionDays);
   }
   return ledger;
+}
+
+/** A seam made for one call, such as reading a person's capabilities, is dropped when the call is done. */
+export function forgetSeam(station: string, conversation: string): void {
+  seams.delete(`${station}/${conversation}`);
 }
 
 /** The seam of one conversation of one station; the grant's counts live for the conversation. */
