@@ -21,6 +21,7 @@ import {
   useTool,
 } from "@flue/runtime";
 import * as v from "valibot";
+import { compactionFor, limitsOf } from "../host/models.ts";
 import { providerId } from "../providers/kvasir.ts";
 import type { Seam } from "../seam/client.ts";
 import { renderContext } from "../seam/context.ts";
@@ -134,7 +135,9 @@ export function stationAgent(
   table.settle = def.settle.phases;
 
   const agent = ({ id }: { id: string }) => {
-    useModel(`${providerId(m.id)}/${def.model}`);
+    // the chat, slice 3: earlier turns are summarized before the window fills, by the model's own limits
+    const compaction = compactionFor(limitsOf(def.model));
+    useModel(`${providerId(m.id)}/${def.model}`, compaction ? { compaction } : undefined);
     if (!def.briefInline) useSkill(skill);
     const [state, setState] = usePersistentState<RunState>("run", initialState(m));
     const [settled, setSettled] = usePersistentState<Settled | null>("settled", null);

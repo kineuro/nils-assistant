@@ -32,6 +32,11 @@ export interface ConversationRow {
   deleted_at: number | null;
   forked_from: string | null;
   forked_at: number | null;
+  /** The chat, slice 3: the tokens the context held after the latest turn, the model's window, and how often earlier turns were summarized. */
+  context_tokens: number | null;
+  context_window: number | null;
+  compactions: number | null;
+  compacted_at: number | null;
 }
 
 /** Whether a row written under an older key is this person's: their principal, the bare `sub` their token gave, or `anonymous` while the engine serves with its authentication off. */
@@ -125,6 +130,10 @@ export class Lineage {
       ["deleted_at", "INTEGER"],
       ["forked_from", "TEXT"],
       ["forked_at", "INTEGER"],
+      ["context_tokens", "INTEGER"],
+      ["context_window", "INTEGER"],
+      ["compactions", "INTEGER"],
+      ["compacted_at", "INTEGER"],
     ])
       if (!have.has(name)) this.db.exec(`ALTER TABLE conversation ADD COLUMN ${name} ${type}`);
     this.db.exec("CREATE INDEX IF NOT EXISTS conversation_owner ON conversation (owner, updated_at)");
@@ -286,6 +295,24 @@ export class Lineage {
         .prepare("UPDATE conversation SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL")
         .run(Date.now(), id).changes > 0
     );
+  }
+
+  /** How full the conversation's context stood after its latest turn, and its model's window when known (the chat, slice 3). */
+  noteContext(id: string, tokens: number, window: number | null): void {
+    this.db
+      .prepare(
+        "UPDATE conversation SET context_tokens = ?, context_window = COALESCE(?, context_window) WHERE id = ?",
+      )
+      .run(tokens, window, id);
+  }
+
+  /** The runtime summarized the conversation's earlier turns. */
+  noteCompaction(id: string): void {
+    this.db
+      .prepare(
+        "UPDATE conversation SET compactions = COALESCE(compactions, 0) + 1, compacted_at = ? WHERE id = ?",
+      )
+      .run(Date.now(), id);
   }
 
   conversation(id: string): ConversationRow | null {

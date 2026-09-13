@@ -20,7 +20,12 @@ export interface StationSummary {
 export function capabilities(
   c: Config,
   stations: StationSummary[],
-  extra: { teaching_open: boolean; conversations: number },
+  extra: {
+    teaching_open: boolean;
+    conversations: number;
+    /** The chat, slice 3: each model's context window and largest answer, for the desk's meter. */
+    models?: { id: string; contextWindow: number; maxTokens: number }[];
+  },
 ): Record<string, unknown> {
   return {
     assistant: { name: "nils-assistant", version: c.version },
@@ -30,12 +35,17 @@ export function capabilities(
     telemetry: { content: "off", exporter: null },
     retention: { days: c.retentionDays },
     conversations: extra.conversations,
+    models: extra.models ?? [],
     doors: [
       "GET /capabilities",
       "POST /conversations/{id}/token",
       "POST /stations/{id}/runs",
       "GET /runs/{id}",
       "POST /conversations/{id}/feedback",
+      "POST /conversations",
+      "GET /conversations/{id}",
+      "PATCH /conversations/{id}",
+      "DELETE /conversations/{id}",
       "GET /agents/{station}/{id}",
       "POST /agents/{station}/{id}",
       "GET /conversations",
