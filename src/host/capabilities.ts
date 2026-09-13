@@ -46,6 +46,8 @@ export function capabilities(
       "GET /conversations/{id}",
       "PATCH /conversations/{id}",
       "DELETE /conversations/{id}",
+      "POST /conversations/{id}/ratings",
+      "POST /conversations/{id}/fork",
       "GET /agents/{station}/{id}",
       "POST /agents/{station}/{id}",
       "GET /conversations",
