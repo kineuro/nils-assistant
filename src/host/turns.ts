@@ -42,6 +42,8 @@ export function interceptTurn(o: {
   /** The person the host's guard named for the request (the chat, slice 1); the conversation is theirs when it opens. */
   owner?: (req: Request) => string | null;
   onContext?: (conversation: string, c: PageContext) => void;
+  /** Called for every turn a person sends, once the conversation is open: where the most it could read is kept (the chat, slice 5). */
+  onTurn?: (conversation: string, station: string, req: Request) => void;
 }) {
   return async (ctx: {
     req: { param: (k: string) => string; json: () => Promise<unknown>; raw: Request };
@@ -69,6 +71,7 @@ export function interceptTurn(o: {
         const admitted = store.contextPut(id, t.context);
         o.onContext?.(id, admitted);
       }
+      o.onTurn?.(id, station, ctx.req.raw);
     }
     const headers = new Headers(ctx.req.raw.headers);
     headers.set("content-type", "application/json");

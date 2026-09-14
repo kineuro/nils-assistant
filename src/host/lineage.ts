@@ -14,6 +14,7 @@ import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { admit, type PageContext } from "../seam/context.ts";
 import { bareOf } from "./people.ts";
+import { asRole, maxRole, minRole } from "./shares.ts";
 
 export interface ConversationRow {
   id: string;
@@ -43,6 +44,10 @@ export interface ConversationRow {
   fork_origin: string | null;
   fork_offset: number | null;
   branch_message: string | null;
+  /** The chat, slice 5: the person's highest role at their latest turn, the most the conversation could have read, and whether that was kept from its first turn. */
+  role_top: string | null;
+  reach: string | null;
+  reach_complete: number | null;
 }
 
 /** Whether a row written under an older key is this person's: their principal, the bare `sub` their token gave, or `anonymous` while the engine serves with its authentication off. */
@@ -78,6 +83,36 @@ export interface RatingRow {
   verdict: "up" | "down";
   reason: string | null;
   at: number;
+}
+
+/** A conversation shared (the chat, slice 5): one standing share per conversation. */
+export interface ShareRow {
+  id: string;
+  conversation: string;
+  owner: string;
+  owner_display: string | null;
+  audience: "desk" | "people";
+  /** JSON: the people named, by principal, with their display names. */
+  people: string;
+  reach: string;
+  /** How many batches of the conversation's stream the snapshot covers. */
+  extent: number;
+  title: string | null;
+  /** JSON: the snapshot; null once revoked. */
+  snapshot: string | null;
+  created_at: number;
+  updated_at: number;
+  revoked_at: number | null;
+}
+
+/** A viewer's reads of a share. */
+export interface ReadRow {
+  share: string;
+  reader: string;
+  display: string | null;
+  first_at: number;
+  last_at: number;
+  count: number;
 }
 
 export interface Decision {
@@ -140,6 +175,34 @@ export class Lineage {
       at INTEGER NOT NULL,
       PRIMARY KEY (conversation, message)
     )`);
+    // the chat, slice 5: a conversation shared, and who opened the share
+    this.db.exec(`CREATE TABLE IF NOT EXISTS share (
+      id TEXT PRIMARY KEY,
+      conversation TEXT NOT NULL,
+      owner TEXT NOT NULL,
+      owner_display TEXT,
+      audience TEXT NOT NULL,
+      people TEXT NOT NULL DEFAULT '[]',
+      reach TEXT NOT NULL,
+      extent INTEGER NOT NULL,
+      title TEXT,
+      snapshot TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      revoked_at INTEGER
+    )`);
+    this.db.exec(
+      "CREATE UNIQUE INDEX IF NOT EXISTS share_conversation ON share (conversation) WHERE revoked_at IS NULL",
+    );
+    this.db.exec(`CREATE TABLE IF NOT EXISTS share_read (
+      share TEXT NOT NULL,
+      reader TEXT NOT NULL,
+      display TEXT,
+      first_at INTEGER NOT NULL,
+      last_at INTEGER NOT NULL,
+      count INTEGER NOT NULL,
+      PRIMARY KEY (share, reader)
+    )`);
     // the chat, slice 1: a conversation has an owner, a title and a life of its own; a file made before gains the columns
     const have = new Set(
       (this.db.prepare("PRAGMA table_info(conversation)").all() as { name: string }[]).map((c) => c.name),
@@ -163,6 +226,9 @@ export class Lineage {
       ["fork_origin", "TEXT"],
       ["fork_offset", "INTEGER"],
       ["branch_message", "TEXT"],
+      ["role_top", "TEXT"],
+      ["reach", "TEXT"],
+      ["reach_complete", "INTEGER"],
     ])
       if (!have.has(name)) this.db.exec(`ALTER TABLE conversation ADD COLUMN ${name} ${type}`);
     this.db.exec("CREATE INDEX IF NOT EXISTS conversation_owner ON conversation (owner, updated_at)");
@@ -203,6 +269,7 @@ export class Lineage {
         )
         .run(o.lineage ?? null, o.document ?? null, now, o.id);
     }
+    if (!have) this.db.prepare("UPDATE conversation SET reach_complete = 1 WHERE id = ?").run(o.id);
     const row = this.conversation(o.id) as ConversationRow;
     if (row.lineage !== null && typeof o.document === "number") this.setHead(row.lineage, o.document);
     return row;
@@ -235,6 +302,7 @@ export class Lineage {
         title === null ? null : "person",
         now,
       );
+    this.db.prepare("UPDATE conversation SET reach_complete = 1 WHERE id = ?").run(id);
     return this.conversation(id) as ConversationRow;
   }
 
@@ -332,6 +400,11 @@ export class Lineage {
   remove(id: string): boolean {
     const family = this.familyOf(id);
     if (family === null) return false;
+    this.db
+      .prepare(
+        "UPDATE share SET revoked_at = ?, snapshot = NULL WHERE revoked_at IS NULL AND conversation IN (SELECT id FROM conversation WHERE COALESCE(fork_root, id) = ?)",
+      )
+      .run(Date.now(), family);
     return (
       this.db
         .prepare(
@@ -366,12 +439,20 @@ export class Lineage {
     slot: string | null;
     origin: string | null;
     offset: number;
+    /** A copy a viewer continues from a share is theirs, under the share's name. */
+    owner?: string;
+    title?: string | null;
   }): ConversationRow {
     const now = Date.now();
     const s = o.source;
     const version = o.slot !== null;
-    const title = version ? s.title : tidy(s.title ? `${s.title} (continued)` : null);
-    const owner = s.owner ?? s.subject;
+    const title =
+      o.title !== undefined
+        ? tidy(o.title)
+        : version
+          ? s.title
+          : tidy(s.title ? `${s.title} (continued)` : null);
+    const owner = o.owner ?? s.owner ?? s.subject;
     this.db
       .prepare(
         "INSERT INTO conversation (id, station, subject, lineage, document, created_at, owner, title, title_by, updated_at, pinned_at, archived_at, forked_from, forked_at, fork_root, fork_slot, fork_origin, fork_offset) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -396,6 +477,10 @@ export class Lineage {
         o.origin,
         o.offset,
       );
+    // a copy has read what its source read, whoever continues it
+    this.db
+      .prepare("UPDATE conversation SET reach = ?, reach_complete = ?, role_top = ? WHERE id = ?")
+      .run(s.reach, s.reach_complete, o.owner ? null : s.role_top, o.id);
     return this.conversation(o.id) as ConversationRow;
   }
 
@@ -491,6 +576,158 @@ export class Lineage {
         "UPDATE conversation SET context_tokens = ?, context_window = COALESCE(?, context_window) WHERE id = ?",
       )
       .run(tokens, window, id);
+  }
+
+  /**
+   * The most a conversation could have read (the chat, slice 5): after a turn, the lower of the person's
+   * highest role and the station's ceiling, kept when it is more than before. A person the host could not
+   * name counts as reaching the ceiling.
+   */
+  noteReach(id: string, top: string | null, ceiling: string): void {
+    const row = this.conversation(id);
+    if (!row) return;
+    const cap = asRole(ceiling) ?? "operator";
+    const effective = minRole(asRole(top) ?? cap, cap);
+    const was = asRole(row.reach);
+    this.db
+      .prepare("UPDATE conversation SET reach = ?, role_top = COALESCE(?, role_top) WHERE id = ?")
+      .run(was ? maxRole(was, effective) : effective, asRole(top), id);
+  }
+
+  /** A conversation's share, while it stands. */
+  shareOf(conversation: string): ShareRow | null {
+    return (
+      (this.db
+        .prepare("SELECT * FROM share WHERE conversation = ? AND revoked_at IS NULL")
+        .get(conversation) as ShareRow | undefined) ?? null
+    );
+  }
+
+  share(id: string): ShareRow | null {
+    return (this.db.prepare("SELECT * FROM share WHERE id = ?").get(id) as ShareRow | undefined) ?? null;
+  }
+
+  /** Share a conversation, or take its share's snapshot again: one standing share per conversation, its id kept. */
+  putShare(o: {
+    conversation: string;
+    owner: string;
+    ownerDisplay: string | null;
+    audience: "desk" | "people";
+    people: { principal: string; display: string | null }[];
+    reach: string;
+    extent: number;
+    title: string | null;
+    snapshot: unknown;
+  }): ShareRow {
+    const now = Date.now();
+    const people = JSON.stringify(o.audience === "people" ? o.people : []);
+    const have = this.shareOf(o.conversation);
+    if (have) {
+      this.db
+        .prepare(
+          "UPDATE share SET owner_display = ?, audience = ?, people = ?, reach = ?, extent = ?, title = ?, snapshot = ?, updated_at = ? WHERE id = ?",
+        )
+        .run(
+          o.ownerDisplay,
+          o.audience,
+          people,
+          o.reach,
+          o.extent,
+          o.title,
+          JSON.stringify(o.snapshot),
+          now,
+          have.id,
+        );
+      return this.share(have.id) as ShareRow;
+    }
+    const id = `s-${randomBytes(16).toString("hex")}`;
+    this.db
+      .prepare(
+        "INSERT INTO share (id, conversation, owner, owner_display, audience, people, reach, extent, title, snapshot, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      )
+      .run(
+        id,
+        o.conversation,
+        o.owner,
+        o.ownerDisplay,
+        o.audience,
+        people,
+        o.reach,
+        o.extent,
+        o.title,
+        JSON.stringify(o.snapshot),
+        now,
+        now,
+      );
+    return this.share(id) as ShareRow;
+  }
+
+  /** Stop sharing a conversation: the snapshot goes at once; the row stays for the retention. */
+  revokeShare(conversation: string): boolean {
+    return (
+      this.db
+        .prepare(
+          "UPDATE share SET revoked_at = ?, snapshot = NULL WHERE conversation = ? AND revoked_at IS NULL",
+        )
+        .run(Date.now(), conversation).changes > 0
+    );
+  }
+
+  /** A person's standing shares, the latest first. */
+  sharesBy(owner: string): ShareRow[] {
+    return this.db
+      .prepare(
+        "SELECT * FROM share WHERE owner = ? AND revoked_at IS NULL ORDER BY updated_at DESC LIMIT 200",
+      )
+      .all(owner) as unknown as ShareRow[];
+  }
+
+  /** The standing shares of others whose audience holds a person, the latest first. */
+  sharedWith(principal: string): ShareRow[] {
+    return this.db
+      .prepare(
+        "SELECT * FROM share WHERE revoked_at IS NULL AND owner != ? AND (audience = 'desk' OR EXISTS (SELECT 1 FROM json_each(share.people) WHERE json_extract(value, '$.principal') = ?)) ORDER BY updated_at DESC LIMIT 200",
+      )
+      .all(principal, principal) as unknown as ShareRow[];
+  }
+
+  /** Whether a share's audience holds a person: everyone on the desk, or the people it names. */
+  inAudience(s: ShareRow, principal: string): boolean {
+    if (s.audience === "desk") return true;
+    try {
+      return (JSON.parse(s.people) as { principal?: string }[]).some((p) => p.principal === principal);
+    } catch {
+      return false;
+    }
+  }
+
+  /** The conversations a person shares. */
+  sharedIds(owner: string): Set<string> {
+    return new Set(
+      (
+        this.db
+          .prepare("SELECT conversation FROM share WHERE owner = ? AND revoked_at IS NULL")
+          .all(owner) as {
+          conversation: string;
+        }[]
+      ).map((r) => r.conversation),
+    );
+  }
+
+  /** A viewer opened a share: when first and last, and how often. */
+  noteRead(share: string, reader: string, display: string | null): void {
+    const now = Date.now();
+    this.db
+      .prepare(
+        "INSERT INTO share_read (share, reader, display, first_at, last_at, count) VALUES (?, ?, ?, ?, ?, 1) ON CONFLICT(share, reader) DO UPDATE SET display = COALESCE(excluded.display, share_read.display), last_at = excluded.last_at, count = share_read.count + 1",
+      )
+      .run(share, reader, display, now, now);
+  }
+
+  reads(share: string): ReadRow[] {
+    return this.db
+      .prepare("SELECT * FROM share_read WHERE share = ? ORDER BY last_at DESC")
+      .all(share) as unknown as ReadRow[];
   }
 
   /** The runtime summarized the conversation's earlier turns. */
@@ -676,5 +913,14 @@ export class Lineage {
     this.db.prepare("DELETE FROM context WHERE at < ?").run(cut);
     this.db.prepare("DELETE FROM rating WHERE at < ?").run(cut);
     this.db.prepare("DELETE FROM conversation WHERE COALESCE(updated_at, created_at) < ?").run(cut);
+    // a share goes with its conversation, and a revoked one with the retention
+    this.db
+      .prepare(
+        "DELETE FROM share WHERE conversation NOT IN (SELECT id FROM conversation) OR (revoked_at IS NOT NULL AND revoked_at < ?)",
+      )
+      .run(cut);
+    this.db
+      .prepare("DELETE FROM share_read WHERE share NOT IN (SELECT id FROM share) OR last_at < ?")
+      .run(cut);
   }
 }

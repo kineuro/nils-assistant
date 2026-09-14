@@ -13,14 +13,33 @@ import { config } from "./config.ts";
 import { guard, personIn } from "./host/access.ts";
 import { capabilities } from "./host/capabilities.ts";
 import { type Observe, watchContext } from "./host/context.ts";
-import { ForkRefused, firstUserMessage, forkStream, type Sql, sqlFor, streamPath } from "./host/fork.ts";
+import {
+  ForkRefused,
+  firstUserMessage,
+  forkStream,
+  type Sql,
+  settledExtent,
+  sqlFor,
+  streamPath,
+} from "./host/fork.ts";
 import { ladderOf, opens, type PolicyRow, rungOf } from "./host/ladder.ts";
 import { LadderStore } from "./host/ladder-store.ts";
-import type { ConversationRow } from "./host/lineage.ts";
+import type { ConversationRow, ShareRow } from "./host/lineage.ts";
 import { modelList, setModels } from "./host/models.ts";
 import { bareOf, People, type Person } from "./host/people.ts";
 import { Runs } from "./host/runs.ts";
 import { inboxOf, Scheduler } from "./host/scheduler.ts";
+import {
+  asRole,
+  guards,
+  maxRole,
+  mayRead,
+  minRole,
+  principalFor,
+  type Role,
+  snapshotOf,
+  topRole,
+} from "./host/shares.ts";
 import {
   corrections as correctionsOf,
   KvasirRefused,
@@ -423,7 +442,9 @@ app.get("/conversations", (ctx) => {
     });
     const last = rows.at(-1);
     return ctx.json({
-      conversations: rows.map(conversationView),
+      conversations: ((shared) => rows.map((r) => ({ ...conversationView(r), shared: shared.has(r.id) })))(
+        store.sharedIds(who.principal),
+      ),
       next: rows.length === limit && last ? new Date(last.updated_at ?? last.created_at).toISOString() : null,
     });
   }
@@ -488,6 +509,7 @@ app.get("/conversations/:id", async (ctx) => {
   await nameVersions(row.id);
   return ctx.json({
     ...conversationView(row),
+    shared: store.shareOf(row.id) !== null,
     versions: store.versions(row.id),
     proposals: store.proposals(row.id).map((p) => ({
       document: p.document,
@@ -593,6 +615,237 @@ app.delete("/conversations/:id", (ctx) => {
   theLineage().remove(id);
   tokens.forget(id);
   return ctx.json({ deleted: id });
+});
+
+/** The most a conversation could read, after each turn a person sends: the lower of their highest role and the station's ceiling (the chat, slice 5). */
+function noteTurn(conversation: string, station: string, req: Request): void {
+  const who = personIn(req);
+  theLineage().noteReach(conversation, who ? topRole(who.roles) : null, ceilingOf(station));
+}
+
+/** A station's ceiling; a station the host does not list counts as the highest a seam reaches. */
+function ceilingOf(station: string): Role {
+  return asRole(stationList().find((s) => s.id === station)?.ceiling) ?? "operator";
+}
+
+/** The highest ceiling of any station, which a conversation from before the most it could read was kept may have reached through a delegate. */
+function highestCeiling(): Role {
+  return stationList().reduce<Role>((most, s) => maxRole(most, asRole(s.ceiling) ?? "reader"), "reader");
+}
+
+/** A conversation's history as the runtime keeps it, read in the host. */
+async function historyOf(station: string, id: string): Promise<{ messages?: never[] }> {
+  const r = await routers.get(station)?.request(`/${encodeURIComponent(id)}?view=history`);
+  return r?.ok ? ((await r.json()) as { messages?: never[] }) : { messages: [] };
+}
+
+/** A share as its owner and its viewers read it; the reads only for the owner. */
+function shareView(s: ShareRow, withReads: boolean): Record<string, unknown> {
+  const iso = (n: number | null) => (n === null ? null : new Date(n).toISOString());
+  const people = (() => {
+    try {
+      return JSON.parse(s.people) as { principal: string; display: string | null }[];
+    } catch {
+      return [];
+    }
+  })();
+  return {
+    id: s.id,
+    conversation: s.conversation,
+    title: s.title,
+    owner: s.owner_display ?? bareOf(s.owner),
+    // the desk names people by subject, from its own directory
+    owner_subject: bareOf(s.owner),
+    audience: s.audience,
+    people: people.map((p) => ({ subject: bareOf(p.principal), display: p.display })),
+    guards: guards(asRole(s.reach) ?? "operator"),
+    created_at: iso(s.created_at),
+    updated_at: iso(s.updated_at),
+    ...(withReads
+      ? {
+          reads: theLineage()
+            .reads(s.id)
+            .map((r) => ({
+              subject: bareOf(r.reader),
+              display: r.display,
+              first_at: iso(r.first_at),
+              last_at: iso(r.last_at),
+              count: r.count,
+            })),
+        }
+      : {}),
+  };
+}
+
+/** The owner's share of a conversation, with who opened it (the chat, slice 5). */
+app.get("/conversations/:id/share", (ctx) => {
+  const s = theLineage().shareOf(ctx.req.param("id"));
+  return ctx.json({ share: s ? shareView(s, true) : null });
+});
+
+/**
+ * The owner shares a conversation, or brings its share up to the latest turn: with people named on the desk, or
+ * with everyone on it. The share holds a snapshot of the words and the cards' references, never a tool's input
+ * or output, and the most the conversation could have read, which a viewer's roles must reach.
+ */
+app.put("/conversations/:id/share", async (ctx) => {
+  const who = personIn(ctx.req.raw);
+  if (!who) return ctx.json({ error: "no person" }, 401);
+  const body = (await ctx.req.json().catch(() => ({}))) as { audience?: unknown; people?: unknown };
+  if (body.audience !== "desk" && body.audience !== "people")
+    return ctx.json({ error: "audience: desk, or people with the people named" }, 400);
+  const named = new Map<string, { principal: string; display: string | null }>();
+  if (body.audience === "people" && Array.isArray(body.people))
+    for (const p of body.people) {
+      const o = p as { subject?: unknown; display?: unknown };
+      const subject = typeof o?.subject === "string" ? o.subject.trim() : "";
+      const principal = subject ? principalFor(subject, who.principal) : "";
+      if (principal && principal !== who.principal)
+        named.set(principal, { principal, display: typeof o.display === "string" ? o.display : null });
+    }
+  if (body.audience === "people" && named.size === 0)
+    return ctx.json({ error: "people: name at least one person other than yourself" }, 400);
+  const store = theLineage();
+  const row = store.conversation(ctx.req.param("id"));
+  if (!row) return ctx.json({ error: `no conversation ${ctx.req.param("id")}` }, 404);
+  const sql = sqlFor(c.store);
+  let extent: number;
+  try {
+    extent = await settledExtent(sql, row.station, row.id);
+  } catch (e) {
+    if (e instanceof ForkRefused) return ctx.json({ error: e.message }, e.status);
+    throw e;
+  } finally {
+    await sql.close();
+  }
+  const snapshot = snapshotOf(await historyOf(row.station, row.id), store.proposals(row.id));
+  if (snapshot.messages.length === 0)
+    return ctx.json({ error: "there is nothing to share yet; ask something first" }, 409);
+  // a conversation from before the most it could read was kept counts as reaching as far as its owner and any station could
+  const known = asRole(row.reach) ?? "reader";
+  const reach = row.reach_complete
+    ? known
+    : maxRole(known, minRole(topRole(who.roles) ?? "operator", highestCeiling()));
+  const s = store.putShare({
+    conversation: row.id,
+    owner: who.principal,
+    ownerDisplay: who.display ?? null,
+    audience: body.audience,
+    people: [...named.values()],
+    reach,
+    extent,
+    title: row.title,
+    snapshot,
+  });
+  return ctx.json({ share: shareView(s, true) });
+});
+
+/** The owner stops sharing a conversation: the snapshot is gone at once. */
+app.delete("/conversations/:id/share", (ctx) =>
+  ctx.json({ revoked: theLineage().revokeShare(ctx.req.param("id")) }),
+);
+
+/** The person's own shares, the latest first, each with who opened it. */
+app.get("/shares", (ctx) => {
+  const who = personIn(ctx.req.raw);
+  if (!who) return ctx.json({ error: "no person" }, 401);
+  return ctx.json({
+    shares: theLineage()
+      .sharesBy(who.principal)
+      .map((s) => shareView(s, true)),
+  });
+});
+
+/** What others share with the person, the latest first; one whose class their roles do not reach says so. */
+app.get("/shared", (ctx) => {
+  const who = personIn(ctx.req.raw);
+  if (!who) return ctx.json({ error: "no person" }, 401);
+  return ctx.json({
+    shared: theLineage()
+      .sharedWith(who.principal)
+      .map((s) => ({ ...shareView(s, false), readable: mayRead(who.roles, asRole(s.reach) ?? "operator") })),
+  });
+});
+
+/** Why a person may not read a share: outside its audience as if it did not exist, and with the class when their roles do not reach it. */
+function refusal(
+  s: ShareRow | null,
+  who: Person,
+): { status: 403 | 404; body: Record<string, unknown> } | null {
+  if (!s || s.revoked_at !== null) return { status: 404, body: { error: "no share" } };
+  if (s.owner === who.principal) return null;
+  if (!theLineage().inAudience(s, who.principal)) return { status: 404, body: { error: "no share" } };
+  const reach = asRole(s.reach) ?? "operator";
+  if (mayRead(who.roles, reach)) return null;
+  const g = guards(reach);
+  return {
+    status: 403,
+    body: {
+      error: g
+        ? `This conversation may have read ${g.words}, which your roles do not reach.`
+        : "Your roles do not reach what this conversation read.",
+      class: g?.class ?? null,
+    },
+  };
+}
+
+/** A share as its audience reads it: the snapshot, whose cards open under the reader's own roles. A viewer's read is recorded. */
+app.get("/shares/:share", (ctx) => {
+  const who = personIn(ctx.req.raw);
+  if (!who) return ctx.json({ error: "no person" }, 401);
+  const store = theLineage();
+  const s = store.share(ctx.req.param("share"));
+  const refused = refusal(s, who);
+  if (refused || !s) return ctx.json(refused?.body ?? { error: "no share" }, refused?.status ?? 404);
+  const mine = s.owner === who.principal;
+  if (!mine) store.noteRead(s.id, who.principal, who.display ?? null);
+  const snapshot = (() => {
+    try {
+      return JSON.parse(s.snapshot ?? "") as unknown;
+    } catch {
+      return { v: 1, messages: [] };
+    }
+  })();
+  return ctx.json({ ...shareView(s, mine), mine, snapshot });
+});
+
+/** A viewer continues a share as a conversation of their own: its model reads what the shared one read up to the snapshot, and its tools run as the viewer from there. */
+app.post("/shares/:share/continue", async (ctx) => {
+  const who = personIn(ctx.req.raw);
+  if (!who) return ctx.json({ error: "no person" }, 401);
+  const store = theLineage();
+  const s = store.share(ctx.req.param("share"));
+  const refused = refusal(s, who);
+  if (refused || !s) return ctx.json(refused?.body ?? { error: "no share" }, refused?.status ?? 404);
+  const source = store.conversation(s.conversation);
+  if (!source || source.deleted_at !== null)
+    return ctx.json({ error: "the conversation shared is gone" }, 404);
+  if (s.owner === who.principal) return ctx.json({ ...conversationView(source), continued: false });
+  const sql = sqlFor(c.store);
+  try {
+    const id = store.newId();
+    await forkStream(sql, {
+      from: { agentName: source.station, instanceId: source.id },
+      to: { agentName: source.station, instanceId: id },
+      upTo: s.extent,
+    });
+    const copy = store.branch({
+      id,
+      source,
+      slot: null,
+      origin: null,
+      offset: s.extent,
+      owner: who.principal,
+      title: s.title,
+    });
+    store.copyState(source.id, id, { cutAt: s.updated_at, messages: [] });
+    return ctx.json({ ...conversationView(copy), continued: true }, 201);
+  } catch (e) {
+    if (e instanceof ForkRefused) return ctx.json({ error: e.message }, e.status);
+    throw e;
+  } finally {
+    await sql.close();
+  }
 });
 
 /** The delegations of a conversation, from the store (section 9.12): the desk renders a delegate's verdict from here, never from the concierge's words. */
@@ -904,6 +1157,7 @@ app.post(
     lineage: theLineage,
     subject: subjectOfConversation,
     owner: (req) => personIn(req)?.principal ?? null,
+    onTurn: noteTurn,
   }) as never,
 );
 for (const [id, router] of routers) app.route(`/agents/${id}`, router);
