@@ -828,11 +828,11 @@ export class Lineage {
       .map((m) => m.row);
   }
 
-  /** The runtime summarized the conversation's earlier turns. */
+  /** The runtime summarized the conversation's earlier turns: how full its context is, is measured again with the next turn (the chat, slice 11). */
   noteCompaction(id: string): void {
     this.db
       .prepare(
-        "UPDATE conversation SET compactions = COALESCE(compactions, 0) + 1, compacted_at = ? WHERE id = ?",
+        "UPDATE conversation SET compactions = COALESCE(compactions, 0) + 1, compacted_at = ?, context_tokens = NULL WHERE id = ?",
       )
       .run(Date.now(), id);
   }

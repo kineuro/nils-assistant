@@ -19,7 +19,7 @@ export interface Turn {
 
 const num = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 
-/** Split a turn's body into what the host keeps and what the runtime gets. A body that is not a user message passes untouched. */
+/** Split a turn's body into what the host keeps and what the runtime gets. */
 export function splitTurn(raw: unknown): Turn {
   const o = (raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {}) as Record<string, unknown>;
   const { context, lineage, document, ...forward } = o;
@@ -57,22 +57,22 @@ export function interceptTurn(o: {
     const raw = await ctx.req.json().catch(() => null);
     if (raw === null) return ctx.json({ error: "the turn is not JSON" }, 400);
     const t = splitTurn(raw);
-    if (t.forward.kind === "user") {
-      const store = o.lineage();
-      store.open({
-        id,
-        station,
-        subject: o.subject(id),
-        owner: o.owner?.(ctx.req.raw) ?? null,
-        lineage: t.lineage,
-        document: t.document,
-      });
-      if (t.context !== undefined) {
-        const admitted = store.contextPut(id, t.context);
-        o.onContext?.(id, admitted);
-      }
-      o.onTurn?.(id, station, ctx.req.raw);
+    // a turn is a person's message; a signal reaches a station only through the assistant's own doors, as a summarize does (the chat, slice 11)
+    if (t.forward.kind !== "user") return ctx.json({ error: "a turn is a person's message" }, 400);
+    const store = o.lineage();
+    store.open({
+      id,
+      station,
+      subject: o.subject(id),
+      owner: o.owner?.(ctx.req.raw) ?? null,
+      lineage: t.lineage,
+      document: t.document,
+    });
+    if (t.context !== undefined) {
+      const admitted = store.contextPut(id, t.context);
+      o.onContext?.(id, admitted);
     }
+    o.onTurn?.(id, station, ctx.req.raw);
     const headers = new Headers(ctx.req.raw.headers);
     headers.set("content-type", "application/json");
     headers.delete("content-length");
