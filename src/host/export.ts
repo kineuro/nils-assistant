@@ -4,6 +4,7 @@
 // on them, from the same snapshot a share holds, so never a tool's input or
 // output. It is the owner's own conversation, written out for them to keep.
 
+import { plainMentions } from "./mentions.ts";
 import type { Snapshot } from "./shares.ts";
 
 const WORDS: Record<string, string> = {
@@ -47,7 +48,8 @@ export function markdownOf(o: {
   ];
   for (const m of o.snapshot.messages) {
     if (m.role === "user") {
-      lines.push("## You", "", m.text, "");
+      // a card, a cohort or a result named in the words reads plainly, with what it names (the chat, slice 12)
+      lines.push("## You", "", plainMentions(m.text, { kinds: true }), "");
       continue;
     }
     lines.push("## The assistant", "");
