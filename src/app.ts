@@ -3,10 +3,11 @@
 // surface for the desk only. It holds no credential of its own: the desk
 // hands it the person's token per turn on every request and pushes a fresh
 // one before expiry; Kvasir is reached with the app's minted key, one
-// provider per station carrying its purpose.
+// provider per station carrying its purpose, and the person's token beside
+// the key where a person streams (record 23).
 
 import { existsSync, readFileSync } from "node:fs";
-import { observe, setProvider } from "@flue/runtime";
+import { instrument, observe, setProvider } from "@flue/runtime";
 import { createAgentRouter } from "@flue/runtime/routing";
 import { Hono } from "hono";
 import { config } from "./config.ts";
@@ -26,7 +27,7 @@ import {
 import { ladderOf, opens, type PolicyRow, rungOf } from "./host/ladder.ts";
 import { LadderStore } from "./host/ladder-store.ts";
 import type { ConversationRow, ShareRow } from "./host/lineage.ts";
-import { modelList, setModels } from "./host/models.ts";
+import { chosenModel, modelList, setModels } from "./host/models.ts";
 import { type Instructions, MemoryRefused, type Note } from "./host/notes.ts";
 import { bareOf, People, type Person } from "./host/people.ts";
 import { Runs } from "./host/runs.ts";
@@ -56,7 +57,14 @@ import {
 } from "./host/teaching.ts";
 import { kvasirTitles, nameConversation, openingWords } from "./host/titles.ts";
 import { interceptTurn } from "./host/turns.ts";
-import { kvasirProvider, readCatalog } from "./providers/kvasir.ts";
+import {
+  type Catalog,
+  kvasirProvider,
+  readCatalog,
+  servedCatalog,
+  watchCatalog,
+} from "./providers/kvasir.ts";
+import { personInstrumentation, streamingConversation } from "./providers/person.ts";
 import { agentIds, delegationsOf, delegationView, registerAgent } from "./seam/delegations.ts";
 import {
   engineAuthOff,
@@ -119,17 +127,53 @@ registerStation({
   model,
 });
 
+// each model call marked with the conversation it streams for, so it carries that person's token (record 23)
+instrument(personInstrumentation());
+/** The token of the person a model call streams for, where the desk handed one for that conversation. */
+function personStreaming(): string | null {
+  const conversation = streamingConversation();
+  return conversation ? tokens.get(conversation) : null;
+}
 // Kvasir, one provider per station, the app's minted key; registered before any agent runs
-const catalog = await readCatalog(c.kvasir, c.kvasirKey).catch((e: Error) => {
+const catalog: Catalog = await readCatalog(c.kvasir, c.kvasirKey).catch((e: Error) => {
   console.error(`nils-assistant: Kvasir did not answer at start: ${e.message}`);
   return { baseUrl: `${c.kvasir}/v1`, models: [] };
 });
-// each model's window and largest answer, for compaction and the desk's meter (the chat, slice 3)
-setModels(catalog.models);
-for (const s of stationList())
-  setProvider(kvasirProvider({ station: s.id, purpose: `assistant.${s.id}`, catalog, key: c.kvasirKey }));
 // a conversation named by the model once its first answer settles, through the title purpose (the chat, slice 10)
-const titles = kvasirTitles({ catalog, model, key: c.kvasirKey });
+let titles: ReturnType<typeof kvasirTitles> = null;
+/**
+ * A catalog put to use: each model's window and largest answer, for compaction and the desk's meter (the chat,
+ * slice 3), each station's provider, and the model a conversation is named by.
+ */
+function takeCatalog(next: Catalog): void {
+  // where Kvasir lists no model, as where a subscription serves the purposes, the stations still name one (record 23)
+  const served = servedCatalog(next, model);
+  setModels(served.models);
+  for (const s of stationList())
+    setProvider(
+      kvasirProvider({
+        station: s.id,
+        purpose: `assistant.${s.id}`,
+        catalog: served,
+        key: c.kvasirKey,
+        person: personStreaming,
+      }),
+    );
+  titles = kvasirTitles({ catalog: served, model: chosenModel(model), key: c.kvasirKey });
+}
+takeCatalog(catalog);
+// a model an admin adds to Kvasir or removes reaches the stations without a restart (record 23)
+if (process.env.NODE_ENV !== "test")
+  watchCatalog({
+    read: () => readCatalog(c.kvasir, c.kvasirKey),
+    apply: (next) => {
+      takeCatalog(next);
+      console.error(`nils-assistant: Kvasir's catalog changed, and it lists ${next.models.length} models`);
+    },
+    had: catalog,
+    every: Number(process.env.ASSISTANT_CATALOG_MS ?? 30_000),
+    say: (line) => console.error(`nils-assistant: ${line}`),
+  });
 // how full each conversation's context is, from the runtime's own events
 watchContext({ observe: observe as unknown as Observe, lineage: theLineage });
 
@@ -559,14 +603,18 @@ app.post("/conversations/:id/title", async (ctx) => {
   const store = theLineage();
   const row = store.conversation(ctx.req.param("id"));
   if (!row) return ctx.json({ error: `no conversation ${ctx.req.param("id")}` }, 404);
-  if (row.title_by !== "words" || !titles) return ctx.json(conversationView(row));
+  const complete = titles;
+  if (row.title_by !== "words" || !complete) return ctx.json(conversationView(row));
   // the words of the family's first message: a version's stream begins with the conversation it was copied from
   const root = store.conversation(row.fork_root ?? row.id) ?? row;
   const first = openingWords(await historyOf(root.station, root.id));
   let title: string | null = null;
   if (first) {
     try {
-      title = await nameConversation(first, titles);
+      // asked for the person whose conversation it is, so a subscription of theirs applies (record 23)
+      title = await nameConversation(first, (instructions, message) =>
+        complete(instructions, message, tokens.get(row.id)),
+      );
       if (!title)
         console.error(
           "nils-assistant: the model gave no name a conversation could take, so it keeps its first words",

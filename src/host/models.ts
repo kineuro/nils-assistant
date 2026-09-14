@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // The models the gateway lists (the chat, slice 3): each one's context window
-// and largest answer, read from Kvasir's catalog at start, and the compaction
-// each earns. A conversation is summarized once its context leaves less than a
-// reserve of the window: a quarter of it, or less when the summary the runtime
-// asks for out of that reserve would not fit the model's largest answer, and
-// never less than that largest answer. The latest sixth of the window, at most
-// 20,000 tokens, stays word for word.
+// and largest answer, read from Kvasir's catalog at start and whenever it
+// changes, and the compaction each earns. A conversation is summarized once
+// its context leaves less than a reserve of the window: a quarter of it, or
+// less when the summary the runtime asks for out of that reserve would not fit
+// the model's largest answer, and never less than that largest answer. The
+// latest sixth of the window, at most 20,000 tokens, stays word for word.
 
 export interface Limits {
   contextWindow: number;
@@ -13,9 +13,13 @@ export interface Limits {
 }
 
 const known = new Map<string, Limits>();
+/** The catalog's models in its order, the local ones before the remote ones. */
+let listed: string[] = [];
 
 /** The catalog's models, kept by id; a model with no window stays unknown. */
-export function setModels(models: { id: string; contextWindow?: number; maxTokens?: number }[]): void {
+export function setModels(
+  models: { id: string; contextWindow?: number; maxTokens?: number; locality?: string }[],
+): void {
   known.clear();
   for (const m of models)
     if (typeof m.contextWindow === "number" && m.contextWindow > 0)
@@ -23,6 +27,19 @@ export function setModels(models: { id: string; contextWindow?: number; maxToken
         contextWindow: m.contextWindow,
         maxTokens: typeof m.maxTokens === "number" && m.maxTokens > 0 ? m.maxTokens : 0,
       });
+  listed = [
+    ...models.filter((m) => m.locality !== "remote"),
+    ...models.filter((m) => m.locality === "remote"),
+  ].map((m) => m.id);
+}
+
+/**
+ * The model a station streams with (record 23): the one the host names while Kvasir lists it, else the first
+ * model Kvasir lists, a local one before a remote one. Kvasir holds the models an admin adds and removes, so the
+ * model the host was started with can be gone; where a purpose runs is still the policy table's to say.
+ */
+export function chosenModel(named: string): string {
+  return listed.length === 0 || listed.includes(named) ? named : (listed[0] as string);
 }
 
 export function limitsOf(id: string): Limits | null {

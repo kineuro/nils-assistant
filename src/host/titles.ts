@@ -14,15 +14,16 @@ import { guardMemory } from "./guard.ts";
 import { plainMentions } from "./mentions.ts";
 
 /**
- * How the host asks Kvasir's assistant.title purpose for a name: the stations' model, the app's key, and room
- * for a model that reasons before it answers (a thousand tokens ran out mid-thought on one); null when Kvasir's catalog does not list the model.
+ * How the host asks Kvasir's assistant.title purpose for a name: the stations' model, the app's key with the
+ * token of the person whose conversation it is (record 23), and room for a model that reasons before it answers
+ * (a thousand tokens ran out mid-thought on one); null when Kvasir's catalog does not list the model.
  */
 export function kvasirTitles(o: {
   catalog: Catalog;
   model: string;
   key: string;
   fetch?: typeof fetch;
-}): ((instructions: string, message: string) => Promise<string>) | null {
+}): ((instructions: string, message: string, person?: string | null) => Promise<string>) | null {
   const entry = o.catalog.models.find((m) => m.id === o.model);
   if (!entry) return null;
   const model: Model<"pi-messages"> = {
@@ -38,21 +39,22 @@ export function kvasirTitles(o: {
     maxTokens: entry.maxTokens,
   };
   const dial = o.fetch ?? fetch;
-  // the purpose rides every call, as a station's provider sends its own
-  const withPurpose: typeof fetch = (input, init) => {
-    const headers = new Headers(init?.headers);
-    headers.set("x-kvasir-purpose", "assistant.title");
-    return dial(input, { ...init, headers });
-  };
-  return async (instructions, message) => {
+  return async (instructions, message, person) => {
     let text = "";
+    // the purpose rides every call, as a station's provider sends its own, and the person's token where a person asked
+    const withHeaders: typeof fetch = (input, init) => {
+      const headers = new Headers(init?.headers);
+      headers.set("x-kvasir-purpose", "assistant.title");
+      if (person) headers.set("x-kvasir-person", person);
+      return dial(input, { ...init, headers });
+    };
     const events = streamSimple(
       model,
       { systemPrompt: instructions, messages: [{ role: "user", content: message, timestamp: Date.now() }] },
       {
         apiKey: o.key,
         maxTokens: Math.min(entry.maxTokens, 4_096),
-        fetch: withPurpose,
+        fetch: withHeaders,
         signal: AbortSignal.timeout(240_000),
       },
     );
