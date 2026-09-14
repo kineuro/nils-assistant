@@ -10,9 +10,13 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { guardMemory } from "./guard.ts";
 
 export type NoteKind = "person" | "correction" | "study" | "reference";
 export const NOTE_KINDS: NoteKind[] = ["person", "correction", "study", "reference"];
+
+/** How a note came to be kept (the chat, slice 6): said in a conversation, accepted from an offer, added on the Memory page, or left by the person's work. */
+export type NoteSource = "said" | "accepted" | "page" | "work";
 
 export interface Note {
   id: number;
@@ -21,6 +25,31 @@ export interface Note {
   text: string;
   station: string;
   at: number;
+  source: NoteSource | null;
+  used_at: number | null;
+  edited_at: number | null;
+}
+
+/** The install's instructions: one version of the page an admin keeps. */
+export interface Instructions {
+  version: number;
+  text: string;
+  author: string;
+  at: number;
+}
+
+/** The most one memory of a person's holds, and the most the install's instructions hold. */
+export const MEMORY_CHARS = 300;
+export const INSTRUCTION_CHARS = 4000;
+
+/** A memory or an instruction the store will not keep, with the status a door answers. */
+export class MemoryRefused extends Error {
+  constructor(
+    readonly status: 404 | 409 | 422,
+    message: string,
+  ) {
+    super(message);
+  }
 }
 
 export interface InstitutionalCorrection {
@@ -51,6 +80,23 @@ export class Notes {
       at INTEGER NOT NULL
     )`);
     this.db.exec("CREATE INDEX IF NOT EXISTS note_subject ON note (subject, at)");
+    // the chat, slice 6: how a note was kept, when a conversation last read it, when it was edited; a pause per person; the install's instructions, by version
+    const have = new Set(
+      (this.db.prepare("PRAGMA table_info(note)").all() as { name: string }[]).map((c) => c.name),
+    );
+    for (const [name, type] of [
+      ["source", "TEXT"],
+      ["used_at", "INTEGER"],
+      ["edited_at", "INTEGER"],
+    ])
+      if (!have.has(name)) this.db.exec(`ALTER TABLE note ADD COLUMN ${name} ${type}`);
+    this.db.exec("CREATE TABLE IF NOT EXISTS memory_pause (subject TEXT PRIMARY KEY, at INTEGER NOT NULL)");
+    this.db.exec(`CREATE TABLE IF NOT EXISTS instruction (
+      version INTEGER PRIMARY KEY AUTOINCREMENT,
+      text TEXT NOT NULL,
+      author TEXT NOT NULL,
+      at INTEGER NOT NULL
+    )`);
     this.db.exec(`CREATE TABLE IF NOT EXISTS institutional_correction (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       station TEXT NOT NULL,
@@ -61,15 +107,33 @@ export class Notes {
     )`);
   }
 
-  add(n: { subject: string; kind: NoteKind; text: string; station: string; at?: number }): Note {
+  add(n: {
+    subject: string;
+    kind: NoteKind;
+    text: string;
+    station: string;
+    at?: number;
+    source?: NoteSource;
+  }): Note {
     if (!NOTE_KINDS.includes(n.kind)) throw new Error(`a note is one of ${NOTE_KINDS.join(", ")}`);
     const text = n.text.replace(/\s+/gu, " ").trim().slice(0, 400);
     if (!text) throw new Error("a note has text");
     const at = n.at ?? Date.now();
+    const source = n.source ?? (n.kind === "person" ? null : "work");
     const r = this.db
-      .prepare("INSERT INTO note (subject, kind, text, station, at) VALUES (?, ?, ?, ?, ?)")
-      .run(n.subject, n.kind, text, n.station, at);
-    return { id: Number(r.lastInsertRowid), subject: n.subject, kind: n.kind, text, station: n.station, at };
+      .prepare("INSERT INTO note (subject, kind, text, station, at, source) VALUES (?, ?, ?, ?, ?, ?)")
+      .run(n.subject, n.kind, text, n.station, at, source);
+    return {
+      id: Number(r.lastInsertRowid),
+      subject: n.subject,
+      kind: n.kind,
+      text,
+      station: n.station,
+      at,
+      source,
+      used_at: null,
+      edited_at: null,
+    };
   }
 
   list(subject: string, limit = 200): Note[] {
@@ -80,6 +144,110 @@ export class Notes {
 
   delete(id: number): boolean {
     return this.db.prepare("DELETE FROM note WHERE id = ?").run(id).changes > 0;
+  }
+
+  /** A person keeps something (the chat, slice 6): refused while their memory is paused, past its size, or when it looks like a person's data. */
+  remember(subject: string, raw: string, source: NoteSource): Note {
+    if (this.paused(subject)) throw new MemoryRefused(409, "memory is paused; resume it to keep something");
+    const text = checked(raw, MEMORY_CHARS, true);
+    return this.add({ subject, kind: "person", text, station: "desk", source });
+  }
+
+  /** A person edits what they asked to keep; another person's memory is not theirs to edit. */
+  edit(subject: string, id: number, raw: string): Note {
+    const text = checked(raw, MEMORY_CHARS, true);
+    const now = Date.now();
+    const r = this.db
+      .prepare("UPDATE note SET text = ?, edited_at = ? WHERE id = ? AND subject = ? AND kind = 'person'")
+      .run(text, now, id, subject);
+    if (r.changes === 0) throw new MemoryRefused(404, `no memory ${id} of yours`);
+    return this.db.prepare("SELECT * FROM note WHERE id = ?").get(id) as unknown as Note;
+  }
+
+  /** A person deletes one of their notes. */
+  removeOwn(subject: string, id: number): boolean {
+    return this.db.prepare("DELETE FROM note WHERE id = ? AND subject = ?").run(id, subject).changes > 0;
+  }
+
+  /** What a person asked to keep, the latest first. */
+  people(subject: string, limit = 50): Note[] {
+    return this.db
+      .prepare(
+        "SELECT * FROM note WHERE subject = ? AND kind = 'person' ORDER BY COALESCE(edited_at, at) DESC, id DESC LIMIT ?",
+      )
+      .all(subject, limit) as unknown as Note[];
+  }
+
+  /** The notes a person's work left, one line each, the newest first, a staleness caveat on anything older than a day. */
+  work(subject: string, now = Date.now(), cap = 5): string[] {
+    return (
+      this.db
+        .prepare(
+          "SELECT * FROM note WHERE subject = ? AND kind != 'person' ORDER BY at DESC, id DESC LIMIT ?",
+        )
+        .all(subject, cap) as unknown as Note[]
+    ).map(
+      (n) =>
+        `${n.kind}: ${n.text}${now - n.at >= DAY ? ` (from ${new Date(n.at).toISOString().slice(0, 10)}, may be stale)` : ""}`,
+    );
+  }
+
+  /** When conversations last read these notes. */
+  touch(ids: number[], at = Date.now()): void {
+    for (const id of ids) this.db.prepare("UPDATE note SET used_at = ? WHERE id = ?").run(at, id);
+  }
+
+  paused(subject: string): boolean {
+    return Boolean(this.db.prepare("SELECT 1 FROM memory_pause WHERE subject = ?").get(subject));
+  }
+
+  /** Pause a person's memory, or resume it: while paused nothing is read into a new conversation and nothing is kept. */
+  pause(subject: string, on: boolean): boolean {
+    if (on)
+      this.db
+        .prepare("INSERT INTO memory_pause (subject, at) VALUES (?, ?) ON CONFLICT(subject) DO NOTHING")
+        .run(subject, Date.now());
+    else this.db.prepare("DELETE FROM memory_pause WHERE subject = ?").run(subject);
+    return this.paused(subject);
+  }
+
+  /** The notes a person's work left go with the retention; what a person asked to keep stays until they delete it. */
+  sweepWork(days: number): void {
+    const cut = Date.now() - days * DAY;
+    this.db.prepare("DELETE FROM note WHERE kind != 'person' AND at < ?").run(cut);
+  }
+
+  /** The install's instructions now: the latest version. */
+  instructions(): Instructions | null {
+    return (
+      (this.db.prepare("SELECT * FROM instruction ORDER BY version DESC LIMIT 1").get() as
+        | Instructions
+        | undefined) ?? null
+    );
+  }
+
+  instructionHistory(limit = 20): { version: number; author: string; at: number; chars: number }[] {
+    return this.db
+      .prepare(
+        "SELECT version, author, at, length(text) AS chars FROM instruction ORDER BY version DESC LIMIT ?",
+      )
+      .all(limit) as unknown as { version: number; author: string; at: number; chars: number }[];
+  }
+
+  /** The next version of the install's instructions, by a named person; refused past its size or when it looks like a person's data. */
+  writeInstructions(raw: string, author: string): Instructions {
+    const text = raw.trim();
+    if (!text) throw new MemoryRefused(422, "the instructions are empty");
+    if (text.length > INSTRUCTION_CHARS)
+      throw new MemoryRefused(422, `the instructions hold at most ${INSTRUCTION_CHARS} characters`);
+    const g = guardMemory(text);
+    if (!g.ok) throw new MemoryRefused(422, g.why);
+    const r = this.db
+      .prepare("INSERT INTO instruction (text, author, at) VALUES (?, ?, ?)")
+      .run(text, author, Date.now());
+    return this.db
+      .prepare("SELECT * FROM instruction WHERE version = ?")
+      .get(Number(r.lastInsertRowid)) as unknown as Instructions;
   }
 
   /** Deletion on request (§10): every note of a subject. */
@@ -151,6 +319,21 @@ export class Notes {
   close(): void {
     this.db.close();
   }
+}
+
+/** A person's memory as it would be kept, or refused: one line, within its size, and nothing that looks like a person's data. */
+export function checkMemory(raw: string): string {
+  return checked(raw, MEMORY_CHARS, true);
+}
+
+/** One memory's text as the store keeps it: one line, within its size, and nothing that looks like a person's data. */
+function checked(raw: string, max: number, series: boolean): string {
+  const text = raw.replace(/\s+/gu, " ").trim();
+  if (!text) throw new MemoryRefused(422, "there is nothing to keep");
+  if (text.length > max) throw new MemoryRefused(422, `a memory holds at most ${max} characters`);
+  const g = guardMemory(text, { series });
+  if (!g.ok) throw new MemoryRefused(422, g.why);
+  return text;
 }
 
 /** The subject a token names: a JWT's `sub`, else the desk's anonymous person in off mode. */

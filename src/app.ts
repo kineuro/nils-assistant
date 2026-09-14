@@ -26,6 +26,7 @@ import { ladderOf, opens, type PolicyRow, rungOf } from "./host/ladder.ts";
 import { LadderStore } from "./host/ladder-store.ts";
 import type { ConversationRow, ShareRow } from "./host/lineage.ts";
 import { modelList, setModels } from "./host/models.ts";
+import { type Instructions, MemoryRefused, type Note } from "./host/notes.ts";
 import { bareOf, People, type Person } from "./host/people.ts";
 import { Runs } from "./host/runs.ts";
 import { inboxOf, Scheduler } from "./host/scheduler.ts";
@@ -181,6 +182,17 @@ const teaching = new Teaching({
   threshold: (of) => Math.ceil(of * c.benchThreshold),
 });
 
+// who a person is and every role they hold, read from the engine's capabilities: this seam's ceiling is the highest, so an admin is named an admin (the chat, slice 6)
+registerStation({
+  id: "people",
+  version: c.version,
+  grant: { capabilities: {} },
+  ceiling: "admin",
+  content: "catalog",
+  model: "none",
+  standing: true,
+});
+
 const app = new Hono();
 
 /** The person a request comes from, read from the engine with the token the desk sent (the chat, slice 1). */
@@ -189,7 +201,7 @@ const people = new People(async (token) => {
   const conversation = `person-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   if (token) tokens.put(conversation, token);
   try {
-    const a = await seamFor("scheduler", conversation).call({
+    const a = await seamFor("people", conversation).call({
       method: "GET",
       path: "/api/capabilities",
       toolCallId: "person",
@@ -198,7 +210,7 @@ const people = new People(async (token) => {
     return a.kind === "ok" ? (a.body as Record<string, unknown>) : null;
   } finally {
     tokens.forget(conversation);
-    forgetSeam("scheduler", conversation);
+    forgetSeam("people", conversation);
   }
 });
 
@@ -864,6 +876,139 @@ app.delete("/conversations/:id/notes", (ctx) => {
   if (!who) return ctx.json({ error: "no person" }, 401);
   return ctx.json({ subject: who.principal, deleted: theNotes().deleteSubject(who.principal) });
 });
+/** A memory as the desk reads it (the chat, slice 6). */
+function memoryView(n: Note): Record<string, unknown> {
+  const iso = (t: number | null | undefined) =>
+    t === null || t === undefined ? null : new Date(t).toISOString();
+  return {
+    id: n.id,
+    kind: n.kind,
+    text: n.text,
+    source: n.source ?? (n.kind === "person" ? null : "work"),
+    station: n.station,
+    at: iso(n.at),
+    edited_at: iso(n.edited_at),
+    used_at: iso(n.used_at),
+  };
+}
+
+function instructionView(i: Instructions | null): Record<string, unknown> | null {
+  return i
+    ? { version: i.version, text: i.text, author: bareOf(i.author), at: new Date(i.at).toISOString() }
+    : null;
+}
+
+/** A refused memory as a door answers it. */
+function refusedMemory(ctx: { json: (b: unknown, s: number) => Response }, e: unknown): Response {
+  if (e instanceof MemoryRefused) return ctx.json({ error: e.message }, e.status);
+  throw e;
+}
+
+/** What the assistant keeps for the person: what they asked it to keep, the notes their work left, whether memory is paused, and the install's instructions. */
+app.get("/memory", (ctx) => {
+  const who = personIn(ctx.req.raw);
+  if (!who) return ctx.json({ error: "no person" }, 401);
+  const notes = theNotes();
+  return ctx.json({
+    paused: notes.paused(who.principal),
+    items: notes.list(who.principal).map(memoryView),
+    instructions: instructionView(notes.instructions()),
+  });
+});
+
+/** The person keeps something: typed on the Memory page, said in a conversation, or a memory the assistant offered and they accepted. */
+app.post("/memory", async (ctx) => {
+  const who = personIn(ctx.req.raw);
+  if (!who) return ctx.json({ error: "no person" }, 401);
+  const body = (await ctx.req.json().catch(() => ({}))) as { text?: unknown; source?: unknown };
+  const source = body.source === "said" || body.source === "accepted" ? body.source : "page";
+  try {
+    return ctx.json(
+      memoryView(theNotes().remember(who.principal, typeof body.text === "string" ? body.text : "", source)),
+      201,
+    );
+  } catch (e) {
+    return refusedMemory(ctx, e);
+  }
+});
+
+app.patch("/memory/:id", async (ctx) => {
+  const who = personIn(ctx.req.raw);
+  if (!who) return ctx.json({ error: "no person" }, 401);
+  const body = (await ctx.req.json().catch(() => ({}))) as { text?: unknown };
+  try {
+    return ctx.json(
+      memoryView(
+        theNotes().edit(
+          who.principal,
+          Number(ctx.req.param("id")),
+          typeof body.text === "string" ? body.text : "",
+        ),
+      ),
+    );
+  } catch (e) {
+    return refusedMemory(ctx, e);
+  }
+});
+
+app.delete("/memory/:id", (ctx) => {
+  const who = personIn(ctx.req.raw);
+  if (!who) return ctx.json({ error: "no person" }, 401);
+  const deleted = theNotes().removeOwn(who.principal, Number(ctx.req.param("id")));
+  return deleted
+    ? ctx.json({ deleted })
+    : ctx.json({ error: `no memory ${ctx.req.param("id")} of yours` }, 404);
+});
+
+/** The person pauses memory, or resumes it: while paused a new conversation reads none of it and nothing is kept. */
+app.put("/memory/pause", async (ctx) => {
+  const who = personIn(ctx.req.raw);
+  if (!who) return ctx.json({ error: "no person" }, 401);
+  const body = (await ctx.req.json().catch(() => ({}))) as { paused?: unknown };
+  if (typeof body.paused !== "boolean") return ctx.json({ error: "paused: true or false" }, 400);
+  return ctx.json({ paused: theNotes().pause(who.principal, body.paused) });
+});
+
+/** The person deletes everything the assistant keeps about them. */
+app.delete("/memory", (ctx) => {
+  const who = personIn(ctx.req.raw);
+  if (!who) return ctx.json({ error: "no person" }, 401);
+  return ctx.json({ deleted: theNotes().deleteSubject(who.principal) });
+});
+
+/** The install's instructions and their versions: every person reads them, and an admin writes the next version. */
+app.get("/instructions", (ctx) => {
+  const who = personIn(ctx.req.raw);
+  if (!who) return ctx.json({ error: "no person" }, 401);
+  const notes = theNotes();
+  return ctx.json({
+    current: instructionView(notes.instructions()),
+    history: notes.instructionHistory().map((h) => ({
+      version: h.version,
+      author: bareOf(h.author),
+      at: new Date(h.at).toISOString(),
+      chars: h.chars,
+    })),
+  });
+});
+
+app.put("/instructions", async (ctx) => {
+  const who = personIn(ctx.req.raw);
+  if (!who) return ctx.json({ error: "no person" }, 401);
+  if (!who.roles.includes("admin"))
+    return ctx.json({ error: "the install's instructions are written by an admin" }, 403);
+  const body = (await ctx.req.json().catch(() => ({}))) as { text?: unknown };
+  try {
+    return ctx.json({
+      current: instructionView(
+        theNotes().writeInstructions(typeof body.text === "string" ? body.text : "", who.principal),
+      ),
+    });
+  } catch (e) {
+    return refusedMemory(ctx, e);
+  }
+});
+
 /** Institutional corrections: structural only, accepted by a named person; the row has no field a value fits. */
 app.get("/notes/institutional", (ctx) =>
   ctx.json({ corrections: theNotes().institutional(ctx.req.query("station") || undefined) }),
