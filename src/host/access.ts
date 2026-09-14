@@ -42,6 +42,10 @@ export function doorOf(method: string, path: string): Door {
     path === "/conversations" ||
     /^\/stations\/[^/]+\/runs$/u.test(path) ||
     /^\/runs\/[^/]+(\/verdict)?$/u.test(path) ||
+    path === "/memory" ||
+    path === "/memory/pause" ||
+    /^\/memory\/\d+$/u.test(path) ||
+    path === "/instructions" ||
     path === "/shares" ||
     path === "/shared" ||
     /^\/shares\/[^/]+(\/continue)?$/u.test(path) ||

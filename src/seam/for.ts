@@ -63,13 +63,15 @@ export function recordFeedback(
   feedback.set(conversation, cur);
   // a correction the person made, kept for their later threads (section 9.9); the id, never the rows
   const subject = subjectOfConversation(conversation);
-  for (const r of rejected)
-    theNotes().add({
-      subject,
-      kind: "correction",
-      station: "desk",
-      text: `rejected document ${r.document}${r.sentence ? `: ${r.sentence}` : ""}${r.why ? ` (${r.why})` : ""}`,
-    });
+  // nothing is kept while the person paused memory (the chat, slice 6)
+  if (!theNotes().paused(subject))
+    for (const r of rejected)
+      theNotes().add({
+        subject,
+        kind: "correction",
+        station: "desk",
+        text: `rejected document ${r.document}${r.sentence ? `: ${r.sentence}` : ""}${r.why ? ` (${r.why})` : ""}`,
+      });
 }
 
 export function feedbackOf(conversation: string): { accepted: Feedback[]; rejected: Feedback[] } {
@@ -100,7 +102,12 @@ export function stationList(): Station[] {
 
 let notes: Notes | null = null;
 export function theNotes(): Notes {
-  if (!notes) notes = new Notes(config().notes);
+  if (!notes) {
+    const c = config();
+    notes = new Notes(c.notes);
+    // the notes a person's work left go with the retention (the chat, slice 6)
+    notes.sweepWork(c.retentionDays);
+  }
   return notes;
 }
 let lineage: Lineage | null = null;

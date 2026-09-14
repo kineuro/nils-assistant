@@ -28,7 +28,7 @@ import { renderContext } from "../seam/context.ts";
 import { feedbackOf, seamFor, subjectOfConversation, theLineage, theNotes, verdicts } from "../seam/for.ts";
 import { initialState, Machine, type RunState } from "./machine.ts";
 import type { Manifest, TerminalReason } from "./manifest.ts";
-import { type HeldMemory, heldFor } from "./memory.ts";
+import { forgetFor, type HeldMemory, heldFor, rememberFor } from "./memory.ts";
 import { preludeOf } from "./prelude.ts";
 import { toValibot } from "./schema.ts";
 import {
@@ -63,6 +63,13 @@ export const PART = v.variant("kind", [
     rows: v.array(v.object({ set: v.string(), stage: v.string(), rows: v.number(), subjects: v.number() })),
   }),
   v.object({ kind: v.literal("status"), phase: v.string(), text: v.string() }),
+  // the chat, slice 6: a memory offered, kept or forgotten
+  v.object({
+    kind: v.literal("memory"),
+    state: v.picklist(["proposed", "saved", "forgotten"]),
+    text: v.string(),
+    id: v.nullable(v.number()),
+  }),
 ]);
 export type Part = v.InferOutput<typeof PART>;
 export type PartKind = Part["kind"];
@@ -75,6 +82,7 @@ export const PART_KINDS: PartKind[] = [
   "handle_ref",
   "funnel",
   "status",
+  "memory",
 ];
 
 export interface StationTool {
@@ -270,6 +278,30 @@ export function stationAgent(
       });
     }
 
+    // memory the person keeps (the chat, slice 6): kept when they ask, offered when it would help later, never a person's data
+    useTool({
+      name: "remember",
+      description:
+        "Keep something for this person's later conversations, in at most 300 characters: a preference, a fact about their work, or a way they work. Set asked to true only when the person told you to remember it; otherwise the person is asked whether to keep it. Never a subject's data: no codes, identifiers, dates of a person, or series names.",
+      input: v.object({ text: v.string(), asked: v.boolean() }),
+      async run({ data }): Promise<{ output?: JsonValue }> {
+        const outcome = rememberFor(theNotes(), subject, data);
+        if (outcome.part) emit(outcome.part);
+        return { output: outcome.output };
+      },
+    });
+    useTool({
+      name: "forget",
+      description:
+        "Forget one thing this person asked you to keep, by the number your instructions give it, when they ask you to.",
+      input: v.object({ id: v.number() }),
+      async run({ data }): Promise<{ output?: JsonValue }> {
+        const outcome = forgetFor(theNotes(), subject, data.id);
+        if (outcome.part) emit(outcome.part);
+        return { output: outcome.output };
+      },
+    });
+
     if (def.advance !== false)
       useTool({
         name: "advance",
@@ -379,7 +411,7 @@ export function stationAgent(
         setSettled({ verdict });
         verdicts.set(id, verdict);
         // a study note for the person's later threads: the document and the sentence, never a row
-        if (typeof result.document === "number")
+        if (typeof result.document === "number" && !theNotes().paused(subject))
           theNotes().add({
             subject,
             kind: "study",
@@ -452,26 +484,41 @@ export function stationAgent(
     // memory across threads (section 9.9): the person's own index, five lines at most, and the group's structural corrections; read once per conversation and held, so the note this very run leaves at settle does not change the instructions under it (a change would cost a model turn)
     // the snapshot names whose it is: a conversation copied for someone else, as a share its reader continues, reads its own owner's memory (the chat, slice 5)
     const [heldMemory, setHeldMemory] = usePersistentState<HeldMemory | string | null>("memory", null);
-    const memoryNow = (): string => {
-      const index = theNotes().index(subject);
-      const corrections = theNotes().institutional(m.id);
-      return (
-        (index.length
-          ? `\n\nWhat you know of this person's earlier threads (their own notes, newest first):${index.map((l) => `\n- ${l}`).join("")}`
+    // the chat, slice 6: the install's instructions, what the person asked to keep and the notes their work left, unless they paused memory
+    const memoryNow = (): { text: string; used: number[] } => {
+      const notes = theNotes();
+      const guide = notes.instructions();
+      const paused = notes.paused(subject);
+      const kept = paused ? [] : notes.people(subject);
+      const work = paused ? [] : notes.work(subject);
+      const corrections = notes.institutional(m.id);
+      const text =
+        (guide
+          ? `\n\nThe install's instructions, from its admin (version ${guide.version}):\n${guide.text}`
           : "") +
+        (kept.length
+          ? `\n\nWhat this person asked you to keep, theirs alone (forget one with forget and its number):${kept.map((n) => `\n- [${n.id}] ${n.text}`).join("")}`
+          : "") +
+        (work.length
+          ? `\n\nNotes from this person's earlier work, newest first:${work.map((l) => `\n- ${l}`).join("")}`
+          : "") +
+        (paused ? "\n\nThis person paused memory: keep nothing, and do not offer to." : "") +
         (corrections.length
           ? `\n\nCorrections the group accepted for this station: ${corrections.map((c) => `on ${c.axis}, the check ${c.check} would now catch it`).join("; ")}.`
-          : "")
-      );
+          : "");
+      return { text, used: kept.map((n) => n.id) };
     };
     // a render is a pure read: the text is held from the first delivery on, and read live until then
     const held = heldFor(heldMemory, subject);
-    const memoryText = held ?? memoryNow();
+    const fresh = held === null ? memoryNow() : null;
+    const memoryText = held ?? fresh?.text ?? "";
     useAgentStart(() => {
-      if (held === null) setHeldMemory({ owner: subject, text: memoryText });
+      if (held !== null || !fresh) return;
+      setHeldMemory({ owner: subject, text: fresh.text });
+      theNotes().touch(fresh.used);
     });
     // the instructions are the same on every render of every conversation of this person: the station's own text, the brief, the registry, the standing sentence; what varies (feedback, memory) comes last, so a runtime's prefix cache serves the rest
-    return `${def.instructions}${def.briefInline ? `\n\n${def.brief}` : ""}${warm ? `\n\n${warm}` : ""}\n\nYou are the ${m.id} station of ${m.app}, at the ${m.ceiling} ceiling. The phases: ${m.phases.initial}${m.phases.transitions.map((t) => ` then ${t.to}`).join("")}. ${def.advance === false ? "A tool moves the run to its phase." : "Move with advance."} End with settle.${examplesText ? `\n\n${examplesText}` : ""}${whereText}${feedbackText}${memoryText}`;
+    return `${def.instructions}${def.briefInline ? `\n\n${def.brief}` : ""}${warm ? `\n\n${warm}` : ""}\n\nYou are the ${m.id} station of ${m.app}, at the ${m.ceiling} ceiling. The phases: ${m.phases.initial}${m.phases.transitions.map((t) => ` then ${t.to}`).join("")}. ${def.advance === false ? "A tool moves the run to its phase." : "Move with advance."} End with settle.${memoryText}${examplesText ? `\n\n${examplesText}` : ""}${whereText}${feedbackText}`;
   };
   return Object.assign(agent, { agentName: m.id });
 }
