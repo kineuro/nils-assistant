@@ -1,7 +1,7 @@
 {
   "name": "nils-assistant",
   "private": true,
-  "version": "1.0.0-alpha.0",
+  "version": "1.0.0-alpha.23",
   "description": "The assistant of NILS: stations on Flue, the bench, the seam to the engine",
   "license": "AGPL-3.0-only",
   "type": "module",
