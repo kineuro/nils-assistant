@@ -5,6 +5,7 @@
 // A run is a conversation like any other, keyed so the desk can read it.
 
 import { type AgentReply, AgentRunError, init } from "@flue/runtime";
+import { splitReasoning } from "./reasoning.ts";
 
 export interface Run {
   id: string;
@@ -42,7 +43,8 @@ export class Runs {
       })
       .then((reply) => {
         run.state = "settled";
-        run.reply = reply;
+        // reasoning a model left inline is not the reply (the chat, slice 9)
+        run.reply = { ...reply, text: splitReasoning(reply.text).text };
         run.settled_at = new Date().toISOString();
       })
       .catch((e: unknown) => {

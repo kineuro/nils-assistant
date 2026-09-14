@@ -9,6 +9,8 @@
 // the class named. It is an upper bound: the engine states the class a scope
 // reaches, not the class of what a read returned.
 
+import { splitReasoning } from "./reasoning.ts";
+
 /** The roles of the engine, from the least to the most they reach. */
 export const ROLES = ["reader", "reviewer", "operator", "admin"] as const;
 export type Role = (typeof ROLES)[number];
@@ -77,6 +79,13 @@ export interface Snapshot {
   messages: SnapshotMessage[];
 }
 
+/** Two steps' words, a paragraph apart (the chat, slice 9). */
+export function joinSteps(before: string, next: string): string {
+  if (before === "" || next === "") return before + next;
+  if (before.endsWith("\n\n")) return before + next;
+  return before.endsWith("\n") ? `${before}\n${next}` : `${before}\n\n${next}`;
+}
+
 interface HistoryPart {
   type: string;
   text?: string;
@@ -103,10 +112,11 @@ export function snapshotOf(
     if (m.display && m.display !== "visible") continue;
     if (m.role !== "user" && m.role !== "assistant") continue;
     const parts = m.parts ?? [];
+    // each step's words a paragraph apart, with any reasoning a model left inline read out (the chat, slice 9)
     const text = parts
       .filter((p) => p.type === "text")
-      .map((p) => p.text ?? "")
-      .join("");
+      .map((p) => (m.role === "assistant" ? splitReasoning(p.text ?? "").text : (p.text ?? "")))
+      .reduce(joinSteps, "");
     const steps =
       m.role === "assistant"
         ? parts.flatMap((p) =>
