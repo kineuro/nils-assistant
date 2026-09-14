@@ -14,7 +14,7 @@ import { guardMemory } from "./guard.ts";
 
 /**
  * How the host asks Kvasir's assistant.title purpose for a name: the stations' model, the app's key, and room
- * for a short answer after any reasoning; null when Kvasir's catalog does not list the model.
+ * for a model that reasons before it answers (a thousand tokens ran out mid-thought on one); null when Kvasir's catalog does not list the model.
  */
 export function kvasirTitles(o: {
   catalog: Catalog;
@@ -48,7 +48,12 @@ export function kvasirTitles(o: {
     const events = streamSimple(
       model,
       { systemPrompt: instructions, messages: [{ role: "user", content: message, timestamp: Date.now() }] },
-      { apiKey: o.key, maxTokens: 1024, fetch: withPurpose, signal: AbortSignal.timeout(90_000) },
+      {
+        apiKey: o.key,
+        maxTokens: Math.min(entry.maxTokens, 4_096),
+        fetch: withPurpose,
+        signal: AbortSignal.timeout(240_000),
+      },
     );
     for await (const ev of events) {
       if (ev.type === "text_delta") text += ev.delta;

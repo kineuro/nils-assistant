@@ -568,7 +568,20 @@ app.post("/conversations/:id/title", async (ctx) => {
   } finally {
     await sql.close();
   }
-  const title = first ? await nameConversation(first, titles).catch(() => null) : null;
+  let title: string | null = null;
+  if (first) {
+    try {
+      title = await nameConversation(first, titles);
+      if (!title)
+        console.error(
+          "nils-assistant: the model gave no name a conversation could take, so it keeps its first words",
+        );
+    } catch (e) {
+      console.error(
+        `nils-assistant: a conversation could not be named: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+  }
   return ctx.json(conversationView((title ? store.setModelTitle(row.id, title) : null) ?? row));
 });
 
