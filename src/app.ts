@@ -53,6 +53,7 @@ import {
   Teaching,
   TeachingStore,
 } from "./host/teaching.ts";
+import { kvasirTitles, nameConversation } from "./host/titles.ts";
 import { interceptTurn } from "./host/turns.ts";
 import { kvasirProvider, readCatalog } from "./providers/kvasir.ts";
 import { agentIds, delegationsOf, delegationView, registerAgent } from "./seam/delegations.ts";
@@ -126,6 +127,8 @@ const catalog = await readCatalog(c.kvasir, c.kvasirKey).catch((e: Error) => {
 setModels(catalog.models);
 for (const s of stationList())
   setProvider(kvasirProvider({ station: s.id, purpose: `assistant.${s.id}`, catalog, key: c.kvasirKey }));
+// a conversation named by the model once its first answer settles, through the title purpose (the chat, slice 10)
+const titles = kvasirTitles({ catalog, model, key: c.kvasirKey });
 // how full each conversation's context is, from the runtime's own events
 watchContext({ observe: observe as unknown as Observe, lineage: theLineage });
 
@@ -498,6 +501,7 @@ app.post("/conversations", async (ctx) => {
   const body = (await ctx.req.json().catch(() => ({}))) as {
     station?: unknown;
     title?: unknown;
+    title_by?: unknown;
     lineage?: unknown;
     document?: unknown;
   };
@@ -508,6 +512,7 @@ app.post("/conversations", async (ctx) => {
     station,
     owner: who.principal,
     title: typeof body.title === "string" ? body.title : null,
+    ...(body.title_by === "words" ? { titleBy: "words" as const } : {}),
     lineage: num(body.lineage),
     document: num(body.document),
   });
@@ -541,6 +546,30 @@ app.get("/conversations/:id", async (ctx) => {
       at: new Date(r.at).toISOString(),
     })),
   });
+});
+
+/**
+ * A conversation named by the model once its first answer has settled (the chat, slice 10): only while its
+ * name is still the first words of its first message, from that message alone, through the shape guard. A
+ * name the person gave, or one the model gave before, stays; either way the conversation comes back as the
+ * list shows it.
+ */
+app.post("/conversations/:id/title", async (ctx) => {
+  const store = theLineage();
+  const row = store.conversation(ctx.req.param("id"));
+  if (!row) return ctx.json({ error: `no conversation ${ctx.req.param("id")}` }, 404);
+  if (row.title_by !== "words" || !titles) return ctx.json(conversationView(row));
+  // the family's first message: a version's stream begins with the conversation it was copied from
+  const root = store.conversation(row.fork_root ?? row.id) ?? row;
+  const sql = sqlFor(c.store);
+  let first: string | null = null;
+  try {
+    first = await firstUserMessage(sql, streamPath(root.station, root.id), 0);
+  } finally {
+    await sql.close();
+  }
+  const title = first ? await nameConversation(first, titles).catch(() => null) : null;
+  return ctx.json(conversationView((title ? store.setModelTitle(row.id, title) : null) ?? row));
 });
 
 /** The first message of each version in a conversation's family that has been sent since it was made, read once from its stream (the chat, slice 4). */
