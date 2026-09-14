@@ -63,6 +63,7 @@ export function capabilities(
       "DELETE /memory",
       "GET /instructions",
       "PUT /instructions",
+      "GET /conversations/{id}/export",
       "GET /agents/{station}/{id}",
       "POST /agents/{station}/{id}",
       "GET /conversations",
