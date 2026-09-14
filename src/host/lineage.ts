@@ -877,7 +877,7 @@ export class Lineage {
     const rows = (
       this.db
         .prepare(
-          "SELECT * FROM conversation WHERE lineage = ? AND deleted_at IS NULL ORDER BY created_at DESC, id",
+          "SELECT * FROM conversation WHERE lineage = ? AND deleted_at IS NULL ORDER BY created_at DESC, rowid DESC",
         )
         .all(lineage) as unknown as ConversationRow[]
     ).filter(
