@@ -21,6 +21,7 @@ import {
   useTool,
 } from "@flue/runtime";
 import * as v from "valibot";
+import { MENTION_RULE } from "../host/mentions.ts";
 import { compactionFor, limitsOf } from "../host/models.ts";
 import { isSummarize, summarizeCompaction } from "../host/summarize.ts";
 import { providerId } from "../providers/kvasir.ts";
@@ -550,8 +551,8 @@ export function stationAgent(
       setHeldMemory({ owner: subject, text: fresh.text });
       theNotes().touch(fresh.used);
     });
-    // the instructions are the same on every render of every conversation of this person: the station's own text, the brief, the registry, the standing sentence; what varies (feedback, memory) comes last, so a runtime's prefix cache serves the rest
-    return `${def.instructions}${def.briefInline ? `\n\n${def.brief}` : ""}${warm ? `\n\n${warm}` : ""}\n\nYou are the ${m.id} station of ${m.app}, at the ${m.ceiling} ceiling. The phases: ${m.phases.initial}${m.phases.transitions.map((t) => ` then ${t.to}`).join("")}. ${def.advance === false ? "A tool moves the run to its phase." : "Move with advance."} End with settle.${memoryText}${examplesText ? `\n\n${examplesText}` : ""}${whereText}${feedbackText}`;
+    // the instructions are the same on every render of every conversation of this person: the station's own text, the brief, the registry, the standing sentences, and what a mention names (the chat, slice 12); what varies (feedback, memory) comes last, so a runtime's prefix cache serves the rest
+    return `${def.instructions}${def.briefInline ? `\n\n${def.brief}` : ""}${warm ? `\n\n${warm}` : ""}\n\nYou are the ${m.id} station of ${m.app}, at the ${m.ceiling} ceiling. The phases: ${m.phases.initial}${m.phases.transitions.map((t) => ` then ${t.to}`).join("")}. ${def.advance === false ? "A tool moves the run to its phase." : "Move with advance."} End with settle. ${MENTION_RULE}${memoryText}${examplesText ? `\n\n${examplesText}` : ""}${whereText}${feedbackText}`;
   };
   return Object.assign(agent, { agentName: m.id });
 }

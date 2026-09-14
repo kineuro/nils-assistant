@@ -11,6 +11,7 @@ import type { Model } from "@earendil-works/pi-ai";
 import { streamSimple } from "@earendil-works/pi-ai/api/pi-messages";
 import type { Catalog } from "../providers/kvasir.ts";
 import { guardMemory } from "./guard.ts";
+import { plainMentions } from "./mentions.ts";
 
 /**
  * How the host asks Kvasir's assistant.title purpose for a name: the stations' model, the app's key, and room
@@ -95,7 +96,8 @@ export async function nameConversation(
   first: string,
   complete: (instructions: string, message: string) => Promise<string>,
 ): Promise<string | null> {
-  const message = first.trim().slice(0, 2000);
+  // a card, a cohort or a result the message names reads as its name alone (the chat, slice 12)
+  const message = plainMentions(first).trim().slice(0, 2000);
   if (!message) return null;
   return titleFromAnswer(await complete(TITLE_INSTRUCTIONS, message));
 }
