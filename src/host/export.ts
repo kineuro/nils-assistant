@@ -26,6 +26,7 @@ const WORDS: Record<string, string> = {
   remember: "noted something to keep",
   forget: "forgot something kept",
   search_conversations: "searched earlier conversations",
+  recall_memory: "looked up something kept",
 };
 
 /** A step as a person reads it: known tools by what they do, others by name. */

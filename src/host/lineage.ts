@@ -15,6 +15,7 @@ import { DatabaseSync } from "node:sqlite";
 import { admit, type PageContext } from "../seam/context.ts";
 import { bareOf } from "./people.ts";
 import { asRole, maxRole, minRole } from "./shares.ts";
+import { scoreOf, termsOf } from "./words.ts";
 
 export interface ConversationRow {
   id: string;
@@ -62,32 +63,6 @@ function claims(subject: string, principal: string, authOff: boolean): boolean {
 function tidy(title: string | null | undefined): string | null {
   const t = (title ?? "").replace(/\s+/gu, " ").trim().slice(0, 120);
   return t === "" ? null : t;
-}
-
-/** The words recall passes over: the ones that carry no subject of their own. */
-const STOP = new Set(
-  "about after again ago all also and any are ask asked back been before but can chat chats conversation conversations could did discussed does each earlier every find for from had has have how into just last many much not one our past per please previous remember said some talk talked tell than that the their them then there these they this title today told via was week were what when where which who why will with would yesterday you your".split(
-    " ",
-  ),
-);
-
-/** Text as recall reads it: accents dropped, in words. */
-function wordsOf(text: string): string[] {
-  return text
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "")
-    .split(/[^\p{L}\p{N}]+/u)
-    .filter((w) => w !== "");
-}
-
-/** A word cut to its stem, so "cohorts" meets "cohort"; a cut that would leave fewer than three letters is not made. */
-function stem(word: string): string {
-  const s = word
-    .replace(/(?:ing|ed)$/u, "")
-    .replace(/(x|ch|sh|ss)es$/u, "$1")
-    .replace(/ies$/u, "y")
-    .replace(/([^s])s$/u, "$1");
-  return s.length >= 3 ? s : word;
 }
 
 export interface ProposalRow {
@@ -793,17 +768,7 @@ export class Lineage {
    * thousand conversations, each conversation's versions once and the deleted never.
    */
   recall(owner: string, words: string, o: { except?: string; limit?: number } = {}): ConversationRow[] {
-    const terms = [
-      ...new Set(
-        wordsOf(words)
-          .filter((w) => {
-            const l = w.toLowerCase();
-            if (STOP.has(l)) return false;
-            return l.length > 2 || (l.length === 2 && (/\p{N}/u.test(w) || w === w.toUpperCase()));
-          })
-          .map((w) => stem(w.toLowerCase())),
-      ),
-    ].slice(0, 8);
+    const terms = termsOf(words);
     if (terms.length === 0) return [];
     const rows = this.db
       .prepare(
@@ -818,9 +783,7 @@ export class Lineage {
     const limit = Math.min(Math.max(Math.trunc(o.limit ?? 8), 1), 20);
     return rows
       .map((row) => {
-        const held = wordsOf(`${row.title ?? ""} ${row.gist ?? ""}`).map((w) => w.toLowerCase());
-        const score = terms.filter((t) => held.some((w) => w.startsWith(t) || stem(w).startsWith(t))).length;
-        return { row, score };
+        return { row, score: scoreOf(terms, `${row.title ?? ""} ${row.gist ?? ""}`) };
       })
       .filter((m) => m.score > 0)
       .sort((x, y) => y.score - x.score)
