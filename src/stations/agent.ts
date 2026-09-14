@@ -22,6 +22,7 @@ import {
 } from "@flue/runtime";
 import * as v from "valibot";
 import { compactionFor, limitsOf } from "../host/models.ts";
+import { isSummarize, summarizeCompaction } from "../host/summarize.ts";
 import { providerId } from "../providers/kvasir.ts";
 import type { Seam } from "../seam/client.ts";
 import { renderContext } from "../seam/context.ts";
@@ -144,8 +145,19 @@ export function stationAgent(
   table.settle = def.settle.phases;
 
   const agent = ({ id }: { id: string }) => {
-    // the chat, slice 3: earlier turns are summarized before the window fills, by the model's own limits
-    const compaction = compactionFor(limitsOf(def.model));
+    // what this submission delivered: a person's words, or a signal such as the summarize the host sends (the chat, slice 11)
+    let delivered: unknown = null;
+    try {
+      delivered = useDelivery();
+    } catch {
+      delivered = null;
+    }
+    const summarizing = isSummarize(delivered);
+    // the chat, slice 3: earlier turns are summarized before the window fills, by the model's own limits; asked to
+    // summarize, this one submission summarizes all but the latest turn once its short answer is done (slice 11)
+    const limits = limitsOf(def.model);
+    const compaction =
+      summarizing && limits ? summarizeCompaction(limits.contextWindow) : compactionFor(limits);
     useModel(`${providerId(m.id)}/${def.model}`, compaction ? { compaction } : undefined);
     if (!def.briefInline) useSkill(skill);
     const [state, setState] = usePersistentState<RunState>("run", initialState(m));
@@ -159,7 +171,7 @@ export function stationAgent(
     const warm = def.context && !signalled ? preludeOf(subject) : null;
     if (def.context) {
       useAgentStart(async (ctx) => {
-        if (signalled || warm !== null) return;
+        if (signalled || warm !== null || summarizing) return;
         let text = "";
         try {
           text =
@@ -177,13 +189,9 @@ export function stationAgent(
     }
     // the worked examples for this turn, chosen from the delivered message in the render and placed at the tail of the instructions: the head stays the same across turns and conversations for a runtime's prefix cache, and the examples read as plain text, never inside a signal's tag (a model reading YAML inside a tag writes its operators back as entities)
     let examplesText = "";
-    if (def.examples) {
-      try {
-        const d = useDelivery() as { body?: unknown };
-        examplesText = typeof d.body === "string" ? (def.examples(d.body) ?? "") : "";
-      } catch {
-        examplesText = "";
-      }
+    if (def.examples && !summarizing) {
+      const body = (delivered as { body?: unknown } | null)?.body;
+      examplesText = typeof body === "string" ? (def.examples(body) ?? "") : "";
     }
     // the desk seam (section 9.8): the closed union of typed parts, one data part named `part`, never a desk call
     // one named data part per kind, so a conversation's history keeps the last of each and the live stream sees every write
@@ -208,8 +216,8 @@ export function stationAgent(
 
     // a follow-up turn (section 7.7): the person spoke again after settle; the run starts over on the settled document
     useAgentStart((ctx) => {
-      // a run that settled, or one that ended by budget or loop, is over: the next message starts a follow-up
-      if (!settled && !machine.state.terminal) return;
+      // a run that settled, or one that ended by budget or loop, is over: the next message starts a follow-up; a summarize is no message
+      if (summarizing || (!settled && !machine.state.terminal)) return;
       const to = m.phases.follow_up ?? m.phases.initial;
       const ended = machine.state.terminal;
       machine.followUp(to);
@@ -472,6 +480,8 @@ export function stationAgent(
 
     // the budget's turns and tokens: one response is one turn, and its usage is the input
     useResponseFinish((ctx) => {
+      // a summarize's short answer is no turn of the run
+      if (summarizing) return undefined;
       const usage = (ctx as { response?: { usage?: { input?: number } } }).response?.usage;
       const reason = machine.turn(usage?.input ?? 0);
       commit();
@@ -480,7 +490,7 @@ export function stationAgent(
 
     // the finish hook refuses to settle until the checks passed: a run that ends without settle is sent back once, then ends by budget
     useAgentFinish(async (ctx) => {
-      if (settled || machine.state.terminal) return;
+      if (summarizing || settled || machine.state.terminal) return;
       const reason: TerminalReason | null = machine.budget();
       if (reason) {
         commit();

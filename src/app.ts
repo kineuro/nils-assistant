@@ -42,6 +42,7 @@ import {
   snapshotOf,
   topRole,
 } from "./host/shares.ts";
+import { SUMMARIZE_KEEP, SUMMARIZE_SIGNAL, summarizable, summarizeCompaction } from "./host/summarize.ts";
 import {
   corrections as correctionsOf,
   KvasirRefused,
@@ -577,6 +578,50 @@ app.post("/conversations/:id/title", async (ctx) => {
     }
   }
   return ctx.json(conversationView((title ? store.setModelTitle(row.id, title) : null) ?? row));
+});
+
+/**
+ * The owner summarizes a conversation's earlier turns now (the chat, slice 11). When there is enough of it to
+ * summarize and its turns have settled, the station is sent the summarize signal and the runtime's door answers,
+ * with the offset its stream continues from: the station answers in one line, and the runtime summarizes all but
+ * the latest turn. A conversation too short to summarize is refused before any model is asked.
+ */
+app.post("/conversations/:id/summarize", async (ctx) => {
+  const store = theLineage();
+  const row = store.conversation(ctx.req.param("id"));
+  if (!row) return ctx.json({ error: `no conversation ${ctx.req.param("id")}` }, 404);
+  const router = routers.get(row.station);
+  if (!router) return ctx.json({ error: `no station ${row.station}` }, 404);
+  const keep = row.context_window ? summarizeCompaction(row.context_window).keepRecentTokens : SUMMARIZE_KEEP;
+  const held = summarizable(await historyOf(row.station, row.id), keep);
+  if (!held.enough)
+    return ctx.json(
+      {
+        error:
+          held.since === "summary"
+            ? "too little has been said since the conversation was last summarized"
+            : "the conversation is still too short to summarize",
+      },
+      409,
+    );
+  const sql = sqlFor(c.store);
+  try {
+    await settledExtent(sql, row.station, row.id);
+  } catch (e) {
+    if (e instanceof ForkRefused)
+      return ctx.json(
+        { error: "a turn is still running; summarize the conversation once it has settled" },
+        409,
+      );
+    throw e;
+  } finally {
+    await sql.close();
+  }
+  return router.request(`/${encodeURIComponent(row.id)}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(SUMMARIZE_SIGNAL),
+  });
 });
 
 /** The first message of each version in a conversation's family that has been sent since it was made, read once from its stream (the chat, slice 4). */

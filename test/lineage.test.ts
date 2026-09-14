@@ -187,5 +187,13 @@ describe("a user turn from the desk", () => {
       body: "{}",
     });
     expect(missing.status).toBe(404);
+    // a turn is a person's message: a signal sent through the turns door never reaches the station (the chat, slice 11)
+    const signal = await app.request("/agents/ask-help/c9", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind: "signal", type: "summarize", body: "summarize" }),
+    });
+    expect(signal.status).toBe(400);
+    expect(seen).toHaveLength(1);
   });
 });

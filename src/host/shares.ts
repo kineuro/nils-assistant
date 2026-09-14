@@ -10,6 +10,7 @@
 // reaches, not the class of what a read returned.
 
 import { splitReasoning } from "./reasoning.ts";
+import { isSummarizeMark } from "./summarize.ts";
 
 /** The roles of the engine, from the least to the most they reach. */
 export const ROLES = ["reader", "reviewer", "operator", "admin"] as const;
@@ -98,6 +99,8 @@ interface HistoryMessage {
   id: string;
   role: string;
   display?: string;
+  /** A signal's tag, which the runtime keeps with it. */
+  signal?: { tagName?: string };
   parts?: HistoryPart[];
 }
 
@@ -108,9 +111,19 @@ export function snapshotOf(
 ): Snapshot {
   const decided = new Map(decisions.map((d) => [d.document, d.decided]));
   const messages: SnapshotMessage[] = [];
+  // where the person asked to summarize, and the one line that answered, are not part of what was said (the chat, slice 11)
+  let summarizing = false;
   for (const m of history.messages ?? []) {
+    if (isSummarizeMark(m)) {
+      summarizing = true;
+      continue;
+    }
     if (m.display && m.display !== "visible") continue;
     if (m.role !== "user" && m.role !== "assistant") continue;
+    if (summarizing) {
+      summarizing = false;
+      if (m.role === "assistant") continue;
+    }
     const parts = m.parts ?? [];
     // each step's words a paragraph apart, with any reasoning a model left inline read out (the chat, slice 9)
     const text = parts

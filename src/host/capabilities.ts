@@ -65,6 +65,7 @@ export function capabilities(
       "PUT /instructions",
       "GET /conversations/{id}/export",
       "POST /conversations/{id}/title",
+      "POST /conversations/{id}/summarize",
       "GET /agents/{station}/{id}",
       "POST /agents/{station}/{id}",
       "GET /conversations",
