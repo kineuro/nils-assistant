@@ -99,3 +99,16 @@ export async function nameConversation(
   if (!message) return null;
   return titleFromAnswer(await complete(TITLE_INSTRUCTIONS, message));
 }
+
+/** The words of a conversation's first message, from its history: what the model names it from; null before anyone wrote. */
+export function openingWords(history: {
+  messages?: { role: string; parts?: { type: string; text?: string }[] }[];
+}): string | null {
+  const first = (history.messages ?? []).find((m) => m.role === "user");
+  const words = (first?.parts ?? [])
+    .filter((p) => p.type === "text")
+    .map((p) => p.text ?? "")
+    .join("")
+    .trim();
+  return words || null;
+}

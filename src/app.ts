@@ -53,7 +53,7 @@ import {
   Teaching,
   TeachingStore,
 } from "./host/teaching.ts";
-import { kvasirTitles, nameConversation } from "./host/titles.ts";
+import { kvasirTitles, nameConversation, openingWords } from "./host/titles.ts";
 import { interceptTurn } from "./host/turns.ts";
 import { kvasirProvider, readCatalog } from "./providers/kvasir.ts";
 import { agentIds, delegationsOf, delegationView, registerAgent } from "./seam/delegations.ts";
@@ -559,15 +559,9 @@ app.post("/conversations/:id/title", async (ctx) => {
   const row = store.conversation(ctx.req.param("id"));
   if (!row) return ctx.json({ error: `no conversation ${ctx.req.param("id")}` }, 404);
   if (row.title_by !== "words" || !titles) return ctx.json(conversationView(row));
-  // the family's first message: a version's stream begins with the conversation it was copied from
+  // the words of the family's first message: a version's stream begins with the conversation it was copied from
   const root = store.conversation(row.fork_root ?? row.id) ?? row;
-  const sql = sqlFor(c.store);
-  let first: string | null = null;
-  try {
-    first = await firstUserMessage(sql, streamPath(root.station, root.id), 0);
-  } finally {
-    await sql.close();
-  }
+  const first = openingWords(await historyOf(root.station, root.id));
   let title: string | null = null;
   if (first) {
     try {

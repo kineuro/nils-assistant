@@ -5,7 +5,13 @@
 import { describe, expect, it } from "vitest";
 import { doorOf } from "../src/host/access.ts";
 import { type ConversationRow, Lineage } from "../src/host/lineage.ts";
-import { kvasirTitles, nameConversation, TITLE_INSTRUCTIONS, titleFromAnswer } from "../src/host/titles.ts";
+import {
+  kvasirTitles,
+  nameConversation,
+  openingWords,
+  TITLE_INSTRUCTIONS,
+  titleFromAnswer,
+} from "../src/host/titles.ts";
 
 describe("a conversation named by the model", () => {
   it("takes the first line of the model's answer, without a label, quotes or a closing stop, at most eight words", () => {
@@ -130,5 +136,23 @@ describe("a conversation named by the model", () => {
       id: words.id,
       opens: false,
     });
+  });
+  it("names a conversation from the words of its first message, never from its id", () => {
+    expect(
+      openingWords({
+        messages: [
+          { role: "assistant", parts: [{ type: "text", text: "Hello." }] },
+          {
+            role: "user",
+            parts: [
+              { type: "text", text: " Which cohorts? " },
+              { type: "text", text: "And sizes." },
+            ],
+          },
+        ],
+      }),
+    ).toBe("Which cohorts? And sizes.");
+    expect(openingWords({ messages: [] })).toBeNull();
+    expect(openingWords({})).toBeNull();
   });
 });
