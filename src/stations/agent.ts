@@ -28,6 +28,7 @@ import { renderContext } from "../seam/context.ts";
 import { feedbackOf, seamFor, subjectOfConversation, theLineage, theNotes, verdicts } from "../seam/for.ts";
 import { initialState, Machine, type RunState } from "./machine.ts";
 import type { Manifest, TerminalReason } from "./manifest.ts";
+import { type HeldMemory, heldFor } from "./memory.ts";
 import { preludeOf } from "./prelude.ts";
 import { toValibot } from "./schema.ts";
 import {
@@ -449,7 +450,8 @@ export function stationAgent(
       return w ? `\n\n${w}` : "";
     })();
     // memory across threads (section 9.9): the person's own index, five lines at most, and the group's structural corrections; read once per conversation and held, so the note this very run leaves at settle does not change the instructions under it (a change would cost a model turn)
-    const [heldMemory, setHeldMemory] = usePersistentState<string | null>("memory", null);
+    // the snapshot names whose it is: a conversation copied for someone else, as a share its reader continues, reads its own owner's memory (the chat, slice 5)
+    const [heldMemory, setHeldMemory] = usePersistentState<HeldMemory | string | null>("memory", null);
     const memoryNow = (): string => {
       const index = theNotes().index(subject);
       const corrections = theNotes().institutional(m.id);
@@ -463,9 +465,10 @@ export function stationAgent(
       );
     };
     // a render is a pure read: the text is held from the first delivery on, and read live until then
-    const memoryText = heldMemory ?? memoryNow();
+    const held = heldFor(heldMemory, subject);
+    const memoryText = held ?? memoryNow();
     useAgentStart(() => {
-      if (heldMemory === null) setHeldMemory(memoryText);
+      if (held === null) setHeldMemory({ owner: subject, text: memoryText });
     });
     // the instructions are the same on every render of every conversation of this person: the station's own text, the brief, the registry, the standing sentence; what varies (feedback, memory) comes last, so a runtime's prefix cache serves the rest
     return `${def.instructions}${def.briefInline ? `\n\n${def.brief}` : ""}${warm ? `\n\n${warm}` : ""}\n\nYou are the ${m.id} station of ${m.app}, at the ${m.ceiling} ceiling. The phases: ${m.phases.initial}${m.phases.transitions.map((t) => ` then ${t.to}`).join("")}. ${def.advance === false ? "A tool moves the run to its phase." : "Move with advance."} End with settle.${examplesText ? `\n\n${examplesText}` : ""}${whereText}${feedbackText}${memoryText}`;
