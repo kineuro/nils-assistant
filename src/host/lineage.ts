@@ -65,7 +65,7 @@ function tidy(title: string | null | undefined): string | null {
 
 /** The words recall passes over: the ones that carry no subject of their own. */
 const STOP = new Set(
-  "about after again ago all also and any are ask asked back been before but can chat chats conversation conversations could did discussed does each earlier every find for from had has have how into just last many much not one our past please previous remember said some talk talked tell than that the their them then there these they this title today told was week were what when where which who why will with would yesterday you your".split(
+  "about after again ago all also and any are ask asked back been before but can chat chats conversation conversations could did discussed does each earlier every find for from had has have how into just last many much not one our past per please previous remember said some talk talked tell than that the their them then there these they this title today told via was week were what when where which who why will with would yesterday you your".split(
     " ",
   ),
 );
