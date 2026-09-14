@@ -11,6 +11,7 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { guardMemory } from "./guard.ts";
+import { scoreOf, termsOf } from "./words.ts";
 
 export type NoteKind = "person" | "correction" | "study" | "reference";
 export const NOTE_KINDS: NoteKind[] = ["person", "correction", "study", "reference"];
@@ -41,6 +42,9 @@ export interface Instructions {
 /** The most one memory of a person's holds, and the most the install's instructions hold. */
 export const MEMORY_CHARS = 300;
 export const INSTRUCTION_CHARS = 4000;
+
+/** The most of what a person asked to keep a new conversation reads, in characters; beyond it, what is closest to its first message (the chat, slice 13). */
+export const MEMORY_BUDGET = 3_000;
 
 /** A memory or an instruction the store will not keep, with the status a door answers. */
 export class MemoryRefused extends Error {
@@ -176,6 +180,50 @@ export class Notes {
         "SELECT * FROM note WHERE subject = ? AND kind = 'person' ORDER BY COALESCE(edited_at, at) DESC, id DESC LIMIT ?",
       )
       .all(subject, limit) as unknown as Note[];
+  }
+
+  /** One of a person's own memories by its number, however many they keep (the chat, slice 13). */
+  ownMemory(subject: string, id: number): Note | null {
+    return (
+      (this.db
+        .prepare("SELECT * FROM note WHERE id = ? AND subject = ? AND kind = 'person'")
+        .get(id, subject) as unknown as Note | undefined) ?? null
+    );
+  }
+
+  /**
+   * What a new conversation reads of what a person asked to keep (the chat, slice 13): all of it while it fits in
+   * the budget, the latest first; beyond it, the memories closest to the conversation's first message, then the
+   * latest, as many as fit, and how many more are kept. A memory counts as the line the instructions give it.
+   */
+  memoriesFor(subject: string, first: string | null, budget = MEMORY_BUDGET): { read: Note[]; rest: number } {
+    const all = this.people(subject, 1000);
+    const size = (n: Note) => n.text.length + String(n.id).length + 6;
+    if (all.reduce((sum, n) => sum + size(n), 0) <= budget) return { read: all, rest: 0 };
+    const terms = first ? termsOf(first) : [];
+    const ranked = all
+      .map((n, i) => ({ n, i, score: terms.length > 0 ? scoreOf(terms, n.text) : 0 }))
+      .sort((a, b) => b.score - a.score || a.i - b.i);
+    const read: Note[] = [];
+    let used = 0;
+    for (const { n } of ranked) {
+      if (used + size(n) > budget) continue;
+      read.push(n);
+      used += size(n);
+    }
+    return { read, rest: all.length - read.length };
+  }
+
+  /** A person's memories holding the most of the words, the latest first among equals, at most eight (the chat, slice 13). */
+  recallMemory(subject: string, words: string, limit = 8): Note[] {
+    const terms = termsOf(words);
+    if (terms.length === 0) return [];
+    return this.people(subject, 1000)
+      .map((n, i) => ({ n, i, score: scoreOf(terms, n.text) }))
+      .filter((m) => m.score > 0)
+      .sort((a, b) => b.score - a.score || a.i - b.i)
+      .slice(0, limit)
+      .map((m) => m.n);
   }
 
   /** The notes a person's work left, one line each, the newest first, a staleness caveat on anything older than a day. */

@@ -4,7 +4,8 @@
 // then on. A conversation copied for someone else, as a share its reader continues, carries that
 // state with it, so the snapshot names whose it is and is used only for that person. A station
 // keeps a memory when the person asked it to, offers one when they did not, and forgets one by
-// its number (the chat, slice 6).
+// its number (the chat, slice 6). A conversation reads what fits of a person's memories, and finds
+// the others by their words (the chat, slice 13).
 
 import type { JsonValue } from "@flue/runtime";
 import { checkMemory, MemoryRefused, type Notes } from "../host/notes.ts";
@@ -60,8 +61,17 @@ export function forgetFor(
   subject: string,
   id: number,
 ): { output: JsonValue; part: MemoryPart | null } {
-  const n = notes.people(subject).find((x) => x.id === id);
+  // any of the person's memories, however many they keep, not only those the instructions show (the chat, slice 13)
+  const n = notes.ownMemory(subject, id);
   if (!n || !notes.removeOwn(subject, id))
     return { output: { refused: true, why: `no memory ${id} of this person's` }, part: null };
   return { output: { forgotten: true, id }, part: { kind: "memory", state: "forgotten", text: n.text, id } };
+}
+
+/** The recall_memory tool: the person's own memories holding the words, with their numbers; none while memory is paused (the chat, slice 13). */
+export function recallFor(notes: Notes, subject: string, words: string): JsonValue {
+  if (notes.paused(subject)) return { paused: true, memories: [] };
+  const found = notes.recallMemory(subject, words);
+  notes.touch(found.map((n) => n.id));
+  return { memories: found.map((n) => ({ id: n.id, text: n.text })) };
 }

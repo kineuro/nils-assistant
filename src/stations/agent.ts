@@ -30,7 +30,7 @@ import { renderContext } from "../seam/context.ts";
 import { feedbackOf, seamFor, subjectOfConversation, theLineage, theNotes, verdicts } from "../seam/for.ts";
 import { initialState, Machine, type RunState } from "./machine.ts";
 import type { Manifest, TerminalReason } from "./manifest.ts";
-import { forgetFor, type HeldMemory, heldFor, rememberFor } from "./memory.ts";
+import { forgetFor, type HeldMemory, heldFor, recallFor, rememberFor } from "./memory.ts";
 import { preludeOf } from "./prelude.ts";
 import { toValibot } from "./schema.ts";
 import {
@@ -323,12 +323,22 @@ export function stationAgent(
     useTool({
       name: "forget",
       description:
-        "Forget one thing this person asked you to keep, by the number your instructions give it, when they ask you to.",
+        "Forget one thing this person asked you to keep, by its number from your instructions or from recall_memory, when they ask you to.",
       input: v.object({ id: v.number() }),
       async run({ data }): Promise<{ output?: JsonValue }> {
         const outcome = forgetFor(theNotes(), subject, data.id);
         if (outcome.part) emit(outcome.part);
         return { output: outcome.output };
+      },
+    });
+    // the chat, slice 13: what the person asked to keep beyond what the instructions show, found by its words
+    useTool({
+      name: "recall_memory",
+      description:
+        "Find what this person asked you to keep beyond what your instructions show, by the words that name it, when they refer to something they asked you to keep. Returns at most eight with their numbers, those holding the most of the words first.",
+      input: v.object({ words: v.string() }),
+      async run({ data }): Promise<{ output?: JsonValue }> {
+        return { output: recallFor(theNotes(), subject, data.words) };
       },
     });
 
@@ -523,7 +533,13 @@ export function stationAgent(
       const notes = theNotes();
       const guide = notes.instructions();
       const paused = notes.paused(subject);
-      const kept = paused ? [] : notes.people(subject);
+      // the chat, slice 13: all of what the person asked to keep while it fits in 3,000 characters; beyond that, what is closest to this conversation's first message, and recall_memory for the rest
+      const first =
+        (delivered as { kind?: unknown } | null)?.kind === "user"
+          ? String((delivered as { body?: unknown }).body ?? "")
+          : null;
+      const chosen = paused ? { read: [], rest: 0 } : notes.memoriesFor(subject, first);
+      const kept = chosen.read;
       const work = paused ? [] : notes.work(subject);
       const corrections = notes.institutional(m.id);
       const text =
@@ -531,7 +547,7 @@ export function stationAgent(
           ? `\n\nThe install's instructions, from its admin (version ${guide.version}):\n${guide.text}`
           : "") +
         (kept.length
-          ? `\n\nWhat this person asked you to keep, theirs alone (forget one with forget and its number):${kept.map((n) => `\n- [${n.id}] ${n.text}`).join("")}`
+          ? `\n\nWhat this person asked you to keep, theirs alone (forget one with forget and its number):${kept.map((n) => `\n- [${n.id}] ${n.text}`).join("")}${chosen.rest > 0 ? `\n${chosen.rest} more ${chosen.rest === 1 ? "memory is" : "memories are"} kept and not shown here; find one with recall_memory when the person refers to something they asked you to keep.` : ""}`
           : "") +
         (work.length
           ? `\n\nNotes from this person's earlier work, newest first:${work.map((l) => `\n- ${l}`).join("")}`
