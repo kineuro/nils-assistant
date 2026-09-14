@@ -22,7 +22,7 @@ import {
 } from "@flue/runtime";
 import * as v from "valibot";
 import { MENTION_RULE } from "../host/mentions.ts";
-import { compactionFor, limitsOf } from "../host/models.ts";
+import { chosenModel, compactionFor, limitsOf } from "../host/models.ts";
 import { isSummarize, summarizeCompaction } from "../host/summarize.ts";
 import { providerId } from "../providers/kvasir.ts";
 import type { Seam } from "../seam/client.ts";
@@ -156,10 +156,12 @@ export function stationAgent(
     const summarizing = isSummarize(delivered);
     // the chat, slice 3: earlier turns are summarized before the window fills, by the model's own limits; asked to
     // summarize, this one submission summarizes all but the latest turn once its short answer is done (slice 11)
-    const limits = limitsOf(def.model);
+    // the model Kvasir lists: the one this station names, or Kvasir's first once it lists that one no more (record 23)
+    const model = chosenModel(def.model);
+    const limits = limitsOf(model);
     const compaction =
       summarizing && limits ? summarizeCompaction(limits.contextWindow) : compactionFor(limits);
-    useModel(`${providerId(m.id)}/${def.model}`, compaction ? { compaction } : undefined);
+    useModel(`${providerId(m.id)}/${model}`, compaction ? { compaction } : undefined);
     if (!def.briefInline) useSkill(skill);
     const [state, setState] = usePersistentState<RunState>("run", initialState(m));
     const [settled, setSettled] = usePersistentState<Settled | null>("settled", null);
@@ -418,7 +420,7 @@ export function stationAgent(
           station: m.id,
           terminal: "settled",
           brief_hash: m.brief.hash,
-          model: def.model,
+          model: chosenModel(def.model),
           budget_consumed: {
             turns: machine.state.turns,
             tool_calls: machine.state.tool_calls,
