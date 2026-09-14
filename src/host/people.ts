@@ -14,6 +14,8 @@ export interface Person {
   roles: string[];
   entitlements: string[];
   policy: PolicyRow[];
+  /** The name the engine gives the person, when it gives one (the chat, slice 5). */
+  display?: string | null;
 }
 
 /** The engine's capabilities read with a token, or with none when the engine serves with its authentication off; null when it refuses. */
@@ -55,6 +57,7 @@ export class People {
       roles,
       entitlements: Array.isArray(doc.entitlements) ? doc.entitlements.map(String) : roles,
       policy: Array.isArray(doc.policy) ? (doc.policy as PolicyRow[]) : [],
+      display: typeof doc.display === "string" && doc.display ? doc.display : null,
     };
     this.known.set(key, {
       person,

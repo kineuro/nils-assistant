@@ -20,6 +20,7 @@ import {
   incarnation,
   planFork,
   type Rec,
+  settledExtent,
   sqlFor,
   streamPath,
 } from "../src/host/fork.ts";
@@ -164,6 +165,26 @@ describe("a conversation continued from one of its messages", () => {
       await forkStream(sql, copy);
       expect(said(await history("c-c"), "user")).toEqual(["first", "second, said again"]);
       await expect(forkStream(sql, copy)).rejects.toThrow(/exists already/u);
+    } finally {
+      await sql.close();
+    }
+  }, 30_000);
+
+  it("copies a share's snapshot up to where it was taken, and the copy answers on its own", async () => {
+    const sql = sqlFor(file);
+    try {
+      const extent = await settledExtent(sql, "slow", "c-a");
+      await forkStream(sql, {
+        from: { agentName: "slow", instanceId: "c-a" },
+        to: { agentName: "slow", instanceId: "c-d" },
+        upTo: extent,
+      });
+      expect(said(await history("c-d"), "user")).toEqual(["first", "second"]);
+      const d = init(Slow, { id: "c-d" });
+      expect((await d.read(await d.dispatch("third"))).text).toBe("done");
+      expect(await settledExtent(sql, "slow", "c-d")).toBeGreaterThan(extent);
+      expect(said(await history("c-a"), "user")).toEqual(["first", "second"]);
+      await expect(settledExtent(sql, "slow", "c-none")).rejects.toThrow(/no turns/u);
     } finally {
       await sql.close();
     }

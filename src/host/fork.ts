@@ -231,6 +231,7 @@ export async function forkStream(
     from: { agentName: string; instanceId: string };
     to: { agentName: string; instanceId: string };
     before?: string;
+    upTo?: number;
   },
 ): Promise<Plan & { offset: number }> {
   const src = streamPath(o.from.agentName, o.from.instanceId);
@@ -242,7 +243,7 @@ export async function forkStream(
       throw new ForkRefused(409, `a conversation ${o.to.instanceId} exists already`);
     const tables = await s.tables();
     const chunked = tables.includes("flue_conversation_stream_batch_chunks");
-    const batches = await batchesOf(s, src, chunked);
+    const batches = (await batchesOf(s, src, chunked)).filter((b) => o.upTo === undefined || b.seq < o.upTo);
     const plan = planFork(batches, o.before);
     for (const b of batches.slice(0, plan.whole)) {
       await insert(s, "flue_conversation_stream_batches", { ...b.row, path: dst });
@@ -291,4 +292,18 @@ export async function firstUserMessage(sql: Sql, path: string, fromSeq: number):
     for (const r of b.records)
       if (r.type === "user_message" && typeof r.messageId === "string") return r.messageId;
   return null;
+}
+
+/** How many batches a conversation's stream holds, once every turn in it has settled: what a share's snapshot covers. */
+export async function settledExtent(sql: Sql, agentName: string, instanceId: string): Promise<number> {
+  const chunked = (await sql.tables()).includes("flue_conversation_stream_batch_chunks");
+  const batches = await batchesOf(sql, streamPath(agentName, instanceId), chunked);
+  if (batches.length === 0) throw new ForkRefused(409, "the conversation has no turns to share yet");
+  try {
+    return planFork(batches).whole;
+  } catch (e) {
+    if (e instanceof ForkRefused)
+      throw new ForkRefused(409, "a turn is still running; share the conversation once it has settled");
+    throw e;
+  }
 }
