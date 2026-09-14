@@ -4,7 +4,11 @@
 // pi-ai's own pi-messages adapter, with no compatibility flag. One provider
 // per station, because a provider's headers are fixed and a station names
 // its purpose in x-kvasir-purpose; the key is the app's minted key, the
-// machine path of §8.4, read from a file and never from a client.
+// machine path of §8.4, read from a file and never from a client. pi's model
+// registry merges a model's own headers into a call, never its provider's, so
+// the purpose is put into every call's options here, whichever way the call
+// reaches the provider; before, Kvasir filed every station's calls under the
+// key's first purpose.
 
 import { createProvider, type Model, type Provider } from "@earendil-works/pi-ai";
 import { stream, streamSimple } from "@earendil-works/pi-ai/api/pi-messages";
@@ -37,6 +41,16 @@ export function providerId(station: string): string {
   return `kvasir-${station}`;
 }
 
+/** A call's options with the station's purpose among their headers, the headers the call already has kept. */
+function withPurpose(options: unknown, purpose: string): never {
+  const o = (options ?? {}) as { headers?: unknown };
+  const had =
+    o.headers instanceof Headers
+      ? Object.fromEntries(o.headers.entries())
+      : ((o.headers as Record<string, string> | undefined) ?? {});
+  return { ...o, headers: { ...had, "x-kvasir-purpose": purpose } } as never;
+}
+
 export function kvasirProvider(opts: {
   station: string;
   purpose: string;
@@ -65,6 +79,11 @@ export function kvasirProvider(opts: {
       apiKey: { name: "the app's minted Kvasir key", resolve: async () => ({ auth: { apiKey: opts.key } }) },
     },
     models,
-    api: { stream, streamSimple },
+    api: {
+      stream: (model, context, options) =>
+        stream(model as never, context, withPurpose(options, opts.purpose)),
+      streamSimple: (model, context, options) =>
+        streamSimple(model as never, context, withPurpose(options, opts.purpose)),
+    },
   });
 }
