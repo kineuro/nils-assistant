@@ -133,8 +133,21 @@ export function snapshotOf(
           ]
         : [];
     });
-    if (m.role === "assistant" && !text && steps.length === 0 && proposals.length === 0) continue;
-    messages.push({ id: m.id, role: m.role, text, steps, proposals });
+    // a turn that wrote no words answered with the sentence it settled on, unless its proposals already say it (the chat, slice 7)
+    const settled = parts
+      .flatMap((p) => {
+        const d = p.data as { kind?: unknown; phase?: unknown; text?: unknown } | undefined;
+        return p.type.startsWith("data-") &&
+          d?.kind === "status" &&
+          d.phase === "finish" &&
+          typeof d.text === "string"
+          ? [d.text]
+          : [];
+      })
+      .at(-1);
+    const said = text || (m.role === "assistant" && proposals.length === 0 ? (settled ?? "") : "");
+    if (m.role === "assistant" && !said && steps.length === 0 && proposals.length === 0) continue;
+    messages.push({ id: m.id, role: m.role, text: said, steps, proposals });
   }
   return { v: 1, messages };
 }

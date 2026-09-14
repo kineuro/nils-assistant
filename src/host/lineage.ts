@@ -48,6 +48,8 @@ export interface ConversationRow {
   role_top: string | null;
   reach: string | null;
   reach_complete: number | null;
+  /** The chat, slice 7: the last answer the conversation settled on, one line, what recall searches beside the title. */
+  gist: string | null;
 }
 
 /** Whether a row written under an older key is this person's: their principal, the bare `sub` their token gave, or `anonymous` while the engine serves with its authentication off. */
@@ -59,6 +61,32 @@ function claims(subject: string, principal: string, authOff: boolean): boolean {
 function tidy(title: string | null | undefined): string | null {
   const t = (title ?? "").replace(/\s+/gu, " ").trim().slice(0, 120);
   return t === "" ? null : t;
+}
+
+/** The words recall passes over: the ones that carry no subject of their own. */
+const STOP = new Set(
+  "about after again ago all also and any are ask asked back been before but can chat chats conversation conversations could did discussed does each earlier every find for from had has have how into just last many much not one our past per please previous remember said some talk talked tell than that the their them then there these they this title today told via was week were what when where which who why will with would yesterday you your".split(
+    " ",
+  ),
+);
+
+/** Text as recall reads it: accents dropped, in words. */
+function wordsOf(text: string): string[] {
+  return text
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((w) => w !== "");
+}
+
+/** A word cut to its stem, so "cohorts" meets "cohort"; a cut that would leave fewer than three letters is not made. */
+function stem(word: string): string {
+  const s = word
+    .replace(/(?:ing|ed)$/u, "")
+    .replace(/(x|ch|sh|ss)es$/u, "$1")
+    .replace(/ies$/u, "y")
+    .replace(/([^s])s$/u, "$1");
+  return s.length >= 3 ? s : word;
 }
 
 export interface ProposalRow {
@@ -229,6 +257,7 @@ export class Lineage {
       ["role_top", "TEXT"],
       ["reach", "TEXT"],
       ["reach_complete", "INTEGER"],
+      ["gist", "TEXT"],
     ])
       if (!have.has(name)) this.db.exec(`ALTER TABLE conversation ADD COLUMN ${name} ${type}`);
     this.db.exec("CREATE INDEX IF NOT EXISTS conversation_owner ON conversation (owner, updated_at)");
@@ -728,6 +757,55 @@ export class Lineage {
     return this.db
       .prepare("SELECT * FROM share_read WHERE share = ? ORDER BY last_at DESC")
       .all(share) as unknown as ReadRow[];
+  }
+
+  /** The last answer a conversation settled on, in one line of at most 240 characters. */
+  noteGist(id: string, sentence: string): void {
+    const gist = sentence.replace(/\s+/gu, " ").trim().slice(0, 240);
+    if (gist) this.db.prepare("UPDATE conversation SET gist = ? WHERE id = ?").run(gist, id);
+  }
+
+  /**
+   * A person's own conversations by the words of their titles and of the answer each settled on (the chat,
+   * slice 7). The words that carry meaning are matched as whole words by their stems, so "cohorts" finds
+   * "cohort" and "men" never finds "women"; two letters count when they name something, as MS or T1 do. The
+   * conversations holding the most of those words come first, then the latest. It reads the person's latest
+   * thousand conversations, each conversation's versions once and the deleted never.
+   */
+  recall(owner: string, words: string, o: { except?: string; limit?: number } = {}): ConversationRow[] {
+    const terms = [
+      ...new Set(
+        wordsOf(words)
+          .filter((w) => {
+            const l = w.toLowerCase();
+            if (STOP.has(l)) return false;
+            return l.length > 2 || (l.length === 2 && (/\p{N}/u.test(w) || w === w.toUpperCase()));
+          })
+          .map((w) => stem(w.toLowerCase())),
+      ),
+    ].slice(0, 8);
+    if (terms.length === 0) return [];
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM conversation WHERE owner = ? AND deleted_at IS NULL AND id != ?
+          AND NOT EXISTS (SELECT 1 FROM conversation o WHERE COALESCE(o.fork_root, o.id) = COALESCE(conversation.fork_root, conversation.id)
+            AND o.id != conversation.id AND o.deleted_at IS NULL
+            AND (COALESCE(o.updated_at, o.created_at) > COALESCE(conversation.updated_at, conversation.created_at)
+              OR (COALESCE(o.updated_at, o.created_at) = COALESCE(conversation.updated_at, conversation.created_at) AND o.created_at < conversation.created_at)))
+          ORDER BY COALESCE(updated_at, created_at) DESC, rowid DESC LIMIT 1000`,
+      )
+      .all(owner, o.except ?? "") as unknown as ConversationRow[];
+    const limit = Math.min(Math.max(Math.trunc(o.limit ?? 8), 1), 20);
+    return rows
+      .map((row) => {
+        const held = wordsOf(`${row.title ?? ""} ${row.gist ?? ""}`).map((w) => w.toLowerCase());
+        const score = terms.filter((t) => held.some((w) => w.startsWith(t) || stem(w).startsWith(t))).length;
+        return { row, score };
+      })
+      .filter((m) => m.score > 0)
+      .sort((x, y) => y.score - x.score)
+      .slice(0, limit)
+      .map((m) => m.row);
   }
 
   /** The runtime summarized the conversation's earlier turns. */

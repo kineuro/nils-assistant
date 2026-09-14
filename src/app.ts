@@ -13,6 +13,7 @@ import { config } from "./config.ts";
 import { guard, personIn } from "./host/access.ts";
 import { capabilities } from "./host/capabilities.ts";
 import { type Observe, watchContext } from "./host/context.ts";
+import { markdownOf } from "./host/export.ts";
 import {
   ForkRefused,
   firstUserMessage,
@@ -600,6 +601,21 @@ app.post("/conversations/:id/fork", async (ctx) => {
   } finally {
     await sql.close();
   }
+});
+
+/** The owner's conversation as a markdown file (the chat, slice 7): what was said, the steps and the versions proposed, never a tool's input or output. */
+app.get("/conversations/:id/export", async (ctx) => {
+  const store = theLineage();
+  const row = store.conversation(ctx.req.param("id"));
+  if (!row) return ctx.json({ error: `no conversation ${ctx.req.param("id")}` }, 404);
+  const snapshot = snapshotOf(await historyOf(row.station, row.id), store.proposals(row.id));
+  const markdown = markdownOf({
+    title: row.title,
+    station: row.station,
+    at: new Date().toISOString(),
+    snapshot,
+  });
+  return ctx.body(markdown, 200, { "content-type": "text/markdown; charset=utf-8" });
 });
 
 /** The owner renames, pins, unpins, archives or restores a conversation. */

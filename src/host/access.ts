@@ -27,7 +27,9 @@ function decode(s: string): string {
 export function doorOf(method: string, path: string): Door {
   const agent = /^\/agents\/[^/]+\/([^/]+)(\/.*)?$/u.exec(path);
   if (agent) return { kind: "conversation", id: decode(agent[1]), opens: method === "POST" && !agent[2] };
-  const part = /^\/conversations\/([^/]+)\/(token|feedback|delegations|ratings|fork|share)$/u.exec(path);
+  const part = /^\/conversations\/([^/]+)\/(token|feedback|delegations|ratings|fork|share|export)$/u.exec(
+    path,
+  );
   // the desk pushes a person's fresh token in the body, with no header: that token names the person
   if (part && part[2] === "token" && method === "POST")
     return { kind: "conversation", id: decode(part[1]), opens: true, tokenInBody: true };

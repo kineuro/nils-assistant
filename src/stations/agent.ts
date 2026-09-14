@@ -278,6 +278,27 @@ export function stationAgent(
       });
     }
 
+    // recall (the chat, slice 7): the person's own earlier conversations, by the words of their titles and of the answer each settled, never their messages
+    useTool({
+      name: "search_conversations",
+      description:
+        "Find this person's own earlier conversations by words in their titles and in the answer each ended with, when they refer to something they asked before. Pass the words that name the subject, such as a cohort, a measure or a kind of series. Returns at most eight, those holding the most of the words first; it never reads a conversation's messages.",
+      input: v.object({ words: v.string() }),
+      async run({ data }): Promise<{ output?: JsonValue }> {
+        const found = theLineage().recall(subject, data.words, { except: id });
+        return {
+          output: {
+            conversations: found.map((c) => ({
+              title: c.title,
+              answered: c.gist,
+              station: c.station,
+              last_used: new Date(c.updated_at ?? c.created_at).toISOString().slice(0, 10),
+            })),
+          } as JsonValue,
+        };
+      },
+    });
+
     // memory the person keeps (the chat, slice 6): kept when they ask, offered when it would help later, never a person's data
     useTool({
       name: "remember",
@@ -410,6 +431,8 @@ export function stationAgent(
         commit();
         setSettled({ verdict });
         verdicts.set(id, verdict);
+        // what recall finds this conversation by, beside its title (the chat, slice 7)
+        theLineage().noteGist(id, data.sentence);
         // a study note for the person's later threads: the document and the sentence, never a row
         if (typeof result.document === "number" && !theNotes().paused(subject))
           theNotes().add({
