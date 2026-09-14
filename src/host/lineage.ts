@@ -26,7 +26,8 @@ export interface ConversationRow {
   /** The chat, slice 1: the person's principal, null on a row written before owners were kept. */
   owner: string | null;
   title: string | null;
-  title_by: "model" | "person" | null;
+  /** Who named it: the person, the model, or the first words of its first message until the model names it (the chat, slice 10). */
+  title_by: "model" | "person" | "words" | null;
   updated_at: number | null;
   pinned_at: number | null;
   archived_at: number | null;
@@ -309,6 +310,8 @@ export class Lineage {
     station: string;
     owner: string;
     title?: string | null;
+    /** "words" when the title is the start of the first message, for the model to replace (the chat, slice 10). */
+    titleBy?: "words";
     lineage?: number | null;
     document?: number | null;
   }): ConversationRow {
@@ -328,7 +331,7 @@ export class Lineage {
         now,
         o.owner,
         title,
-        title === null ? null : "person",
+        title === null ? null : o.titleBy === "words" ? "words" : "person",
         now,
       );
     this.db.prepare("UPDATE conversation SET reach_complete = 1 WHERE id = ?").run(id);
@@ -397,6 +400,23 @@ export class Lineage {
         `SELECT * FROM conversation WHERE ${where.join(" AND ")} ORDER BY pinned_at IS NULL, COALESCE(updated_at, created_at) DESC, id LIMIT ?`,
       )
       .all(...params, limit) as unknown as ConversationRow[];
+  }
+
+  /**
+   * The model's name for a conversation still named by the first words of its first message (the chat, slice 10),
+   * every version alike. A name the person gave, and one the model gave before, stay.
+   */
+  setModelTitle(id: string, title: string): ConversationRow | null {
+    const family = this.familyOf(id);
+    if (family === null) return null;
+    const named = tidy(title);
+    if (named !== null)
+      this.db
+        .prepare(
+          "UPDATE conversation SET title = ?, title_by = 'model' WHERE COALESCE(fork_root, id) = ? AND title_by = 'words'",
+        )
+        .run(named, family);
+    return this.conversation(id);
   }
 
   /** What a person changes about their conversation: its title, whether it is pinned, whether it is archived, every version of it alike; and which version it opens on. */
