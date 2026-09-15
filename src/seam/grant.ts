@@ -16,7 +16,7 @@ export interface Cap {
 
 export type Grant = Record<string, Cap>;
 
-/** The verbs no station may hold: writes the engine governs by a person (§9.6). */
+/** The verbs no station may hold: writes the engine governs by a person (§9.6), and the linkage doors that carry identifiers (record 26). */
 export const FORBIDDEN = [
   "review/{id}/apply",
   "review/{id}/accept",
@@ -28,6 +28,10 @@ export const FORBIDDEN = [
   "handovers",
   "sessions/rebuild",
   "values",
+  "linkage/imports",
+  "linkage/held/reveal",
+  "linkage/held/code",
+  "linkage/merge",
 ] as const;
 
 /** The operation an engine path names, in the grant's vocabulary. */
@@ -42,9 +46,10 @@ export function operationOf(method: string, path: string): string {
     .split("/")
     .map((seg) => (/^\d+$/u.test(seg) ? "{id}" : seg))
     .join("/");
-  // the catalog's level and the sampler's field are path parameters too
+  // the catalog's level, the sampler's field and a pack's name are path parameters too
   const m = /^catalog\/([^/]+)(\/([^/]+)\/values)?$/u.exec(named);
   if (m) return m[2] ? "catalog/{level}/{field}/values" : "catalog/{level}";
+  if (/^packs\/[^/]+$/u.test(named)) return "packs/{name}";
   return method.toUpperCase() === "GET" && named === "capabilities" ? "capabilities" : named;
 }
 

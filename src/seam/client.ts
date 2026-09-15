@@ -128,7 +128,7 @@ export class Seam {
 
   async call(c: Call): Promise<Answer> {
     const started = this.now();
-    const path = admitPath(c.path);
+    const path = admitPath(c.path, c.method);
     if (!path.ok) {
       const operation = operationOf(c.method, c.path);
       this.record(

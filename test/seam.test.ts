@@ -92,6 +92,8 @@ describe("the grant", () => {
     expect(operationOf("GET", "/api/ask/handles/77/rows?page=1")).toBe("handles/{id}/rows");
     expect(operationOf("POST", "/api/ask/apply")).toBe("apply");
     expect(operationOf("POST", "/api/review/12/apply")).toBe("review/{id}/apply");
+    expect(operationOf("GET", "/api/packs/mri")).toBe("packs/{name}");
+    expect(operationOf("GET", "/api/linkage/held?place=scanner-a")).toBe("linkage/held");
     for (const f of FORBIDDEN) expect(() => new GrantKeeper({ [f]: {} })).toThrow(/a person's/u);
     // a follow-up turn starts the counts over
     const again = new GrantKeeper({ describe: { calls: 1 } });
