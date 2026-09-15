@@ -11,7 +11,7 @@ import { instrument, observe, setProvider } from "@flue/runtime";
 import { createAgentRouter } from "@flue/runtime/routing";
 import { Hono } from "hono";
 import { config } from "./config.ts";
-import { guard, personIn } from "./host/access.ts";
+import { guard, personIn, scopeOf } from "./host/access.ts";
 import { capabilities } from "./host/capabilities.ts";
 import { type Observe, watchContext } from "./host/context.ts";
 import { markdownOf } from "./host/export.ts";
@@ -231,7 +231,7 @@ const teaching = new Teaching({
   threshold: (of) => Math.ceil(of * c.benchThreshold),
 });
 
-// who a person is and every role they hold, read from the engine's capabilities: this seam's ceiling is the highest, so an admin is named an admin (the chat, slice 6)
+// who a person is, what they may open and how much of a record they see, read from the engine's capabilities: this seam's ceiling is the highest, so nothing a person holds is narrowed (the chat, slice 6; record 25)
 registerStation({
   id: "people",
   version: c.version,
@@ -1121,7 +1121,7 @@ app.delete("/memory", (ctx) => {
   return ctx.json({ deleted: theNotes().deleteSubject(who.principal) });
 });
 
-/** The install's instructions and their versions: every person reads them, and an admin writes the next version. */
+/** The install's instructions and their versions: every person reads them, and a person holding assistant-settings:work, which the guard checks, writes the next version. */
 app.get("/instructions", (ctx) => {
   const who = personIn(ctx.req.raw);
   if (!who) return ctx.json({ error: "no person" }, 401);
@@ -1140,8 +1140,6 @@ app.get("/instructions", (ctx) => {
 app.put("/instructions", async (ctx) => {
   const who = personIn(ctx.req.raw);
   if (!who) return ctx.json({ error: "no person" }, 401);
-  if (!who.roles.includes("admin"))
-    return ctx.json({ error: "the install's instructions are written by an admin" }, 403);
   const body = (await ctx.req.json().catch(() => ({}))) as { text?: unknown };
   try {
     return ctx.json({
@@ -1159,11 +1157,9 @@ app.get("/notes/institutional", (ctx) =>
   ctx.json({ corrections: theNotes().institutional(ctx.req.query("station") || undefined) }),
 );
 app.post("/notes/institutional", async (ctx) => {
-  // accepted by a named person: the one the token names, holding the reviewer role (the chat, slice 1)
+  // accepted by a named person: the one the token names, holding review:work, which the guard checks (the chat, slice 1; record 25)
   const who = personIn(ctx.req.raw);
   if (!who) return ctx.json({ error: "no person" }, 401);
-  if (!who.roles.some((r) => r === "reviewer" || r === "operator" || r === "admin"))
-    return ctx.json({ error: "an institutional correction is accepted by a reviewer" }, 403);
   const body = (await ctx.req.json().catch(() => ({}))) as {
     station?: string;
     axis?: string;
@@ -1188,24 +1184,34 @@ app.get("/ledger/:id", (ctx) => ctx.json({ rows: theLedger().rows(ctx.req.param(
 
 // the ladder (Wave 5 section 9.1): a person's standing grants, per verb, revocable, never beyond the person
 
-/** The person a request comes from, by the token the desk sent with it; and their roles, read from the engine with that token. */
-async function personOf(ctx: {
-  req: { header: (k: string) => string | undefined };
-}): Promise<{ subject: string; roles: string[]; entitlements: string[]; policy: PolicyRow[] } | null> {
+/** The person a request comes from, by the token the desk sent with it; and what they may open, read from the engine with that token. */
+async function personOf(ctx: { req: { header: (k: string) => string | undefined } }): Promise<{
+  subject: string;
+  grants: readonly string[];
+  roles: string[];
+  entitlements: string[];
+  policy: PolicyRow[];
+} | null> {
   const p = await people.of(bearerOf(ctx));
   if (!p) return null;
   adopt(p);
   assistRun.set(p.principal, p.entitlements.includes("assist-run"));
-  return { subject: p.principal, roles: p.roles, entitlements: p.entitlements, policy: p.policy };
+  return {
+    subject: p.principal,
+    grants: p.grants,
+    roles: p.roles,
+    entitlements: p.entitlements,
+    policy: p.policy,
+  };
 }
 
+// everyone's standing grants and plans are reached with assistant-settings:work, and a person's own without it (record 25)
 app.get("/grants", async (ctx) => {
   const who = await personOf(ctx);
   if (!who) return ctx.json({ error: "no token" }, 401);
-  const all = who.roles.includes("admin") && ctx.req.query("all") === "1";
   return ctx.json({
     subject: who.subject,
-    grants: ladder.grants(all ? null : who.subject).map((g) => ({
+    grants: ladder.grants(scopeOf(who.subject, who.grants, ctx.req.query("all") === "1")).map((g) => ({
       id: g.id,
       subject: g.subject,
       door: g.door,
@@ -1244,7 +1250,7 @@ app.post("/grants", async (ctx) => {
 app.delete("/grants/:id", async (ctx) => {
   const who = await personOf(ctx);
   if (!who) return ctx.json({ error: "no token" }, 401);
-  const g = ladder.revoke(Number(ctx.req.param("id")), who.roles.includes("admin") ? null : who.subject);
+  const g = ladder.revoke(Number(ctx.req.param("id")), scopeOf(who.subject, who.grants));
   return g
     ? ctx.json({
         id: g.id,
@@ -1259,8 +1265,8 @@ app.get("/plans/:id", async (ctx) => {
   const who = await personOf(ctx);
   if (!who) return ctx.json({ error: "no token" }, 401);
   const p = ladder.planById(ctx.req.param("id"));
-  if (!p || (p.subject !== who.subject && !who.roles.includes("admin")))
-    return ctx.json({ error: "no such plan of yours" }, 404);
+  const scope = scopeOf(who.subject, who.grants);
+  if (!p || (scope !== null && p.subject !== scope)) return ctx.json({ error: "no such plan of yours" }, 404);
   return ctx.json({ ...p, steps: ladder.steps(p.id) });
 });
 
@@ -1356,11 +1362,10 @@ app.get("/teaching/sets", async (ctx) => {
   });
 });
 
+// curating a set needs review:work, and a fine-tune and the gates need kvasir:work, which the guard checks (record 25)
 app.post("/teaching/sets", async (ctx) => {
   const who = await personOf(ctx);
   if (!who) return ctx.json({ error: "no token" }, 401);
-  if (!opens(who.roles, "reviewer"))
-    return ctx.json({ error: "curating a set asks for the reviewer role" }, 403);
   const body = (await ctx.req.json().catch(() => ({}))) as { name?: unknown; corrections?: unknown };
   const name = typeof body.name === "string" && body.name.trim() ? body.name.trim() : "";
   const ids = Array.isArray(body.corrections)
@@ -1379,8 +1384,6 @@ app.post("/teaching/sets", async (ctx) => {
 app.post("/teaching/sets/:id/fine-tune", async (ctx) => {
   const who = await personOf(ctx);
   if (!who) return ctx.json({ error: "no token" }, 401);
-  if (!opens(who.roles, "operator"))
-    return ctx.json({ error: "a fine-tune asks for the operator role" }, 403);
   const set = teachingStore.set(Number(ctx.req.param("id")));
   if (!set) return ctx.json({ error: "no such set" }, 404);
   const body = (await ctx.req.json().catch(() => ({}))) as { recipe?: unknown };
@@ -1403,7 +1406,6 @@ app.get("/teaching/candidates", async (ctx) => {
 app.post("/teaching/candidates/:id/:verb", async (ctx) => {
   const who = await personOf(ctx);
   if (!who) return ctx.json({ error: "no token" }, 401);
-  if (!opens(who.roles, "operator")) return ctx.json({ error: "the gates ask for the operator role" }, 403);
   const kv = kvasirLifecycle(c.kvasir, bearerOf(ctx));
   const id = Number(ctx.req.param("id"));
   const verb = ctx.req.param("verb");

@@ -136,6 +136,7 @@ describe("the install's instructions", () => {
     expect(doorOf("POST", "/memory")).toEqual({ kind: "person" });
     expect(doorOf("PATCH", "/memory/12")).toEqual({ kind: "person" });
     expect(doorOf("PUT", "/memory/pause")).toEqual({ kind: "person" });
-    expect(doorOf("PUT", "/instructions")).toEqual({ kind: "person" });
+    expect(doorOf("GET", "/instructions")).toEqual({ kind: "person" });
+    expect(doorOf("PUT", "/instructions")).toEqual({ kind: "person", needs: "assistant-settings:work" });
   });
 });
