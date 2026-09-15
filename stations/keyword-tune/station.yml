@@ -1,5 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# keyword-tune (Wave 4c section 9.13), as contracts/suite/v1/station.schema.json fixes a manifest.
+# keyword-tune (Wave 4c section 9.13, record 26), as contracts/suite/v1/station.schema.json fixes a manifest.
+# The desk's headless runner (POST /assistant/stations/keyword-tune/runs) sends one message naming the
+# scope, `scope: batch:<id>` (or origin:<name>, pack:<version>), and may add `list: <axis>.<value>` or a
+# bucket's name, and `term: <word>` in the person's words; the run tunes one list of either kind.
 id: keyword-tune
 app: nils-assistant
 purpose: assistant.keyword-tune
@@ -10,6 +13,8 @@ grant:
     calls: 6
   classify/try:
     calls: 6
+  packs/{name}:
+    calls: 3
   review:
     calls: 4
   review/{id}:
@@ -20,22 +25,33 @@ grant:
     calls: 2
 brief:
   path: SKILL.md
-  hash: 9328763075e82bdc3b95fcb5510005d8f2202553c2ec8f686e22a4d92046607d
+  hash: 12e275434c8521f28c74d8f62dfbc2d3eb6d18481b9a27d6c41ef561de5b662a
 result:
   type: object
   required:
   - axis
-  - bucket
+  - list
   - sentence
   - diff
   properties:
     axis:
       type: string
-    bucket:
+    list:
       type: string
+      description: the list the change touches, as the overlay names it, a bucket's name or axis.value
+    bucket:
+      type:
+      - string
+      - "null"
+      description: the bucket the pack names, when the change is to a bucket
+    value:
+      type:
+      - string
+      - "null"
+      description: the axis value whose word list changes, when the change is to a value's list
     overlay:
       type: object
-      description: the overlay document rehearsed, one bucket of one pack
+      description: the overlay document rehearsed, one list of one pack, under buckets or under lists as axis.value
     prediction:
       type: object
       description: the hypothesis as written before the rehearsal
