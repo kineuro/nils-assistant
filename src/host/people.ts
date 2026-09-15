@@ -1,17 +1,22 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Who a request comes from (the chat, slice 1). The engine names a person by
-// their principal, `sub@node`, and says their roles; the host asks it once
-// per token and keeps the answer for five minutes, or until the token
-// expires. Every store keys a person by that principal, so the notes, the
-// conversations and the plans a person makes in the chat are the same
-// person's as their grants and their inbox.
+// their principal, `sub@node`, and says what they may open and how much of a
+// record they see (record 25); the host asks it once per token and keeps the
+// answer for five minutes, or until the token expires. Every store keys a
+// person by that principal, so the notes, the conversations and the plans a
+// person makes in the chat are the same person's as their grants and their
+// inbox.
 
 import { createHash } from "node:crypto";
+import { type Access, accessOfNames, type Detail, detailOf, EVERYTHING, grantsOf } from "./grants.ts";
 import type { PolicyRow } from "./ladder.ts";
 
 export interface Person {
   principal: string;
-  roles: string[];
+  /** What the person may open, a work grant with its see (record 25). */
+  grants: readonly string[];
+  /** How much of a record the person sees. */
+  detail: Detail;
   entitlements: string[];
   policy: PolicyRow[];
   /** The name the engine gives the person, when it gives one (the chat, slice 5). */
@@ -34,6 +39,18 @@ function expiresAt(token: string | null): number | null {
   }
 }
 
+/**
+ * What the engine's capabilities say a person may open and see: its grants and detail as they are; from an
+ * older engine that sends neither, its roles and entitlements, a ladder name standing for its set and `assist`
+ * for the assistant; and everything where the engine serves with its authentication off.
+ */
+export function accessIn(doc: Record<string, unknown>): Access {
+  if (doc.auth === "off") return EVERYTHING;
+  if (Array.isArray(doc.grants) || typeof doc.detail === "string")
+    return { grants: grantsOf(doc.grants), detail: detailOf(doc.detail) };
+  return accessOfNames([doc.roles, doc.entitlements].flatMap((l) => (Array.isArray(l) ? l.map(String) : [])));
+}
+
 export class People {
   private readonly known = new Map<string, { person: Person; until: number }>();
 
@@ -51,11 +68,17 @@ export class People {
     this.known.delete(key);
     const doc = await this.read(token);
     if (!doc || typeof doc.principal !== "string" || !doc.principal) return null;
-    const roles = Array.isArray(doc.roles) ? doc.roles.map(String) : [];
+    const { grants, detail } = accessIn(doc);
     const person: Person = {
       principal: doc.principal,
-      roles,
-      entitlements: Array.isArray(doc.entitlements) ? doc.entitlements.map(String) : roles,
+      grants,
+      detail,
+      entitlements: (Array.isArray(doc.entitlements)
+        ? doc.entitlements
+        : Array.isArray(doc.roles)
+          ? doc.roles
+          : []
+      ).map(String),
       policy: Array.isArray(doc.policy) ? (doc.policy as PolicyRow[]) : [],
       display: typeof doc.display === "string" && doc.display ? doc.display : null,
     };

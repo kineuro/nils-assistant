@@ -7,8 +7,10 @@
 
 import { describe, expect, it } from "vitest";
 import { doorOf } from "../src/host/access.ts";
+import { type Detail, SETS } from "../src/host/grants.ts";
 import { Lineage } from "../src/host/lineage.ts";
 import {
+  detailFor,
   guards,
   maxRole,
   mayRead,
@@ -16,19 +18,20 @@ import {
   principalFor,
   type Snapshot,
   snapshotOf,
-  topRole,
+  stepOf,
 } from "../src/host/shares.ts";
 
 describe("the most a conversation could read", () => {
-  it("is the lower of the person's highest role and the station's ceiling, kept at its highest", () => {
-    expect(topRole(["reader", "operator", "assist"])).toBe("operator");
-    expect(topRole(["assist"])).toBeNull();
+  it("is the lower of the step of the person's detail and the station's ceiling, kept at its highest", () => {
+    expect(stepOf("plain")).toBe("reader");
+    expect(stepOf("quasi")).toBe("reviewer");
+    expect(stepOf("sensitive")).toBe("operator");
     expect(minRole("operator", "reviewer")).toBe("reviewer");
     expect(maxRole("reader", "reviewer")).toBe("reviewer");
     const store = new Lineage(":memory:");
     const c = store.create({ station: "concierge", owner: "anna@desk" });
     expect(store.conversation(c.id)).toMatchObject({ reach: null, reach_complete: 1 });
-    store.noteReach(c.id, "operator", "reader");
+    store.noteReach(c.id, stepOf("sensitive"), "reader");
     expect(store.conversation(c.id)?.reach).toBe("reader");
     // a delegate with a higher ceiling raises it, and a later turn with a lower one does not lower it
     store.noteReach(c.id, "operator", "reviewer");
@@ -41,9 +44,17 @@ describe("the most a conversation could read", () => {
     expect(guards("reader")).toBeNull();
     expect(guards("reviewer")?.class).toBe("quasi_identifying");
     expect(guards("admin")?.class).toBe("sensitive");
-    expect(mayRead(["reader", "reviewer"], "reviewer")).toBe(true);
-    expect(mayRead(["reader", "assist"], "reviewer")).toBe(false);
-    expect(mayRead([], "reader")).toBe(false);
+    // a viewer reads a share while they hold the assistant and their detail reaches it
+    const viewer = (detail: Detail, grants: readonly string[] = ["assistant:use"]) => ({ grants, detail });
+    expect(mayRead(viewer("quasi"), "reviewer")).toBe(true);
+    expect(mayRead(viewer("plain"), "reviewer")).toBe(false);
+    expect(mayRead(viewer("plain"), "reader")).toBe(true);
+    // a reach kept as admin asks what operator does
+    expect(detailFor("admin")).toBe("sensitive");
+    expect(mayRead(viewer("sensitive"), "admin")).toBe(true);
+    // detail without the assistant reads nothing: the admin set holds no assistant:use
+    expect(mayRead(SETS.admin, "reader")).toBe(false);
+    expect(mayRead(viewer("sensitive", []), "reader")).toBe(false);
     expect(principalFor("bo", "anna@desk.example:7200")).toBe("bo@desk.example:7200");
   });
 });

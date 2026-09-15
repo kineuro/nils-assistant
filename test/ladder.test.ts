@@ -11,7 +11,8 @@ import { createServer, type IncomingMessage, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { ladderOf, opens, planFrom, restate, rungOf, VERBS, whenOf } from "../src/host/ladder.ts";
+import { SETS } from "../src/host/grants.ts";
+import { ladderOf, needOf, opens, planFrom, restate, rungOf, VERBS, whenOf } from "../src/host/ladder.ts";
 import { LadderStore } from "../src/host/ladder-store.ts";
 import { inboxOf, Scheduler } from "../src/host/scheduler.ts";
 import { Seam } from "../src/seam/client.ts";
@@ -21,26 +22,63 @@ import { loadManifests } from "../src/stations/manifest.ts";
 import { operatorChecks, useLadderStore } from "../src/stations/operator.ts";
 import type { Verdict } from "../src/stations/verdict.ts";
 
+/** The policy as an engine names each door's grant (record 25); the job door names the grants of its verbs, any of which opens it. */
 const POLICY = [
-  { door: "GET /api/jobs", role: "reader", writes: false, idempotent: false, cost: "bounded" },
-  { door: "POST /api/jobs", role: "operator", writes: true, idempotent: false, cost: "job" },
-  { door: "POST /api/ask/jobs", role: "reader", writes: true, idempotent: true, cost: "job" },
-  { door: "POST /api/ask/run", role: "reader", writes: true, idempotent: true, cost: "bounded" },
-  { door: "POST /api/ask/apply", role: "reader", writes: true, idempotent: true, cost: "free" },
-  { door: "POST /api/sessions/rebuild", role: "operator", writes: true, idempotent: false, cost: "job" },
-  { door: "POST /api/overlays/{id}/adopt", role: "operator", writes: true, idempotent: false, cost: "job" },
-  { door: "POST /api/releases", role: "operator", writes: true, idempotent: false, cost: "job" },
-  { door: "POST /api/handovers", role: "operator", writes: true, idempotent: false, cost: "job" },
+  { door: "GET /api/jobs", grant: "pipelines:see", writes: false, idempotent: false, cost: "bounded" },
+  {
+    door: "POST /api/jobs",
+    grant: ["data:work", "pipelines:work", "release:work", "database:work"],
+    writes: true,
+    idempotent: false,
+    cost: "job",
+  },
+  { door: "POST /api/ask/jobs", grant: "query:work", writes: true, idempotent: true, cost: "job" },
+  { door: "POST /api/ask/run", grant: "query:see", writes: true, idempotent: true, cost: "bounded" },
+  { door: "POST /api/ask/apply", grant: "query:see", writes: true, idempotent: true, cost: "free" },
+  {
+    door: "POST /api/sessions/rebuild",
+    grant: "pipelines:work",
+    writes: true,
+    idempotent: false,
+    cost: "job",
+  },
+  {
+    door: "POST /api/overlays/{id}/adopt",
+    grant: "review:work",
+    writes: true,
+    idempotent: false,
+    cost: "job",
+  },
+  { door: "POST /api/releases", grant: "release:work", writes: true, idempotent: false, cost: "job" },
+  { door: "POST /api/handovers", grant: "release:work", writes: true, idempotent: false, cost: "job" },
   {
     door: "POST /api/ask/handles/{id}/promote",
-    role: "operator",
+    grant: "release:work",
     writes: true,
     idempotent: true,
     cost: "job",
   },
-  { door: "POST /api/review/{id}/accept", role: "reviewer", writes: true, idempotent: true, cost: "free" },
-  { door: "POST /api/ask/draft", role: "reader", writes: true, idempotent: false, cost: "bounded" },
-  { door: "PUT /api/ask/selections/{name}", role: "reviewer", writes: true, idempotent: false, cost: "free" },
+  {
+    door: "POST /api/review/{id}/accept",
+    grant: "review:work",
+    writes: true,
+    idempotent: true,
+    cost: "free",
+  },
+  { door: "POST /api/ask/draft", grant: "query:see", writes: true, idempotent: false, cost: "bounded" },
+  {
+    door: "PUT /api/ask/selections/{name}",
+    grant: "query:work",
+    writes: true,
+    idempotent: false,
+    cost: "free",
+  },
+];
+
+/** An older engine's policy, which names a ladder step for each door. */
+const OLDER = [
+  { door: "POST /api/jobs", role: "operator", writes: true, idempotent: false, cost: "job" },
+  { door: "POST /api/ask/jobs", role: "reader", writes: true, idempotent: true, cost: "job" },
 ];
 
 function body(req: IncomingMessage): Promise<string> {
@@ -72,7 +110,8 @@ async function stubEngine() {
       return json(200, {
         auth: "off",
         principal: "anna@lab",
-        roles: ["reader", "reviewer", "operator"],
+        grants: ["assistant:use", "data:work", "pipelines:work", "query:work"],
+        detail: "sensitive",
         policy: POLICY,
       });
     if (url.startsWith("/api/batches"))
@@ -172,14 +211,54 @@ describe("the rungs", () => {
     expect(
       rungOf({
         door: "POST /api/models/x/promote",
-        role: "admin",
+        grant: "kvasir:work",
         writes: true,
         idempotent: true,
         cost: "job",
       }),
     ).toBe(3);
-    expect(opens(["reviewer"], "reader")).toBe(true);
-    expect(opens(["reviewer"], "operator")).toBe(false);
+    expect(ladderOf(POLICY).find((r) => r.door === "POST /api/ask/jobs")).toEqual({
+      door: "POST /api/ask/jobs",
+      rung: 2,
+      grant: "query:work",
+      also: null,
+      role: null,
+    });
+  });
+
+  it("a standing grant is given for a door whose grant the person holds, and an older engine's step asks for its whole set", () => {
+    const find = <T extends { door: string }>(rows: T[], door: string): T => {
+      const found = rows.find((r) => r.door === door);
+      if (!found) throw new Error(`no row for ${door}`);
+      return found;
+    };
+    const row = (door: string) => find(POLICY, door);
+    // one grant, a work grant holding its see
+    expect(opens(["query:work"], row("POST /api/ask/jobs"))).toBe(true);
+    expect(opens(["query:see"], row("POST /api/ask/jobs"))).toBe(false);
+    expect(opens(["query:work"], row("POST /api/ask/run"))).toBe(true);
+    expect(needOf(row("POST /api/sessions/rebuild"))).toBe("pipelines:work");
+    // the job door names the grants of its verbs, any of which opens it; the engine checks the verb's own when it queues
+    expect(opens(["pipelines:work"], row("POST /api/jobs"))).toBe(true);
+    expect(opens(SETS.reviewer.grants, row("POST /api/jobs"))).toBe(false);
+    expect(needOf(row("POST /api/jobs"))).toBe(
+      "one of data:work, pipelines:work, release:work, database:work",
+    );
+    // an older engine names a step, whose set is held whole
+    const older = (door: string) => find(OLDER, door);
+    expect(opens(SETS.operator.grants, older("POST /api/jobs"))).toBe(true);
+    expect(opens(SETS.reviewer.grants, older("POST /api/jobs"))).toBe(false);
+    expect(opens(SETS.reader.grants, older("POST /api/ask/jobs"))).toBe(true);
+    expect(opens(["query:work"], older("POST /api/ask/jobs"))).toBe(false);
+    expect(needOf(older("POST /api/jobs"))).toBe("the grants of the operator step");
+    // a door that needs two grants at once names the second beside the first, and opens only with both
+    const both = { grant: "review:work", also: "data:work" };
+    expect(opens(["review:work"], both)).toBe(false);
+    expect(opens(["review:work", "data:work"], both)).toBe(true);
+    expect(needOf(both)).toBe("review:work and data:work");
+    // a row that names neither opens nothing
+    expect(opens([...SETS.admin.grants, "assistant:use"], { grant: [] })).toBe(false);
+    expect(opens([...SETS.admin.grants, "assistant:use"], {})).toBe(false);
   });
 
   it("a standing grant may name a session rebuild; a manifest grant may not; neither may name a decision", () => {

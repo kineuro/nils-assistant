@@ -5,22 +5,34 @@
 // conversation opened before owners were kept is claimed by the person its
 // subject named; a person's list keeps the pinned first and the deleted out;
 // notes and plans written under the bare sub become the principal's; and the
-// decisions of a conversation outlive the process that heard them.
+// decisions of a conversation outlive the process that heard them. Record 25:
+// a person holds the grants the engine gives, every door for a person needs
+// the assistant's grant, and a door that writes for everyone or reaches
+// Kvasir's models needs its own.
 
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
-import { doorOf, guard, personIn } from "../src/host/access.ts";
+import { doorOf, guard, personIn, scopeOf } from "../src/host/access.ts";
+import { EVERYTHING, SETS } from "../src/host/grants.ts";
 import { LadderStore } from "../src/host/ladder-store.ts";
 import { Lineage } from "../src/host/lineage.ts";
 import { Notes } from "../src/host/notes.ts";
 import { bareOf, People, type Person } from "../src/host/people.ts";
 
-function engine(names: Record<string, string>) {
+/** A stub engine naming a person per token; a person holds the assistant unless the test says what they hold. */
+function engine(names: Record<string, string>, held: Record<string, string[]> = {}) {
   const calls: (string | null)[] = [];
   const read = async (token: string | null) => {
     calls.push(token);
     const principal = token ? names[token] : undefined;
-    return principal ? { principal, roles: ["reader"], policy: [] } : null;
+    return principal
+      ? {
+          principal,
+          grants: held[token as string] ?? ["assistant:use", "query:work"],
+          detail: "plain",
+          policy: [],
+        }
+      : null;
   };
   return { calls, read };
 }
@@ -31,7 +43,7 @@ describe("a person", () => {
     const e = engine({ "t-anna": "anna@lab" });
     const people = new People(e.read, () => now);
     expect((await people.of("t-anna"))?.principal).toBe("anna@lab");
-    expect((await people.of("t-anna"))?.roles).toEqual(["reader"]);
+    expect((await people.of("t-anna"))?.grants).toEqual(["assistant:use", "query:see", "query:work"]);
     expect(await people.of("t-unknown")).toBeNull();
     expect(e.calls).toEqual(["t-anna", "t-unknown"]);
     now += 5 * 60_000 + 1;
@@ -48,6 +60,36 @@ describe("a person", () => {
     expect(e2.calls).toHaveLength(2);
     expect(bareOf("anna@lab")).toBe("anna");
     expect(bareOf("anna@lab@node")).toBe("anna@lab");
+  });
+
+  it("holds the grants and detail the engine gives, or an older engine's roles and entitlements as their sets", async () => {
+    const of = (doc: Record<string, unknown>) =>
+      new People(async () => ({ principal: "anna@lab", ...doc })).of("t-anna");
+    // grants and detail as the engine says them, a work grant with its see; its roles are not read beside them
+    expect(
+      await of({
+        grants: ["assistant:use", "review:work", "coffee:work"],
+        detail: "quasi",
+        roles: ["admin"],
+      }),
+    ).toMatchObject({ grants: ["assistant:use", "review:see", "review:work"], detail: "quasi" });
+    expect(await of({ detail: "sensitive" })).toMatchObject({ grants: [], detail: "sensitive" });
+    expect(await of({ grants: ["query:see"], detail: "everything" })).toMatchObject({ detail: "plain" });
+    // an engine that sends neither: each ladder name stands for its set, and assist for the assistant
+    expect(await of({ roles: ["reader", "reviewer"], entitlements: ["reviewer", "assist"] })).toMatchObject({
+      grants: [...SETS.reviewer.grants, "assistant:use"].sort(),
+      detail: "quasi",
+    });
+    expect(await of({ roles: ["reader", "reviewer", "operator", "admin"] })).toMatchObject({
+      grants: SETS.admin.grants,
+      detail: "sensitive",
+    });
+    expect(await of({ roles: [] })).toMatchObject({ grants: [], detail: "plain" });
+    // an engine serving with its authentication off gives everything
+    expect(await of({ auth: "off", roles: ["reader"] })).toMatchObject({
+      grants: EVERYTHING.grants,
+      detail: "sensitive",
+    });
   });
 
   it("is asked for by the doors that name a conversation, and only by them", () => {
@@ -72,9 +114,114 @@ describe("a person", () => {
     expect(doorOf("GET", "/conversations")).toEqual({ kind: "person" });
     expect(doorOf("POST", "/stations/ask-help/runs")).toEqual({ kind: "person" });
     expect(doorOf("GET", "/runs/run-1/verdict")).toEqual({ kind: "person" });
-    expect(doorOf("POST", "/notes/institutional")).toEqual({ kind: "person" });
+    expect(doorOf("POST", "/notes/institutional")).toEqual({ kind: "person", needs: "review:work" });
     expect(doorOf("GET", "/notes/institutional")).toEqual({ kind: "open" });
     expect(doorOf("GET", "/capabilities")).toEqual({ kind: "open" });
+  });
+});
+
+describe("a door that needs a grant", () => {
+  it("names it in the door table: the install's instructions, what a station is taught, and Kvasir's models", () => {
+    expect(doorOf("PUT", "/instructions")).toEqual({ kind: "person", needs: "assistant-settings:work" });
+    expect(doorOf("GET", "/instructions")).toEqual({ kind: "person" });
+    expect(doorOf("POST", "/teaching/sets")).toEqual({ kind: "person", needs: "review:work" });
+    for (const path of [
+      "/teaching/sets/3/fine-tune",
+      "/teaching/candidates/4/admit",
+      "/teaching/candidates/4/bench",
+      "/teaching/candidates/4/promote",
+    ])
+      expect(doorOf("POST", path), path).toEqual({ kind: "person", needs: "kvasir:work" });
+    // the ladder's and teaching's other doors are a person's, and need the assistant's grant alone
+    for (const [method, path] of [
+      ["GET", "/teaching/corrections"],
+      ["GET", "/teaching/sets"],
+      ["GET", "/teaching/candidates"],
+      ["GET", "/grants"],
+      ["POST", "/grants"],
+      ["DELETE", "/grants/2"],
+      ["GET", "/plans/p1"],
+      ["POST", "/plans/p1/confirm"],
+      ["POST", "/plans/p1/proposals/2/decide"],
+      ["GET", "/inbox"],
+    ])
+      expect(doorOf(method, path), `${method} ${path}`).toEqual({ kind: "person" });
+  });
+
+  it("is refused with a 403 naming the grant, and every door for a person needs the assistant's", async () => {
+    const people = new People(
+      engine(
+        { "t-anna": "anna@lab", "t-ben": "ben@lab", "t-cy": "cy@lab", "t-dag": "dag@lab" },
+        {
+          "t-anna": [...EVERYTHING.grants],
+          "t-ben": ["assistant:use"],
+          "t-cy": ["query:work"],
+          "t-dag": ["assistant:use", "review:work", "kvasir:work"],
+        },
+      ).read,
+    );
+    const store = new Lineage(":memory:");
+    store.open({ id: "c-cy", station: "ask-help", subject: "cy@lab", owner: "cy@lab" });
+    const app = new Hono();
+    app.use("*", guard({ people, lineage: () => store, authOff: () => false }));
+    app.all("*", (c) => c.json({ ok: true }));
+    const call = (token: string | null, method: string, path: string) =>
+      app.request(path, { method, headers: token ? { authorization: `Bearer ${token}` } : {} });
+    const doors: [string, string, string | null][] = [
+      ["PUT", "/instructions", "assistant-settings:work"],
+      ["POST", "/notes/institutional", "review:work"],
+      ["POST", "/teaching/sets", "review:work"],
+      ["POST", "/teaching/sets/3/fine-tune", "kvasir:work"],
+      ["POST", "/teaching/candidates/4/promote", "kvasir:work"],
+      ["GET", "/instructions", null],
+      ["GET", "/memory", null],
+      ["GET", "/grants", null],
+      ["GET", "/shares/s-1", null],
+    ];
+    for (const [method, path, needs] of doors) {
+      const at = `${method} ${path}`;
+      expect((await call("t-anna", method, path)).status, at).toBe(200);
+      expect((await call("t-cy", method, path)).status, at).toBe(403);
+      expect((await call("t-ben", method, path)).status, at).toBe(needs ? 403 : 200);
+      expect((await call("t-dag", method, path)).status, at).toBe(
+        needs === "assistant-settings:work" ? 403 : 200,
+      );
+    }
+    expect(await (await call("t-ben", "POST", "/notes/institutional")).json()).toEqual({
+      error: "no grant: this needs review:work",
+    });
+    // a conversation of one's own is refused too without the assistant's grant
+    const own = await call("t-cy", "GET", "/agents/ask-help/c-cy");
+    expect(own.status).toBe(403);
+    expect(await own.json()).toEqual({ error: "no grant: this needs assistant:use" });
+    // open doors stay open, with no token at all
+    expect((await call(null, "GET", "/capabilities")).status).toBe(200);
+    expect((await call(null, "GET", "/notes/institutional")).status).toBe(200);
+  });
+
+  it("reaches everyone's standing grants and plans with the settings grant, and a person's own without it", () => {
+    expect(scopeOf("anna@lab", SETS.admin.grants)).toBeNull();
+    expect(scopeOf("anna@lab", SETS.admin.grants, false)).toBe("anna@lab");
+    expect(scopeOf("bo@lab", SETS.operator.grants)).toBe("bo@lab");
+    const ladder = new LadderStore(":memory:");
+    const g = ladder.grant("anna@lab", "POST /api/jobs");
+    ladder.plan({
+      id: "p-anna",
+      conversation: "c-anna",
+      subject: "anna@lab",
+      instruction: "digest it",
+      planned: { steps: [], proposals: [], refused: [] },
+    });
+    // an operator lists and revokes their own grants alone, and reads their own plans alone
+    const bo = scopeOf("bo@lab", SETS.operator.grants);
+    expect(ladder.grants(bo)).toEqual([]);
+    expect(ladder.revoke(g.id, bo)).toBeNull();
+    expect(ladder.planById("p-anna")?.subject === bo).toBe(false);
+    // one holding assistant-settings:work reaches everyone's
+    const cy = scopeOf("cy@lab", ["assistant:use", "assistant-settings:work"]);
+    expect(cy).toBeNull();
+    expect(ladder.grants(cy).map((r) => r.id)).toEqual([g.id]);
+    expect(ladder.revoke(g.id, cy)?.revoked_at).not.toBeNull();
   });
 });
 

@@ -10,9 +10,16 @@
 // names map to doors here, so the operator station never has to know a
 // rung: the host reads it from the policy.
 
+import { holds, SETS } from "./grants.ts";
+
 export interface PolicyRow {
   door: string;
-  role: string;
+  /** The grant the door needs (record 25): one, or several of which any opens it. */
+  grant?: string | string[];
+  /** The second grant a door needs beside the first, where it needs two at once. */
+  also?: string;
+  /** An older engine's ladder step, which stands for its set. */
+  role?: string;
   writes: boolean;
   idempotent: boolean;
   cost: "free" | "bounded" | "job" | "stream" | string;
@@ -42,17 +49,45 @@ export function rungOf(row: PolicyRow): Rung {
   return 3;
 }
 
-/** Every door of a policy with its rung. */
-export function ladderOf(policy: PolicyRow[]): { door: string; rung: Rung; role: string }[] {
-  return policy.map((r) => ({ door: r.door, rung: rungOf(r), role: r.role }));
+/** Every door of a policy with its rung, and the grants it needs as the engine names them. */
+export function ladderOf(policy: PolicyRow[]): {
+  door: string;
+  rung: Rung;
+  grant: string | string[] | null;
+  also: string | null;
+  role: string | null;
+}[] {
+  return policy.map((r) => ({
+    door: r.door,
+    rung: rungOf(r),
+    grant: r.grant ?? null,
+    also: r.also ?? null,
+    role: r.role ?? null,
+  }));
 }
 
-export const LADDER: readonly string[] = ["reader", "reviewer", "operator", "admin"];
+/**
+ * Whether a person's grants open a door, so a standing grant for it never exceeds the person (record 25): the
+ * grant its policy row names, or any of several, and the second grant beside it where the row names one. An
+ * older engine's row names a ladder step instead, whose whole set is needed. A row that names neither opens
+ * nothing.
+ */
+export function opens(grants: readonly string[], row: Pick<PolicyRow, "grant" | "also" | "role">): boolean {
+  if (typeof row.also === "string" && !holds(grants, row.also)) return false;
+  if (typeof row.grant === "string") return holds(grants, row.grant);
+  if (Array.isArray(row.grant)) return row.grant.some((g) => holds(grants, g));
+  if (typeof row.role !== "string" || !Object.hasOwn(SETS, row.role)) return false;
+  return SETS[row.role as keyof typeof SETS].grants.every((g) => holds(grants, g));
+}
 
-/** Whether a person's roles open a door's role: the ladder implies the ones below. */
-export function opens(roles: string[], role: string): boolean {
-  const need = LADDER.indexOf(role);
-  return roles.some((r) => LADDER.indexOf(r) >= need);
+/** What a door's policy row needs, in words. */
+export function needOf(row: Pick<PolicyRow, "grant" | "also" | "role">): string {
+  const also = typeof row.also === "string" && row.also ? ` and ${row.also}` : "";
+  if (typeof row.grant === "string") return `${row.grant}${also}`;
+  if (Array.isArray(row.grant) && row.grant.length > 0)
+    return `${row.grant.length === 1 ? row.grant[0] : `one of ${row.grant.join(", ")}`}${also}`;
+  if (typeof row.role === "string" && row.role) return `the grants of the ${row.role} step`;
+  return "a grant the engine does not name";
 }
 
 /** The verbs a plan may name (section 9.3), each mapped to the engine door it calls; the rung comes from the policy, never from here. */

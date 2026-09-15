@@ -1,18 +1,19 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Sharing a conversation (the chat, slice 5). A share holds a snapshot of the
 // words and the cards' references, never a tool's input or output, so what a
-// viewer sees of the data is read again under their own roles when they open
+// viewer sees of the data is read again under their own grants when they open
 // a card. The words may still quote what the tools read, so a share also
-// holds the most the conversation could have read: the highest role any of
-// its turns ran with, the lower of the person's highest role and the
-// station's ceiling. A viewer whose roles do not reach it is refused, with
-// the class named. It is an upper bound: the engine states the class a scope
-// reaches, not the class of what a read returned.
+// holds the most the conversation could have read: the highest step any of
+// its turns ran with, the lower of the step of the person's detail and the
+// station's ceiling (record 25). A viewer whose detail does not reach it is
+// refused, with the class named. It is an upper bound: the engine states the
+// class a scope reaches, not the class of what a read returned.
 
+import { type Detail, holds, reaches } from "./grants.ts";
 import { splitReasoning } from "./reasoning.ts";
 import { isSummarizeMark } from "./summarize.ts";
 
-/** The roles of the engine, from the least to the most they reach. */
+/** The ladder's steps, from the least to the most they reach, as a station's ceiling and a kept reach name them. */
 export const ROLES = ["reader", "reviewer", "operator", "admin"] as const;
 export type Role = (typeof ROLES)[number];
 
@@ -22,14 +23,14 @@ export function asRole(r: unknown): Role | null {
   return typeof r === "string" && (ROLES as readonly string[]).includes(r) ? (r as Role) : null;
 }
 
-/** A person's highest role; null when they hold none. */
-export function topRole(roles: readonly string[]): Role | null {
-  let best: Role | null = null;
-  for (const r of roles) {
-    const role = asRole(r);
-    if (role && (best === null || rank(role) > rank(best))) best = role;
-  }
-  return best;
+/** The step a person's detail reads as beside a ceiling: plain as reader, quasi as reviewer, sensitive as operator. */
+export function stepOf(detail: Detail): Role {
+  return detail === "sensitive" ? "operator" : detail === "quasi" ? "reviewer" : "reader";
+}
+
+/** The detail a reach asks of whoever reads it; a reach kept as admin asks what operator does. */
+export function detailFor(reach: Role): Detail {
+  return reach === "reader" ? "plain" : reach === "reviewer" ? "quasi" : "sensitive";
 }
 
 export function minRole(a: Role, b: Role): Role {
@@ -40,10 +41,9 @@ export function maxRole(a: Role, b: Role): Role {
   return rank(a) >= rank(b) ? a : b;
 }
 
-/** Whether a person's roles reach what a conversation could have read. */
-export function mayRead(roles: readonly string[], reach: Role): boolean {
-  const top = topRole(roles);
-  return top !== null && rank(top) >= rank(reach);
+/** Whether a person may read what a conversation could have read: they hold the assistant, and their detail reaches it. */
+export function mayRead(who: { grants: readonly string[]; detail: Detail }, reach: Role): boolean {
+  return holds(who.grants, "assistant:use") && reaches(who.detail, detailFor(reach));
 }
 
 /** The class a share guards, in the engine's name and in words; none for what every reader reaches. */
