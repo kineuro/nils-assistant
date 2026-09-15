@@ -12,6 +12,7 @@ import type { JsonValue } from "@flue/runtime";
 import * as v from "valibot";
 import { type PolicyRow, planFrom, restate, rungOf, VERBS } from "../host/ladder.ts";
 import type { LadderStore } from "../host/ladder-store.ts";
+import { accessIn } from "../host/people.ts";
 import type { Answer, Seam } from "../seam/client.ts";
 import { toolResult } from "../seam/client.ts";
 import { subjectOfConversation } from "../seam/for.ts";
@@ -24,12 +25,22 @@ export function useLadderStore(f: () => LadderStore): void {
   store = f;
 }
 
-/** The engine's policy, read through the seam once per run. */
-async function policyOf(seam: Seam, toolCallId: string, phase: string): Promise<PolicyRow[]> {
+/** The engine's policy and the person's grants, read through the seam once per run: a step the grants do not open is refused at planning (record 26). */
+async function policyOf(
+  seam: Seam,
+  toolCallId: string,
+  phase: string,
+): Promise<{ policy: PolicyRow[]; grants: readonly string[] | undefined }> {
   const a = await seam.call({ method: "GET", path: "/api/capabilities", toolCallId, phase });
-  if (a.kind !== "ok") return [];
-  const rows = (a.body as { policy?: unknown }).policy;
-  return Array.isArray(rows) ? (rows as PolicyRow[]) : [];
+  if (a.kind !== "ok") return { policy: [], grants: undefined };
+  const body = a.body as Record<string, unknown>;
+  const rows = body.policy;
+  // an engine that names no grants, roles or auth leaves the person unknown, and the plan refuses nothing for them
+  const known = body.auth === "off" || Array.isArray(body.grants) || Array.isArray(body.roles);
+  return {
+    policy: Array.isArray(rows) ? (rows as PolicyRow[]) : [],
+    grants: known ? accessIn(body).grants : undefined,
+  };
 }
 
 export function operatorTools(): StationTool[] {
@@ -90,7 +101,7 @@ export function operatorTools(): StationTool[] {
       phases: ["read", "plan"],
       completes: "steps",
       async run(args, ctx) {
-        const policy = await policyOf(ctx.seam, ctx.toolCallId, ctx.state.phase);
+        const { policy, grants } = await policyOf(ctx.seam, ctx.toolCallId, ctx.state.phase);
         if (policy.length === 0)
           return {
             output: {
@@ -98,7 +109,7 @@ export function operatorTools(): StationTool[] {
               why: "the engine's policy could not be read; no plan without it",
             } as JsonValue,
           };
-        const planned = planFrom(args.steps, policy);
+        const planned = planFrom(args.steps, policy, grants);
         if (planned.refused.length > 0 && planned.steps.length + planned.proposals.length === 0)
           return {
             output: { refused: true, why: planned.refused.map((r) => r.why).join("; ") } as JsonValue,

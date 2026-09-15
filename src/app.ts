@@ -25,7 +25,7 @@ import {
   streamPath,
 } from "./host/fork.ts";
 import { holds } from "./host/grants.ts";
-import { ladderOf, needOf, opens, type PolicyRow, rungOf } from "./host/ladder.ts";
+import { exceeds, ladderOf, opens, type PolicyRow, rungOf } from "./host/ladder.ts";
 import { LadderStore } from "./host/ladder-store.ts";
 import type { ConversationRow, ShareRow } from "./host/lineage.ts";
 import { chosenModel, modelList, setModels } from "./host/models.ts";
@@ -1223,11 +1223,7 @@ app.post("/grants", async (ctx) => {
   if (!row) return ctx.json({ error: `${door || "(none)"} is not a door the engine serves` }, 404);
   if (rungOf(row) !== 2)
     return ctx.json({ error: `${door} is rung ${rungOf(row)}; a standing grant is for rung two only` }, 409);
-  if (!opens(who.grants, row))
-    return ctx.json(
-      { error: `${door} needs ${needOf(row)}, which you do not hold; a grant never exceeds the person` },
-      403,
-    );
+  if (!opens(who.grants, row)) return ctx.json({ error: exceeds(door, row) }, 403);
   if (c.requireAssistRun && !who.entitlements.includes("assist-run"))
     return ctx.json({ error: "rung two is closed here without the assist-run entitlement (C49)" }, 403);
   const g = ladder.grant(who.subject, door);
