@@ -24,6 +24,7 @@ import {
   sqlFor,
   streamPath,
 } from "./host/fork.ts";
+import { holds } from "./host/grants.ts";
 import { ladderOf, opens, type PolicyRow, rungOf } from "./host/ladder.ts";
 import { LadderStore } from "./host/ladder-store.ts";
 import type { ConversationRow, ShareRow } from "./host/lineage.ts";
@@ -41,7 +42,7 @@ import {
   principalFor,
   type Role,
   snapshotOf,
-  topRole,
+  stepOf,
 } from "./host/shares.ts";
 import { SUMMARIZE_KEEP, SUMMARIZE_SIGNAL, summarizable, summarizeCompaction } from "./host/summarize.ts";
 import {
@@ -774,10 +775,10 @@ app.delete("/conversations/:id", (ctx) => {
   return ctx.json({ deleted: id });
 });
 
-/** The most a conversation could read, after each turn a person sends: the lower of their highest role and the station's ceiling (the chat, slice 5). */
+/** The most a conversation could read, after each turn a person sends: the lower of the step of their detail and the station's ceiling (the chat, slice 5; record 25). */
 function noteTurn(conversation: string, station: string, req: Request): void {
   const who = personIn(req);
-  theLineage().noteReach(conversation, who ? topRole(who.roles) : null, ceilingOf(station));
+  theLineage().noteReach(conversation, who ? stepOf(who.detail) : null, ceilingOf(station));
 }
 
 /** A station's ceiling; a station the host does not list counts as the highest a seam reaches. */
@@ -843,7 +844,7 @@ app.get("/conversations/:id/share", (ctx) => {
 /**
  * The owner shares a conversation, or brings its share up to the latest turn: with people named on the desk, or
  * with everyone on it. The share holds a snapshot of the words and the cards' references, never a tool's input
- * or output, and the most the conversation could have read, which a viewer's roles must reach.
+ * or output, and the most the conversation could have read, which a viewer's detail must reach.
  */
 app.put("/conversations/:id/share", async (ctx) => {
   const who = personIn(ctx.req.raw);
@@ -880,9 +881,7 @@ app.put("/conversations/:id/share", async (ctx) => {
     return ctx.json({ error: "there is nothing to share yet; ask something first" }, 409);
   // a conversation from before the most it could read was kept counts as reaching as far as its owner and any station could
   const known = asRole(row.reach) ?? "reader";
-  const reach = row.reach_complete
-    ? known
-    : maxRole(known, minRole(topRole(who.roles) ?? "operator", highestCeiling()));
+  const reach = row.reach_complete ? known : maxRole(known, minRole(stepOf(who.detail), highestCeiling()));
   const s = store.putShare({
     conversation: row.id,
     owner: who.principal,
@@ -913,18 +912,18 @@ app.get("/shares", (ctx) => {
   });
 });
 
-/** What others share with the person, the latest first; one whose class their roles do not reach says so. */
+/** What others share with the person, the latest first; one whose class their detail does not reach says so. */
 app.get("/shared", (ctx) => {
   const who = personIn(ctx.req.raw);
   if (!who) return ctx.json({ error: "no person" }, 401);
   return ctx.json({
     shared: theLineage()
       .sharedWith(who.principal)
-      .map((s) => ({ ...shareView(s, false), readable: mayRead(who.roles, asRole(s.reach) ?? "operator") })),
+      .map((s) => ({ ...shareView(s, false), readable: mayRead(who, asRole(s.reach) ?? "operator") })),
   });
 });
 
-/** Why a person may not read a share: outside its audience as if it did not exist, and with the class when their roles do not reach it. */
+/** Why a person may not read a share: outside its audience as if it did not exist, without the assistant's grant, and with the class when their detail does not reach it (record 25). */
 function refusal(
   s: ShareRow | null,
   who: Person,
@@ -933,20 +932,20 @@ function refusal(
   if (s.owner === who.principal) return null;
   if (!theLineage().inAudience(s, who.principal)) return { status: 404, body: { error: "no share" } };
   const reach = asRole(s.reach) ?? "operator";
-  if (mayRead(who.roles, reach)) return null;
-  const g = guards(reach);
+  if (mayRead(who, reach)) return null;
+  const g = holds(who.grants, "assistant:use") ? guards(reach) : null;
   return {
     status: 403,
     body: {
       error: g
-        ? `This conversation may have read ${g.words}, which your roles do not reach.`
-        : "Your roles do not reach what this conversation read.",
+        ? `This conversation may have read ${g.words}, which you do not see.`
+        : "no grant: reading a share needs assistant:use",
       class: g?.class ?? null,
     },
   };
 }
 
-/** A share as its audience reads it: the snapshot, whose cards open under the reader's own roles. A viewer's read is recorded. */
+/** A share as its audience reads it: the snapshot, whose cards open under the reader's own grants. A viewer's read is recorded. */
 app.get("/shares/:share", (ctx) => {
   const who = personIn(ctx.req.raw);
   if (!who) return ctx.json({ error: "no person" }, 401);

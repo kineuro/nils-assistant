@@ -94,7 +94,7 @@ export function delegate(o: {
   const parentRow = store?.conversation(o.parent) ?? null;
   if (store && parentRow) {
     store.open({ id: child, station: o.station, subject: parentRow.subject, owner: parentRow.owner });
-    // the delegate reads with the parent's token up to its own ceiling: the most both could read (the chat, slice 5)
+    // the delegate reads with the parent's token up to its own ceiling: the lower of the step of the person's detail and that ceiling (the chat, slice 5; record 25)
     const ceiling = stationList().find((s) => s.id === o.station)?.ceiling ?? "operator";
     store.noteReach(child, parentRow.role_top, ceiling);
     store.noteReach(o.parent, parentRow.role_top, ceiling);

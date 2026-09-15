@@ -17,6 +17,7 @@ import {
   holds,
   SETS,
 } from "../src/host/grants.ts";
+import { asRole, detailFor, minRole, stepOf } from "../src/host/shares.ts";
 
 interface Expected {
   grants?: string[];
@@ -65,5 +66,16 @@ describe("the grants vocabulary", () => {
   it("reads a role list's ladder names as their sets and its grants as they are", () => {
     for (const v of vectors.named)
       expect(outcome(accessOfNames(v.roles.split(","))), v.name).toEqual(v.expect);
+  });
+
+  it("agrees with the ceilings: a conversation reaches the lower of the step of the person's detail and the station's ceiling", () => {
+    // the assistant narrows no grant itself, and the detail its reach asks for is the one a ceiling leaves
+    for (const v of vectors.ceilings) {
+      const ceiling = asRole(v.ceiling);
+      if (!ceiling) throw new Error(`${v.name}: ${v.ceiling} is not a step`);
+      expect(detailFor(minRole(stepOf(detailOf(v.detail)), ceiling)), v.name).toBe(v.expect.detail);
+      // a ceiling never takes the assistant's own grant away: it is checked before any call
+      expect(holds(v.expect.grants ?? [], "assistant:use"), v.name).toBe(holds(v.grants, "assistant:use"));
+    }
   });
 });

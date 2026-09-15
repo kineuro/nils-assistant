@@ -46,7 +46,7 @@ export interface ConversationRow {
   fork_origin: string | null;
   fork_offset: number | null;
   branch_message: string | null;
-  /** The chat, slice 5: the person's highest role at their latest turn, the most the conversation could have read, and whether that was kept from its first turn. */
+  /** The chat, slice 5: the step of the person's detail at their latest turn (record 25), the most the conversation could have read, and whether that was kept from its first turn. */
   role_top: string | null;
   reach: string | null;
   reach_complete: number | null;
@@ -603,9 +603,9 @@ export class Lineage {
   }
 
   /**
-   * The most a conversation could have read (the chat, slice 5): after a turn, the lower of the person's
-   * highest role and the station's ceiling, kept when it is more than before. A person the host could not
-   * name counts as reaching the ceiling.
+   * The most a conversation could have read (the chat, slice 5): after a turn, the lower of the step of the
+   * person's detail and the station's ceiling, kept when it is more than before (record 25). A person the host
+   * could not name counts as reaching the ceiling.
    */
   noteReach(id: string, top: string | null, ceiling: string): void {
     const row = this.conversation(id);
