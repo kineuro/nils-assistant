@@ -28,7 +28,6 @@ function engine(names: Record<string, string>, held: Record<string, string[]> = 
     return principal
       ? {
           principal,
-          roles: ["reader"],
           grants: held[token as string] ?? ["assistant:use", "query:work"],
           detail: "plain",
           policy: [],
@@ -44,7 +43,7 @@ describe("a person", () => {
     const e = engine({ "t-anna": "anna@lab" });
     const people = new People(e.read, () => now);
     expect((await people.of("t-anna"))?.principal).toBe("anna@lab");
-    expect((await people.of("t-anna"))?.roles).toEqual(["reader"]);
+    expect((await people.of("t-anna"))?.grants).toEqual(["assistant:use", "query:see", "query:work"]);
     expect(await people.of("t-unknown")).toBeNull();
     expect(e.calls).toEqual(["t-anna", "t-unknown"]);
     now += 5 * 60_000 + 1;

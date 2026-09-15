@@ -17,7 +17,6 @@ export interface Person {
   grants: readonly string[];
   /** How much of a record the person sees. */
   detail: Detail;
-  roles: string[];
   entitlements: string[];
   policy: PolicyRow[];
   /** The name the engine gives the person, when it gives one (the chat, slice 5). */
@@ -69,14 +68,17 @@ export class People {
     this.known.delete(key);
     const doc = await this.read(token);
     if (!doc || typeof doc.principal !== "string" || !doc.principal) return null;
-    const roles = Array.isArray(doc.roles) ? doc.roles.map(String) : [];
     const { grants, detail } = accessIn(doc);
     const person: Person = {
       principal: doc.principal,
       grants,
       detail,
-      roles,
-      entitlements: Array.isArray(doc.entitlements) ? doc.entitlements.map(String) : roles,
+      entitlements: (Array.isArray(doc.entitlements)
+        ? doc.entitlements
+        : Array.isArray(doc.roles)
+          ? doc.roles
+          : []
+      ).map(String),
       policy: Array.isArray(doc.policy) ? (doc.policy as PolicyRow[]) : [],
       display: typeof doc.display === "string" && doc.display ? doc.display : null,
     };

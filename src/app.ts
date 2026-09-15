@@ -25,7 +25,7 @@ import {
   streamPath,
 } from "./host/fork.ts";
 import { holds } from "./host/grants.ts";
-import { ladderOf, opens, type PolicyRow, rungOf } from "./host/ladder.ts";
+import { ladderOf, needOf, opens, type PolicyRow, rungOf } from "./host/ladder.ts";
 import { LadderStore } from "./host/ladder-store.ts";
 import type { ConversationRow, ShareRow } from "./host/lineage.ts";
 import { chosenModel, modelList, setModels } from "./host/models.ts";
@@ -1187,7 +1187,6 @@ app.get("/ledger/:id", (ctx) => ctx.json({ rows: theLedger().rows(ctx.req.param(
 async function personOf(ctx: { req: { header: (k: string) => string | undefined } }): Promise<{
   subject: string;
   grants: readonly string[];
-  roles: string[];
   entitlements: string[];
   policy: PolicyRow[];
 } | null> {
@@ -1195,13 +1194,7 @@ async function personOf(ctx: { req: { header: (k: string) => string | undefined 
   if (!p) return null;
   adopt(p);
   assistRun.set(p.principal, p.entitlements.includes("assist-run"));
-  return {
-    subject: p.principal,
-    grants: p.grants,
-    roles: p.roles,
-    entitlements: p.entitlements,
-    policy: p.policy,
-  };
+  return { subject: p.principal, grants: p.grants, entitlements: p.entitlements, policy: p.policy };
 }
 
 // everyone's standing grants and plans are reached with assistant-settings:work, and a person's own without it (record 25)
@@ -1230,11 +1223,9 @@ app.post("/grants", async (ctx) => {
   if (!row) return ctx.json({ error: `${door || "(none)"} is not a door the engine serves` }, 404);
   if (rungOf(row) !== 2)
     return ctx.json({ error: `${door} is rung ${rungOf(row)}; a standing grant is for rung two only` }, 409);
-  if (!opens(who.roles, row.role))
+  if (!opens(who.grants, row))
     return ctx.json(
-      {
-        error: `${door} asks for the ${row.role} role, which you do not hold; a grant never exceeds the person`,
-      },
+      { error: `${door} needs ${needOf(row)}, which you do not hold; a grant never exceeds the person` },
       403,
     );
   if (c.requireAssistRun && !who.entitlements.includes("assist-run"))
