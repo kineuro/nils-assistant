@@ -10,6 +10,7 @@
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import { doorOf, guard, personIn } from "../src/host/access.ts";
+import { EVERYTHING, SETS } from "../src/host/grants.ts";
 import { LadderStore } from "../src/host/ladder-store.ts";
 import { Lineage } from "../src/host/lineage.ts";
 import { Notes } from "../src/host/notes.ts";
@@ -48,6 +49,36 @@ describe("a person", () => {
     expect(e2.calls).toHaveLength(2);
     expect(bareOf("anna@lab")).toBe("anna");
     expect(bareOf("anna@lab@node")).toBe("anna@lab");
+  });
+
+  it("holds the grants and detail the engine gives, or an older engine's roles and entitlements as their sets", async () => {
+    const of = (doc: Record<string, unknown>) =>
+      new People(async () => ({ principal: "anna@lab", ...doc })).of("t-anna");
+    // grants and detail as the engine says them, a work grant with its see; its roles are not read beside them
+    expect(
+      await of({
+        grants: ["assistant:use", "review:work", "coffee:work"],
+        detail: "quasi",
+        roles: ["admin"],
+      }),
+    ).toMatchObject({ grants: ["assistant:use", "review:see", "review:work"], detail: "quasi" });
+    expect(await of({ detail: "sensitive" })).toMatchObject({ grants: [], detail: "sensitive" });
+    expect(await of({ grants: ["query:see"], detail: "everything" })).toMatchObject({ detail: "plain" });
+    // an engine that sends neither: each ladder name stands for its set, and assist for the assistant
+    expect(await of({ roles: ["reader", "reviewer"], entitlements: ["reviewer", "assist"] })).toMatchObject({
+      grants: [...SETS.reviewer.grants, "assistant:use"].sort(),
+      detail: "quasi",
+    });
+    expect(await of({ roles: ["reader", "reviewer", "operator", "admin"] })).toMatchObject({
+      grants: SETS.admin.grants,
+      detail: "sensitive",
+    });
+    expect(await of({ roles: [] })).toMatchObject({ grants: [], detail: "plain" });
+    // an engine serving with its authentication off gives everything
+    expect(await of({ auth: "off", roles: ["reader"] })).toMatchObject({
+      grants: EVERYTHING.grants,
+      detail: "sensitive",
+    });
   });
 
   it("is asked for by the doors that name a conversation, and only by them", () => {
