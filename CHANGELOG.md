@@ -4,6 +4,8 @@ All notable changes to the NILS assistant are recorded here. The format follows 
 
 ## [Unreleased]
 
+## [1.0.0-alpha.25] - 2026-09-16
+
 ### Added
 
 - identity-check runs over a dataset: the run names a dataset, reads what it declares (its current identity rule, what arrives, what it holds), the identifier types the registry knows and the identifiers the dataset holds as shapes, and probes the current rule and a candidate over the dataset's originals as the root `@name/originals`. The proposed rule names a known type or proposes a new one with a description, and the verdict reads the held shapes against the rule's: alike, they are unmapped identifiers of the rule's kind and a map is needed, not a rule change; unlike, a second kind of identifier is on the dataset. Two checks say so, `type_named` and `held_read`; the result gains `dataset`, `new_type`, `held` and `map_needed`. The station still never sees a value and never reads a file. A station may now dial the two linkage reads that answer names and shapes only; every other linkage door stays refused, and the map, the reveal, coding the held and the merge are named among the forbidden doors.
