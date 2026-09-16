@@ -29,17 +29,18 @@ export interface Fired {
   job: number | null;
 }
 
-/** The engine's view of a job, read through the seam. */
+/** The engine's view of a job, read through the seam: its state, and the job queued after it when it heads a chain (record 26). */
 async function jobState(
   seam: Seam,
   id: number,
   toolCallId: string,
-): Promise<{ state: string; finished: boolean } | null> {
+): Promise<{ state: string; finished: boolean; after: number | null } | null> {
   const a = await seam.call({ method: "GET", path: `/api/jobs/${id}`, toolCallId, phase: "schedule" });
   if (a.kind !== "ok") return null;
-  const b = a.body as { state?: string };
+  const b = a.body as { state?: string; chain?: { after?: unknown } | null };
   const state = String(b.state ?? "unknown");
-  return { state, finished: ["done", "failed", "cancelled"].includes(state) };
+  const after = typeof b.chain?.after === "number" ? b.chain.after : null;
+  return { state, finished: ["done", "failed", "cancelled"].includes(state), after };
 }
 
 export class Scheduler {
@@ -204,6 +205,11 @@ export class Scheduler {
         job: step.job,
       };
     if (j.finished) {
+      // a job that ended done and heads a chain (bring-in: pseudonymise, then digest, fingerprint, classify) is not the step's end: the step follows the job queued after it, so the step after it waits for the whole chain
+      if (j.state === "done" && j.after !== null && j.after !== step.job) {
+        this.o.store.setStep(step.id, { state: "queued", job: j.after });
+        return { step: step.id, outcome: "queued", reason: null, job: j.after };
+      }
       const state = j.state === "done" ? "done" : "failed";
       this.o.store.setStep(step.id, {
         state,

@@ -1,5 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# identity-check (Wave 4c section 9.14), as contracts/suite/v1/station.schema.json fixes a manifest.
+# identity-check (Wave 4c section 9.14, record 26), as contracts/suite/v1/station.schema.json fixes a manifest.
+# The desk's headless runner (POST /assistant/stations/identity-check/runs) sends one message naming the
+# dataset, `dataset: <name>`, and may add `candidate: <a path segment, or a DICOM keyword>`; the run
+# probes the dataset's originals as the root @<name>/originals and never reads a path of the host.
 id: identity-check
 app: nils-assistant
 purpose: assistant.identity-check
@@ -8,13 +11,19 @@ ceiling: operator
 grant:
   capabilities:
     calls: 2
+  sources:
+    calls: 2
+  linkage/types:
+    calls: 2
+  linkage/held:
+    calls: 2
   ingest/probe:
     calls: 4
   jobs/{id}:
     calls: 30
 brief:
   path: SKILL.md
-  hash: ffc41793a817038939278ebb88083122a4b740d76f4c5913b452a51ada8a45ac
+  hash: f0df15e7cfd6819bab39c8e681ca9daba8228c563bf0c2c1b6c00ebd7bb54d80
 result:
   type: object
   required:
@@ -25,7 +34,12 @@ result:
   properties:
     location:
       type: string
-      description: the registered location by name
+      description: the dataset, or the registered location, the probe read, by name
+    dataset:
+      type:
+      - string
+      - "null"
+      description: the dataset by name, when the probe read a dataset's originals
     saw:
       type: array
       items:
@@ -33,12 +47,27 @@ result:
       description: per rule, the source it read, the shape it answered with and the counts; never a value
     proposed:
       type: object
-      description: the rule proposed, one the probe took
+      description: the rule proposed, one the probe took, whose id_type is a type the registry knows or new_type
+    new_type:
+      type:
+      - object
+      - "null"
+      description: "an identifier type the registry does not know yet, {name, description}, for a person to make; null when the rule names a known type"
     path_is_direct_identifier:
       type:
       - boolean
       - "null"
       description: answered when the rule reads a path segment
+    held:
+      type:
+      - object
+      - "null"
+      description: "the identifiers the dataset holds, as shapes with file counts, and the reading of them against the rule's shapes: none, same_kind (unmapped identifiers of the rule's kind), second_kind (a shape unlike the rule's), mixed"
+    map_needed:
+      type:
+      - boolean
+      - "null"
+      description: true when identifiers of the rule's kind are held, so a map releases them and no rule change would
     probe_jobs:
       type: array
       items:
@@ -50,9 +79,11 @@ checks:
 - names_rule_and_saw
 - no_identifier_value
 - path_answered
+- type_named
+- held_read
 budget:
-  turns: 10
-  tool_calls: 30
+  turns: 12
+  tool_calls: 36
   wall_clock_seconds: 240
   input_tokens: 200000
 writes:

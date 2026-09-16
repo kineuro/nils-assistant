@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// keyword-tune (Wave 4c §9.13): one axis of one pack tuned against the
-// classifier's own signals. Survey the signals and the open review items,
-// hypothesise one change to one bucket with a falsifiable prediction
+// keyword-tune (Wave 4c §9.13, record 26): one word list of one axis of one
+// pack tuned against the classifier's own signals. A list is a bucket the
+// pack names, or the word list of one axis value (`axis.value`), which every
+// site may grow since record 26. Survey the signals and the open review
+// items, read the pack's own lists so a term already held is never added
+// twice, hypothesise one change to one list with a falsifiable prediction
 // written before anything is rehearsed, rehearse it through `try`, which
 // writes nothing, read the nine-state diff between rehearsal and
 // prediction, and finish with an overlay proposal a person adopts. The
@@ -20,7 +23,12 @@ import type { Check, Verdict } from "./verdict.ts";
 /** The falsifiable prediction: which review groups flip, which values must not regress. */
 export interface Prediction {
   axis: string;
-  bucket: string;
+  /** The bucket the pack names, when the change is to a bucket. */
+  bucket: string | null;
+  /** The axis value whose word list changes, when the change is to a value's list. */
+  value: string | null;
+  /** The list the change touches, as the overlay names it: the bucket, or axis.value. */
+  list: string;
   add: string[];
   remove: string[];
   flip: string[];
@@ -28,11 +36,80 @@ export interface Prediction {
   at: number;
 }
 
+interface Seen {
+  groups: Set<string>;
+  axes: Set<string>;
+  /** The values the signals reported by value, per axis; empty when the signals carried no by_value. */
+  values: Map<string, Set<string>>;
+}
+
 const predictions = new Map<string, Prediction>();
-const signalsSeen = new Map<string, { groups: Set<string>; axes: Set<string> }>();
+const signalsSeen = new Map<string, Seen>();
+/** The pack's own lists as read: the keywords per list name (a bucket, or axis.value), by conversation. */
+const packLists = new Map<string, Map<string, string[]>>();
 
 export function predictionOf(conversation: string): Prediction | null {
   return predictions.get(conversation) ?? null;
+}
+export function valuesSeen(conversation: string, axis: string): string[] {
+  return [...(signalsSeen.get(conversation)?.values.get(axis) ?? [])];
+}
+export function packListOf(conversation: string, list: string): string[] | null {
+  return packLists.get(conversation)?.get(list) ?? null;
+}
+
+/** The name of a list: the bucket the pack names, or axis.value. */
+export function listName(axis: string, bucket: string | null, value: string | null): string {
+  return value !== null ? `${axis}.${value}` : String(bucket);
+}
+
+/** The values a signals answer reports by value for one axis: an object keyed by value, or a list of {value}. */
+export function valuesOf(byValue: unknown): string[] {
+  if (Array.isArray(byValue))
+    return byValue
+      .map((x) => (typeof x === "string" ? x : String((x as { value?: unknown })?.value ?? "")))
+      .filter(Boolean);
+  if (byValue && typeof byValue === "object") return Object.keys(byValue as Record<string, unknown>);
+  return [];
+}
+
+/**
+ * The word lists a pack answers, by list name: each axis's values with their keywords as axis.value, and
+ * the buckets the pack names. Axes and values come as lists of {axis|name|value, keywords} or as objects
+ * keyed by name; keywords as a list of strings or as {keywords: [...]}.
+ */
+export function listsOfPack(body: unknown): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  const doc = (body ?? {}) as Record<string, unknown>;
+  const entries = (x: unknown, key: string): [string, Record<string, unknown>][] => {
+    if (Array.isArray(x))
+      return x.map((e) => {
+        const o = (e ?? {}) as Record<string, unknown>;
+        return [String(o[key] ?? o.name ?? ""), o];
+      });
+    if (x && typeof x === "object")
+      return Object.entries(x as Record<string, unknown>).map(([k, e]) => [
+        k,
+        (e && typeof e === "object" ? e : {}) as Record<string, unknown>,
+      ]);
+    return [];
+  };
+  const words = (x: unknown): string[] | null => {
+    const list = Array.isArray(x) ? x : ((x as { keywords?: unknown } | null)?.keywords ?? null);
+    return Array.isArray(list) ? list.map((w) => String(w).trim().toLowerCase()).filter(Boolean) : null;
+  };
+  for (const [axis, ax] of entries(doc.axes, "axis")) {
+    if (!axis) continue;
+    for (const [value, val] of entries(ax.values, "value")) {
+      const w = words(val.keywords ?? val);
+      if (value && w) out.set(`${axis}.${value}`, w);
+    }
+  }
+  for (const [bucket, b] of entries(doc.buckets, "bucket")) {
+    const w = words(b.keywords ?? b.terms ?? b);
+    if (bucket && w) out.set(bucket, w);
+  }
+  return out;
 }
 
 /** The nine-state diff of §9.13, folded to what a person acts on: keep, partial, revert. */
@@ -142,7 +219,7 @@ export function keywordTuneTools(): StationTool[] {
     {
       name: "nils_signals",
       description:
-        "The classifier's own signals over a scope (batch:<id>, origin:<name> or pack:<version>): per axis the tier counts and confidence spread, the open review items by kind, the shadowed keywords, the unused overlay terms, the terms a person's decisions overrode most, and samples of the text the axes matched against.",
+        "The classifier's own signals over a scope (batch:<id>, origin:<name> or pack:<version>): per axis the tier counts and confidence spread, by value where the engine reports it, the open review items by kind, the shadowed keywords, the unused overlay terms, the terms a person's decisions overrode most, and samples of the text the axes matched against.",
       input: v.object({ scope: v.string() }),
       phases: ["survey", "hypothesise"],
       salient: ["scope"],
@@ -155,17 +232,29 @@ export function keywordTuneTools(): StationTool[] {
         });
         if (a.kind === "ok") {
           const body = a.body as {
-            axes?: Record<string, { open_review?: Record<string, number> }>;
+            axes?: Record<string, { open_review?: Record<string, number>; by_value?: unknown }>;
             open_review?: Record<string, number>;
+            by_value?: Record<string, unknown>;
           };
           const seen = signalsSeen.get(ctx.conversation) ?? {
             groups: new Set<string>(),
             axes: new Set<string>(),
+            values: new Map<string, Set<string>>(),
+          };
+          const noteValues = (axis: string, byValue: unknown) => {
+            const vals = valuesOf(byValue);
+            if (vals.length === 0) return;
+            const set = seen.values.get(axis) ?? new Set<string>();
+            for (const x of vals) set.add(x);
+            seen.values.set(axis, set);
           };
           for (const [axis, ax] of Object.entries(body.axes ?? {})) {
             seen.axes.add(axis);
             for (const g of Object.keys(ax.open_review ?? {})) seen.groups.add(g);
+            noteValues(axis, ax.by_value);
           }
+          // an engine that reports by value beside the axes rather than under them
+          for (const [axis, byValue] of Object.entries(body.by_value ?? {})) noteValues(axis, byValue);
           for (const g of Object.keys(body.open_review ?? {})) seen.groups.add(g);
           signalsSeen.set(ctx.conversation, seen);
         }
@@ -187,20 +276,72 @@ export function keywordTuneTools(): StationTool[] {
       ["id"],
     ),
     {
+      name: "nils_pack",
+      description:
+        "One pack's own word lists: every axis with its values and the keywords each value's list holds, and the buckets the pack names, so a term the list already holds is never added and a term to remove is one it holds. Name the axis to read that axis alone.",
+      input: v.object({ name: v.optional(v.string()), axis: v.optional(v.string()) }),
+      phases: ["survey", "hypothesise"],
+      salient: ["name", "axis"],
+      async run(args, ctx) {
+        const name = typeof args.name === "string" && args.name.trim() ? args.name.trim() : "mri";
+        const a = await ctx.seam.call({
+          method: "GET",
+          path: `/api/packs/${encodeURIComponent(name)}`,
+          toolCallId: ctx.toolCallId,
+          phase: ctx.state.phase,
+        });
+        if (a.kind !== "ok") return { output: toolResult(a).output };
+        const lists = listsOfPack(a.body);
+        const held = packLists.get(ctx.conversation) ?? new Map<string, string[]>();
+        for (const [k, w] of lists) held.set(k, w);
+        packLists.set(ctx.conversation, held);
+        const axis = typeof args.axis === "string" ? args.axis.trim() : "";
+        const shown = [...lists].filter(([k]) => !axis || k.startsWith(`${axis}.`) || !k.includes("."));
+        return {
+          output: {
+            pack: name,
+            lists: Object.fromEntries(shown.map(([k, w]) => [k, { holds: w.length, keywords: w }])),
+            text: "a list is named by the bucket, or by axis.value; the overlay names it the same way",
+          } as JsonValue,
+        };
+      },
+    },
+    {
       name: "hypothesis",
       description:
-        "One change to one bucket of one axis, and the falsifiable prediction that goes with it, written before any rehearsal: the review groups that should flip (their group keys as the signals name them) and the axis values that must not regress (as axis=value). A second hypothesis replaces the first.",
+        "One change to one word list of one axis, and the falsifiable prediction that goes with it, written before any rehearsal: the list is a bucket the pack names (bucket) or the word list of one axis value (value, the list axis.value), one of the two; the review groups that should flip (their group keys as the signals name them) and the axis values that must not regress (as axis=value). A second hypothesis replaces the first.",
       input: v.object({
         axis: v.string(),
-        bucket: v.string(),
+        bucket: v.optional(v.nullable(v.string())),
+        value: v.optional(v.nullable(v.string())),
         add: v.optional(v.array(v.string())),
         remove: v.optional(v.array(v.string())),
         flip: v.optional(v.array(v.string())),
         must_not_regress: v.optional(v.array(v.string())),
       }),
       phases: ["hypothesise"],
-      salient: ["axis", "bucket"],
+      salient: ["axis", "bucket", "value"],
       async run(args, ctx) {
+        const axis = String(args.axis).trim();
+        const bucket = typeof args.bucket === "string" && args.bucket.trim() ? args.bucket.trim() : null;
+        const value = typeof args.value === "string" && args.value.trim() ? args.value.trim() : null;
+        if ((bucket === null) === (value === null))
+          return {
+            output: {
+              refused: true,
+              why: "a hypothesis names one list: a bucket the pack names, or the value whose list changes, one of the two",
+            } as JsonValue,
+          };
+        if (value !== null) {
+          const known = valuesSeen(ctx.conversation, axis);
+          if (known.length > 0 && !known.includes(value))
+            return {
+              output: {
+                refused: true,
+                why: `${value} is not a value the signals report on ${axis}; they report ${known.join(", ")}`,
+              } as JsonValue,
+            };
+        }
         const add = ((args.add as string[] | undefined) ?? [])
           .map((s) => s.trim().toLowerCase())
           .filter(Boolean);
@@ -211,9 +352,29 @@ export function keywordTuneTools(): StationTool[] {
           return {
             output: { refused: true, why: "a hypothesis adds or removes at least one term" } as JsonValue,
           };
+        const list = listName(axis, bucket, value);
+        // the pack's own list, when it was read: a term it holds is never added, a term it lacks never removed
+        const words = packListOf(ctx.conversation, list);
+        if (words) {
+          const held = add.filter((t) => words.includes(t));
+          if (held.length > 0)
+            return {
+              output: {
+                refused: true,
+                why: `${list} already holds ${held.join(", ")}; a term comes from the person's words, the shadowed keywords or the overridden terms`,
+              } as JsonValue,
+            };
+          const missing = remove.filter((t) => !words.includes(t));
+          if (missing.length > 0)
+            return {
+              output: { refused: true, why: `${list} does not hold ${missing.join(", ")}` } as JsonValue,
+            };
+        }
         const p: Prediction = {
-          axis: String(args.axis),
-          bucket: String(args.bucket),
+          axis,
+          bucket,
+          value,
+          list,
           add,
           remove,
           flip: (args.flip as string[] | undefined) ?? [],
@@ -304,7 +465,7 @@ export function keywordTuneTools(): StationTool[] {
   ];
 }
 
-/** The overlay document a hypothesis becomes: one bucket of one pack, with the site's own case. */
+/** The overlay document a hypothesis becomes: one list of one pack, a bucket under buckets or a value's list under lists as axis.value, with the site's own case. */
 export function overlayOf(
   p: Prediction,
   scope: Record<string, string>,
@@ -314,15 +475,16 @@ export function overlayOf(
   const edit: Record<string, string[]> = {};
   if (p.add.length) edit.add = p.add;
   if (p.remove.length) edit.remove = p.remove;
+  const lists = p.value !== null ? { lists: { [p.list]: edit } } : { buckets: { [p.list]: edit } };
   return {
     overlay: `tune-${p.axis}`,
     version: "1.0.0",
     pack: "mri",
     scope,
-    buckets: { [p.bucket]: edit },
+    ...lists,
     cases: [
       {
-        name: `the site's ${p.bucket} term`,
+        name: `the site's ${p.list} term`,
         stack: { text_series_description: caseText },
         axes: { [p.axis]: caseValue },
       },
@@ -330,16 +492,21 @@ export function overlayOf(
   };
 }
 
+/** The lists an overlay touches, of either kind: the buckets by name, the value lists as axis.value. */
+export function listsTouched(overlay: unknown): string[] {
+  const o = (overlay ?? {}) as { buckets?: Record<string, unknown>; lists?: Record<string, unknown> };
+  return [...Object.keys(o.buckets ?? {}), ...Object.keys(o.lists ?? {})];
+}
+
 export function keywordTuneChecks(): Record<string, Check> {
   return {
-    /** The patch touches one file: one bucket of one axis, as the hypothesis and the result both say. */
+    /** The patch touches one file: one list of one axis, a bucket or a value's list, as the hypothesis and the result both say. */
     one_file: (verdict: Verdict, ctx) => {
       const p = predictions.get(String(ctx.conversation ?? ""));
       if (!p) return "no hypothesis was written";
-      const overlay = verdict.result.overlay as { buckets?: Record<string, unknown> } | undefined;
-      const buckets = Object.keys(overlay?.buckets ?? {});
-      if (buckets.length !== 1 || buckets[0] !== p.bucket)
-        return `the overlay touches ${buckets.length} bucket${buckets.length === 1 ? "" : "s"}; a tune touches one, ${p.bucket}`;
+      const touched = listsTouched(verdict.result.overlay);
+      if (touched.length !== 1 || touched[0] !== p.list)
+        return `the overlay touches ${touched.length} list${touched.length === 1 ? "" : "s"}; a tune touches one, ${p.list}`;
       return null;
     },
     /** The prediction was written before the rehearsal: from the run state and the ledger, not the model's word. */
@@ -390,7 +557,7 @@ export function keywordTune(
     brief,
     model,
     instructions:
-      "You are keyword-tune. Survey the signals of the scope you are given and the open review items; the term you add comes from the person's words, the shadowed keywords or the overridden terms, never from a guess at what a long bucket already holds; then write one hypothesis, one change to one bucket of one axis with the groups that should flip and the values that must not regress; advance and rehearse it with nils_try; read the diff: keep means propose it, partial means refine the hypothesis once and rehearse again, revert means say why and settle without a proposal. Settle with the axis, the bucket, the overlay, the prediction, the rehearsal, the diff and the proposal's ids when there is one; the proposals list carries {kind: overlay, ref: {id, review_item}, sentence} when you proposed. Never a stack id, never a row.",
+      "You are keyword-tune. Survey the signals of the scope you are given and the open review items, and read the pack's own lists with nils_pack for the axis you settle on; the term you add comes from the person's words, the shadowed keywords or the overridden terms, never from a guess at what a long list already holds; then write one hypothesis, one change to one list of one axis (a bucket the pack names, or the word list of one axis value) with the groups that should flip and the values that must not regress; advance and rehearse it with nils_try; read the diff: keep means propose it, partial means refine the hypothesis once and rehearse again, revert means say why and settle without a proposal. Settle with the axis, the list (the bucket, or axis.value), the overlay, the prediction, the rehearsal, the diff and the proposal's ids when there is one; the proposals list carries {kind: overlay, ref: {id, review_item}, sentence} when you proposed. Never a stack id, never a row.",
     tools: keywordTuneTools(),
     checks: keywordTuneChecks(),
     briefInline: true,
@@ -399,6 +566,9 @@ export function keywordTune(
       const p = predictions.get(ctx.conversation);
       return {
         ...result,
+        list: p?.list ?? result.list ?? null,
+        bucket: p ? p.bucket : (result.bucket ?? null),
+        value: p ? p.value : (result.value ?? null),
         prediction: p ?? result.prediction ?? null,
         overlay: result.overlay ?? (p ? overlayOf(p, {}, "", "") : null),
       };

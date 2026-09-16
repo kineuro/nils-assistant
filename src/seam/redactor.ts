@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // The redactor (Wave 4c §9.7): a context rule and a store rule. The seam
 // refuses a document that projects identifiers, a handle whose provenance
-// records classes above the station's content class, and any linkage path;
+// records classes above the station's content class, and any linkage path
+// but the two reads that answer names and shapes only (record 26);
 // every store write passes through one redactor; a provider error reaches
 // the store as a classified code only. Under R9 a local backend may see what
 // the person may see: the boundary here is the class and the egress.
@@ -58,9 +59,18 @@ export function admitHandle(
   return { ok: true };
 }
 
-export function admitPath(path: string): { ok: true } | { ok: false; why: string } {
-  if (/\/api\/linkage|\/api\/ask\/values\b|\/api\/custody/u.test(path))
+/**
+ * The linkage reads a station may dial (record 26): the identifier types by name, and the identifiers a
+ * dataset holds as shapes and counts. Both answer no value; everything else under linkage (the map, the
+ * reveal, the merge, coding the held) carries identifiers or writes them, and is a person's.
+ */
+const LINKAGE_READS = /^\/api\/linkage\/(types|held)(\?.*)?$/u;
+
+export function admitPath(path: string, method = "GET"): { ok: true } | { ok: false; why: string } {
+  if (/\/api\/linkage|\/api\/ask\/values\b|\/api\/custody/u.test(path)) {
+    if (method.toUpperCase() === "GET" && LINKAGE_READS.test(path)) return { ok: true };
     return { ok: false, why: "a linkage path is never dialled from a station" };
+  }
   return { ok: true };
 }
 

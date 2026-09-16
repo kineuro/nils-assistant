@@ -8,7 +8,9 @@
 // cannot: adopt, release, hand over, erase, change an identity rule,
 // promote a model; always a proposal a person accepts. The verbs a plan
 // names map to doors here, so the operator station never has to know a
-// rung: the host reads it from the policy.
+// rung: the host reads it from the policy. Record 26 adds the dataset verbs
+// to rung two: pseudonymise, and bring in what is new, the chain the engine
+// queues with `then`.
 
 import { holds, SETS } from "./grants.ts";
 
@@ -90,10 +92,21 @@ export function needOf(row: Pick<PolicyRow, "grant" | "also" | "role">): string 
   return "a grant the engine does not name";
 }
 
+/** The words of a refusal when a door, or a verb of it, needs a grant the person does not hold (record 25): the standing-grant door and the plan say the same. */
+export function exceeds(what: string, row: Pick<PolicyRow, "grant" | "also" | "role">): string {
+  return `${what} needs ${needOf(row)}, which you do not hold; a grant never exceeds the person`;
+}
+
 /** The verbs a plan may name (section 9.3), each mapped to the engine door it calls; the rung comes from the policy, never from here. */
 export interface VerbSpec {
   door: string;
   method: "POST";
+  /**
+   * The grant the verb itself needs at the door, where the door names the grants of several verbs and the
+   * engine checks the verb's own when it queues (record 26: pseudonymise and bring-in are data work). A step
+   * of the verb is refused at planning when the person's grants are known and do not hold it.
+   */
+  needs?: string;
   /** The path and body of the call, from the step's arguments. */
   call: (args: Record<string, unknown>) => { path: string; body: unknown } | { refused: string };
   /** What the step does, in words, for the plan's restatement. */
@@ -133,6 +146,24 @@ function treeOf(a: Record<string, unknown>): string | { refused: string } {
     return { refused: `digest path ${rel} is not a folder inside the source place ${name}` };
   return `@${name}/${rel}`;
 }
+
+/**
+ * The dataset a step names (record 26): a place with the source role, by its name alone, as the job door
+ * reads `@name`. Never a path, never a folder inside it: the pseudonymiser reads the dataset's originals and
+ * the chain its trees, both of which the engine resolves from the name.
+ */
+function datasetOf(verb: string, a: Record<string, unknown>): string | { refused: string } {
+  const name = placeOf(a.dataset ?? a.place);
+  if (name === null)
+    return { refused: `${verb} names a dataset, one of the ingest_roots the capabilities list` };
+  if (name.includes("/")) return { refused: `${verb} names the dataset alone, never a folder inside it` };
+  return name;
+}
+
+const datasetWords = (a: Record<string, unknown>): string => {
+  const name = placeOf(a.dataset ?? a.place);
+  return name === null ? "a dataset" : `the dataset ${name}`;
+};
 
 export const VERBS: Record<string, VerbSpec> = {
   digest: {
@@ -175,6 +206,41 @@ export const VERBS: Record<string, VerbSpec> = {
         body: { command: ["fingerprint"] },
       },
     words: () => "fingerprint every stack that has no fingerprint yet",
+  },
+  pseudonymize: {
+    door: "POST /api/jobs",
+    method: "POST",
+    needs: "data:work",
+    call: (a) => {
+      const name =
+        batchless("pseudonymize", "reads every file of the dataset's originals", a) ??
+        datasetOf("pseudonymize", a);
+      if (typeof name !== "string") return name;
+      const batch = text(a.name);
+      const command = ["pseudonymize", `@${name}`];
+      if (batch !== null) command.push("--name", batch);
+      if (a.held === true || a.held === "true") command.push("--held");
+      return { path: "/api/jobs", body: { command } };
+    },
+    words: (a) => {
+      const batch = text(a.name);
+      const held = a.held === true || a.held === "true" ? ", the held files too" : "";
+      return `pseudonymise the originals of ${datasetWords(a)} into its pseudonymised tree${batch === null ? "" : ` as batch ${batch}`}${held}`;
+    },
+  },
+  bring_in: {
+    door: "POST /api/jobs",
+    method: "POST",
+    needs: "data:work",
+    call: (a) => {
+      const name =
+        batchless("bring_in", "brings in what is new in the dataset", a) ?? datasetOf("bring_in", a);
+      return typeof name === "string"
+        ? { path: "/api/jobs", body: { command: ["bring-in", `@${name}`] } }
+        : name;
+    },
+    words: (a) =>
+      `bring in what is new in ${datasetWords(a)}: pseudonymise, then digest, fingerprint and classify, each queued when the one before it is done`,
   },
   rebuild: {
     door: "POST /api/sessions/rebuild",
@@ -288,15 +354,22 @@ export function whenOf(v: unknown): When | null {
   return null;
 }
 
-/** A plan from the verbs the station named and the engine's policy: rung-two verbs are steps, rung-three verbs are proposals, unknown verbs are refused by name. */
-export function planFrom(steps: unknown, policy: PolicyRow[]): Planned {
+/**
+ * A plan from the verbs the station named and the engine's policy: rung-two verbs are steps, rung-three
+ * verbs are proposals, unknown verbs are refused by name. With the person's grants known, a step whose door
+ * or verb needs a grant they do not hold is refused with the words the standing-grant door uses, so a plan
+ * never names a dataset the person may not work on.
+ */
+export function planFrom(steps: unknown, policy: PolicyRow[], grants?: readonly string[]): Planned {
   const out: Planned = { steps: [], proposals: [], refused: [] };
   const rows = new Map(policy.map((r) => [r.door, r]));
   let n = 0;
   for (const raw of Array.isArray(steps) ? steps : []) {
     n += 1;
     const s = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
-    const verb = String(s.verb ?? "").toLowerCase();
+    const verb = String(s.verb ?? "")
+      .toLowerCase()
+      .replace(/-/gu, "_");
     const args = (s.args && typeof s.args === "object" && !Array.isArray(s.args) ? s.args : {}) as Record<
       string,
       unknown
@@ -324,6 +397,17 @@ export function planFrom(steps: unknown, policy: PolicyRow[]): Planned {
         closure_needed: true,
       });
       continue;
+    }
+    if (grants) {
+      // the door's own grant, then the verb's where the door names several and the engine checks the verb's
+      if (!opens(grants, row)) {
+        out.refused.push({ n, verb, why: `step ${n}: ${exceeds(spec.door, row)}` });
+        continue;
+      }
+      if (spec.needs && !holds(grants, spec.needs)) {
+        out.refused.push({ n, verb, why: `step ${n}: ${exceeds(spec.words(args), { grant: spec.needs })}` });
+        continue;
+      }
     }
     const when = whenOf(s.when);
     if (!when) {

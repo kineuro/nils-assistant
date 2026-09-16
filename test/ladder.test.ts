@@ -12,7 +12,17 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { SETS } from "../src/host/grants.ts";
-import { ladderOf, needOf, opens, planFrom, restate, rungOf, VERBS, whenOf } from "../src/host/ladder.ts";
+import {
+  exceeds,
+  ladderOf,
+  needOf,
+  opens,
+  planFrom,
+  restate,
+  rungOf,
+  VERBS,
+  whenOf,
+} from "../src/host/ladder.ts";
 import { LadderStore } from "../src/host/ladder-store.ts";
 import { inboxOf, Scheduler } from "../src/host/scheduler.ts";
 import { Seam } from "../src/seam/client.ts";
@@ -94,7 +104,13 @@ function body(req: IncomingMessage): Promise<string> {
 /** A stub engine: a batch that lands when told, jobs that finish when told, and the audit of every actor header. */
 async function stubEngine() {
   const seen: { method: string; path: string; actor: Record<string, unknown> | null; body: unknown }[] = [];
-  const state = { landed: false, nextJob: 100, jobs: new Map<number, string>() };
+  const state = {
+    landed: false,
+    nextJob: 100,
+    jobs: new Map<number, string>(),
+    /** The job queued after a job, where it heads a chain (record 26). */
+    chain: new Map<number, number>(),
+  };
   const server: Server = createServer(async (req, res) => {
     const text = await body(req);
     const actor = req.headers["x-nils-actor"]
@@ -128,7 +144,12 @@ async function stubEngine() {
         ],
       });
     const m = /^\/api\/jobs\/(\d+)$/u.exec(url);
-    if (m) return json(200, { id: Number(m[1]), state: state.jobs.get(Number(m[1])) ?? "queued" });
+    if (m)
+      return json(200, {
+        id: Number(m[1]),
+        state: state.jobs.get(Number(m[1])) ?? "queued",
+        chain: { before: null, after: state.chain.get(Number(m[1])) ?? null },
+      });
     if (url === "/api/jobs" && req.method === "POST") {
       const id = state.nextJob++;
       state.jobs.set(id, "queued");
@@ -334,6 +355,85 @@ describe("the plan", () => {
     expect(VERBS.classify.words({ pack: "mri" })).toBe("classify every stack with pack mri");
     expect(VERBS.fingerprint.words({})).toBe("fingerprint every stack that has no fingerprint yet");
   });
+  it("the dataset verbs (record 26) queue pseudonymize and bring-in by the dataset's name, and refuse a path or a batch", () => {
+    const job = (command: string[]) => ({ path: "/api/jobs", body: { command } });
+    expect(VERBS.bring_in.call({ dataset: "scanner" })).toEqual(job(["bring-in", "@scanner"]));
+    expect(VERBS.bring_in.call({ dataset: "@scanner" })).toEqual(job(["bring-in", "@scanner"]));
+    expect(VERBS.pseudonymize.call({ dataset: "scanner" })).toEqual(job(["pseudonymize", "@scanner"]));
+    expect(VERBS.pseudonymize.call({ dataset: "scanner", name: "week 38", held: true })).toEqual(
+      job(["pseudonymize", "@scanner", "--name", "week 38", "--held"]),
+    );
+    for (const verb of ["bring_in", "pseudonymize"]) {
+      expect(VERBS[verb].needs).toBe("data:work");
+      expect(VERBS[verb].door).toBe("POST /api/jobs");
+      expect(VERBS[verb].call({}), verb).toHaveProperty("refused", expect.stringMatching(/names a dataset/u));
+      expect(VERBS[verb].call({ dataset: "scanner/2026" }), verb).toHaveProperty(
+        "refused",
+        expect.stringMatching(/never a folder inside it/u),
+      );
+      expect(VERBS[verb].call({ dataset: "scanner", batch: 2 }), verb).toHaveProperty(
+        "refused",
+        expect.stringMatching(/takes no batch/u),
+      );
+    }
+    expect(VERBS.bring_in.words({ dataset: "scanner" })).toBe(
+      "bring in what is new in the dataset scanner: pseudonymise, then digest, fingerprint and classify, each queued when the one before it is done",
+    );
+    expect(VERBS.pseudonymize.words({ dataset: "scanner", name: "week 38", held: true })).toBe(
+      "pseudonymise the originals of the dataset scanner into its pseudonymised tree as batch week 38, the held files too",
+    );
+    // the rung is the policy's: the job door is rung two, so both are steps, and bring-in is spelt either way
+    const planned = planFrom(
+      [
+        { verb: "bring-in", args: { dataset: "scanner" }, when: { on_event: "batch_landed" } },
+        { verb: "pseudonymize", args: { dataset: "scanner" } },
+      ],
+      POLICY,
+    );
+    expect(planned.steps.map((s) => [s.verb, s.rung, s.door])).toEqual([
+      ["bring_in", 2, "POST /api/jobs"],
+      ["pseudonymize", 2, "POST /api/jobs"],
+    ]);
+    expect(restate(planned)).toContain(
+      "1. [rung 2, under a standing grant] bring in what is new in the dataset scanner: pseudonymise, then digest, fingerprint and classify, each queued when the one before it is done when the next batch lands",
+    );
+  });
+  it("a step naming a dataset the person may not work on is refused with the words the standing-grant door uses", () => {
+    const row = POLICY.find((r) => r.door === "POST /api/jobs");
+    if (!row) throw new Error("no job door");
+    const steps = [
+      { verb: "digest", args: { place: "scanner" } },
+      { verb: "bring_in", args: { dataset: "scanner" } },
+      { verb: "pseudonymize", args: { dataset: "scanner" } },
+      { verb: "release", args: { nothing: true } },
+    ];
+    // a person who runs pipelines but does not work on data: digest is planned, the dataset verbs are refused
+    const pipelines = planFrom(steps, POLICY, ["pipelines:work", "query:work"]);
+    expect(pipelines.steps.map((s) => s.verb)).toEqual(["digest"]);
+    expect(pipelines.refused.map((r) => r.why)).toEqual([
+      "step 2: bring in what is new in the dataset scanner: pseudonymise, then digest, fingerprint and classify, each queued when the one before it is done needs data:work, which you do not hold; a grant never exceeds the person",
+      "step 3: pseudonymise the originals of the dataset scanner into its pseudonymised tree needs data:work, which you do not hold; a grant never exceeds the person",
+    ]);
+    expect(pipelines.proposals.map((s) => s.verb)).toEqual(["release"]);
+    // the same words the standing-grant door answers with
+    expect(pipelines.refused[0].why).toBe(
+      `step 2: ${exceeds(VERBS.bring_in.words({ dataset: "scanner" }), { grant: "data:work" })}`,
+    );
+    expect(exceeds("POST /api/jobs", row)).toBe(
+      "POST /api/jobs needs one of data:work, pipelines:work, release:work, database:work, which you do not hold; a grant never exceeds the person",
+    );
+    // a person who works on data plans all three; a person who only reads plans none, refused at the door itself
+    expect(planFrom(steps, POLICY, ["data:work"]).steps.map((s) => s.verb)).toEqual([
+      "digest",
+      "bring_in",
+      "pseudonymize",
+    ]);
+    const reader = planFrom(steps, POLICY, ["query:see"]);
+    expect(reader.steps).toEqual([]);
+    expect(reader.refused[0].why).toBe(`step 1: ${exceeds("POST /api/jobs", row)}`);
+    // with the grants unknown, nothing is refused for them: the scheduler waits for a standing grant as before
+    expect(planFrom(steps, POLICY).steps.map((s) => s.verb)).toEqual(["digest", "bring_in", "pseudonymize"]);
+  });
   it("the operator manifest runs nothing, holds a read-only grant and checks its plan against the policy", () => {
     const m = loadManifests(["./stations"]).get("operator");
     if (!m) throw new Error("no operator manifest");
@@ -472,6 +572,62 @@ describe("the overnight instruction runs as a plan (bar 3)", () => {
     expect(store.revoke(g.id, subject)?.revoked_at).not.toBeNull();
     expect(store.grantFor(subject, "POST /api/jobs")).toBeNull();
     expect(store.revoke(g.id, "someone-else")).toBeNull();
+  });
+
+  it("a bring-in fires when the batch lands and the step after it waits for the whole chain (record 26)", async () => {
+    const e = await stubEngine();
+    closers.push(() => e.server.close());
+    const { store, seamFor } = harness(e.url);
+    const subject = "anna@lab";
+    store.plan({
+      id: "plan-bring",
+      conversation: "c-bring",
+      subject,
+      instruction: "when the next batch lands, bring in what is new in scanner, then run my question",
+      planned: planFrom(
+        [
+          { verb: "bring_in", args: { dataset: "scanner" }, when: { on_event: "batch_landed" } },
+          { verb: "run", args: { document: 5 }, when: { on_event: "job_finished" } },
+        ],
+        POLICY,
+        ["data:work", "query:work"],
+      ),
+    });
+    const jobs = store.grant(subject, "POST /api/jobs");
+    store.grant(subject, "POST /api/ask/jobs");
+    store.confirm("plan-bring", subject);
+    const scheduler = new Scheduler({ store, seamFor });
+    let fired = await scheduler.tick();
+    expect(fired[0]).toMatchObject({ outcome: "waiting", reason: "waiting: for a batch to land" });
+    // the batch lands: the chain's head is queued as the engine's bring-in verb, under the grant
+    e.state.landed = true;
+    fired = await scheduler.tick();
+    expect(fired[0]).toMatchObject({ outcome: "queued", job: 100 });
+    const queued = e.seen.find((s) => s.method === "POST" && s.path === "/api/jobs");
+    expect(queued?.body).toEqual({ command: ["bring-in", "@scanner"] });
+    expect(queued?.actor).toMatchObject({ grant: jobs.id });
+    // the engine chains pseudonymise (100), then digest (101), then classify (102)
+    e.state.chain.set(100, 101);
+    e.state.chain.set(101, 102);
+    e.state.jobs.set(100, "done");
+    fired = await scheduler.tick();
+    expect(fired[0]).toMatchObject({ outcome: "queued", job: 101 });
+    expect(store.steps("plan-bring")[0]).toMatchObject({ state: "queued", job: 101 });
+    expect(store.steps("plan-bring")[1].state).toBe("waiting");
+    e.state.jobs.set(101, "running");
+    fired = await scheduler.tick();
+    expect(fired[0]).toMatchObject({ outcome: "running", job: 101 });
+    e.state.jobs.set(101, "done");
+    await scheduler.tick();
+    expect(store.steps("plan-bring")[0]).toMatchObject({ state: "queued", job: 102 });
+    expect(e.seen.some((s) => s.path === "/api/ask/jobs")).toBe(false);
+    // the chain's last job ends: the step is done, and the question runs on the next pass
+    e.state.jobs.set(102, "done");
+    await scheduler.tick();
+    expect(store.steps("plan-bring")[0]).toMatchObject({ state: "done", job: 102 });
+    await scheduler.tick();
+    expect(store.steps("plan-bring")[1]).toMatchObject({ verb: "run", state: "queued" });
+    expect(e.seen.find((s) => s.path === "/api/ask/jobs")?.body).toEqual({ document_id: 5 });
   });
 
   it("C49: with the flag on, rung two is empty for a person without assist-run", async () => {
