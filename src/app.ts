@@ -138,7 +138,7 @@ function personStreaming(): string | null {
 // Kvasir, one provider per station, the app's minted key; registered before any agent runs
 const catalog: Catalog = await readCatalog(c.kvasir, c.kvasirKey).catch((e: Error) => {
   console.error(`nils-assistant: Kvasir did not answer at start: ${e.message}`);
-  return { baseUrl: `${c.kvasir}/v1`, models: [] };
+  return { baseUrl: `${c.kvasir}/v1/pi`, models: [] };
 });
 // a conversation named by the model once its first answer settles, through the title purpose (the chat, slice 10)
 let titles: ReturnType<typeof kvasirTitles> = null;

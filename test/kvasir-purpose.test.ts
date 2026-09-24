@@ -41,7 +41,7 @@ describe("a station's calls to Kvasir", () => {
       station: "concierge",
       purpose: "assistant.concierge",
       catalog: {
-        baseUrl: "http://kvasir.test/v1",
+        baseUrl: "http://kvasir.test/v1/pi",
         models: [
           {
             id: "qwen",

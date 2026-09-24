@@ -36,7 +36,7 @@ const qwen: Catalog["models"][number] = {
   maxTokens: 4096,
   locality: "local",
 };
-const catalog: Catalog = { baseUrl: "http://kvasir.test/v1", models: [qwen] };
+const catalog: Catalog = { baseUrl: "http://kvasir.test/v1/pi", models: [qwen] };
 
 /** A Kvasir that answers every call with a word, and the headers each call came with. */
 function kvasir() {
