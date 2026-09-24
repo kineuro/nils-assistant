@@ -1,0 +1,1706 @@
+{
+  "pipelines": [
+    {
+      "id": 1,
+      "name": "n4-bias-correction",
+      "version": 1,
+      "label": "n4-bias-correction@1",
+      "tool_version": "2.6.5.dev1-gfdce4d2",
+      "description": "Correct the low-frequency intensity non-uniformity (bias field) of each session's T1-weighted image with ANTs N4BiasFieldCorrection. One session is one unit; no GPU, no licence.",
+      "image": "docker.io/antsx/ants@sha256:59c45f54a1f1dc69134f63bec91a726e41c71c64a16cc21cda0b54526910a3c3",
+      "image_digest": "sha256:59c45f54a1f1dc69134f63bec91a726e41c71c64a16cc21cda0b54526910a3c3",
+      "descriptor_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+      "layout": "bids",
+      "level": "session",
+      "state": "active",
+      "added_by": "engine",
+      "added_at": "2026-09-24T00:00:00Z",
+      "origin": "starter",
+      "starter": true,
+      "checks": null,
+      "roles": ["t1w"],
+      "parameters": [
+        {
+          "id": "dimension",
+          "name": "Image dimensionality",
+          "type": "Number",
+          "description": "The image's dimensionality, 3 for a structural volume.",
+          "value-key": "[DIM]",
+          "default-value": 3,
+          "integer": true,
+          "minimum": 2,
+          "maximum": 4
+        },
+        {
+          "id": "shrink_factor",
+          "name": "Shrink factor",
+          "type": "Number",
+          "description": "Downsampling that trades accuracy for speed; 4 is ANTs' default for a volume.",
+          "value-key": "[SHRINK]",
+          "default-value": 4,
+          "integer": true,
+          "minimum": 1,
+          "maximum": 8
+        }
+      ],
+      "inputs": null,
+      "outputs": [
+        {
+          "id": "n4_image",
+          "kind": "output",
+          "path-template": "sub-{subject}/ses-{session}/anat/*_desc-n4_T1w.nii.gz",
+          "media-type": "application/x-nifti+gzip"
+        }
+      ],
+      "needs": {
+        "gpu": "none",
+        "memory-gb": 4,
+        "cores": 2,
+        "unit-minutes": 2
+      },
+      "proposals": null,
+      "descriptor": {
+        "name": "n4-bias-correction",
+        "schema-version": "0.5",
+        "tool-version": "2.6.5.dev1-gfdce4d2",
+        "description": "Correct the low-frequency intensity non-uniformity (bias field) of each session's T1-weighted image with ANTs N4BiasFieldCorrection. One session is one unit; no GPU, no licence.",
+        "container-image": {
+          "type": "docker",
+          "image": "docker.io/antsx/ants@sha256:59c45f54a1f1dc69134f63bec91a726e41c71c64a16cc21cda0b54526910a3c3"
+        },
+        "inputs": [
+          {
+            "id": "dimension",
+            "name": "Image dimensionality",
+            "type": "Number",
+            "description": "The image's dimensionality, 3 for a structural volume.",
+            "value-key": "[DIM]",
+            "default-value": 3,
+            "integer": true,
+            "minimum": 2,
+            "maximum": 4
+          },
+          {
+            "id": "shrink_factor",
+            "name": "Shrink factor",
+            "type": "Number",
+            "description": "Downsampling that trades accuracy for speed; 4 is ANTs' default for a volume.",
+            "value-key": "[SHRINK]",
+            "default-value": 4,
+            "integer": true,
+            "minimum": 1,
+            "maximum": 8
+          }
+        ],
+        "command-line": "bash -c 'set -eu; shopt -s nullglob; cd [InputDataset]; n=0; for f in sub-*/ses-*/anat/*_T1w.nii.gz sub-*/ses-*/anat/*_T1w.nii; do d=[OutputLocation]/$(dirname \"$f\"); mkdir -p \"$d\"; b=$(basename \"$f\"); b=${b%.gz}; b=${b%.nii}; b=${b%_T1w}; N4BiasFieldCorrection -d [DIM] -s [SHRINK] -i \"$f\" -o \"$d/${b}_desc-n4_T1w.nii.gz\"; n=$((n+1)); done; echo \"N4 corrected $n images\"'",
+        "output-files": [
+          {
+            "id": "n4_image",
+            "name": "N4 bias-corrected T1w",
+            "path-template": "sub-[SubjectLabel]/ses-[SessionLabel]/anat/*_desc-n4_T1w.nii.gz"
+          }
+        ],
+        "suggested-resources": {
+          "cpu-cores": 2,
+          "ram": 4,
+          "walltime-estimate": 0.2
+        },
+        "x-nils": {
+          "contract": 1,
+          "analysis-level": "session",
+          "input": {
+            "layout": "bids",
+            "roles": ["t1w"]
+          },
+          "units": "apart",
+          "outputs": [
+            {
+              "id": "n4_image",
+              "kind": "output",
+              "path-template": "sub-{subject}/ses-{session}/anat/*_desc-n4_T1w.nii.gz",
+              "media-type": "application/x-nifti+gzip"
+            }
+          ],
+          "needs": {
+            "gpu": "none",
+            "memory-gb": 4,
+            "cores": 2,
+            "unit-minutes": 2
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "name": "synthstrip",
+      "version": 1,
+      "label": "synthstrip@1",
+      "tool_version": "freesurfer-8.2.0",
+      "description": "Skull-strip each session's T1-weighted image with SynthStrip: a binary brain mask, the brain-extracted image, and the brain's volume in mm3. One session is one unit; CPU, no licence.",
+      "image": "docker.io/freesurfer/freesurfer@sha256:5648104ca75a24f6ee5a8786146f99b405c2bda1da12bff723a15056da8ddf6b",
+      "image_digest": "sha256:5648104ca75a24f6ee5a8786146f99b405c2bda1da12bff723a15056da8ddf6b",
+      "descriptor_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+      "layout": "bids",
+      "level": "session",
+      "state": "active",
+      "added_by": "engine",
+      "added_at": "2026-09-24T00:00:00Z",
+      "origin": "starter",
+      "starter": true,
+      "checks": [
+        {
+          "metric": "brain_volume",
+          "op": ">=",
+          "value": 700000,
+          "description": "A mask smaller than 0.7 litres has cut into the brain"
+        },
+        {
+          "metric": "brain_volume",
+          "op": "<=",
+          "value": 2200000,
+          "description": "A mask larger than 2.2 litres has taken skull or neck"
+        }
+      ],
+      "roles": ["t1w"],
+      "parameters": [
+        {
+          "id": "no_csf",
+          "name": "Exclude CSF",
+          "type": "Flag",
+          "description": "Exclude the cerebrospinal fluid from the mask (SynthStrip --no-csf) for a tighter brain.",
+          "value-key": "[NOCSF]",
+          "command-line-flag": "--no-csf",
+          "default-value": false
+        },
+        {
+          "id": "border",
+          "name": "Mask border",
+          "type": "Number",
+          "description": "Grow (or with a negative value shrink) the mask's boundary by this many millimetres.",
+          "value-key": "[BORDER]",
+          "default-value": 1,
+          "minimum": -5,
+          "maximum": 10,
+          "unit": "mm"
+        },
+        {
+          "id": "threads",
+          "name": "Threads",
+          "type": "Number",
+          "description": "The threads mri_synthstrip uses for one session.",
+          "value-key": "[THREADS]",
+          "default-value": 2,
+          "integer": true,
+          "minimum": 1,
+          "maximum": 32
+        }
+      ],
+      "inputs": null,
+      "outputs": [
+        {
+          "id": "brain_mask",
+          "kind": "mask",
+          "path-template": "sub-{subject}/ses-{session}/anat/*_desc-brain_mask.nii.gz",
+          "media-type": "application/x-nifti+gzip"
+        },
+        {
+          "id": "brain",
+          "kind": "output",
+          "path-template": "sub-{subject}/ses-{session}/anat/*_desc-brain_T1w.nii.gz",
+          "media-type": "application/x-nifti+gzip"
+        },
+        {
+          "id": "brain_volume",
+          "kind": "table",
+          "format": "csv",
+          "path-template": "sub-{subject}/ses-{session}/anat/*_desc-brain_volume.csv",
+          "columns": [
+            {
+              "name": "brain_volume",
+              "type": "number",
+              "unit": "mm3",
+              "description": "The volume inside the brain mask"
+            }
+          ]
+        }
+      ],
+      "needs": {
+        "cores-input": "threads",
+        "gpu": "none",
+        "cores": 2,
+        "memory-gb": 4,
+        "unit-minutes": 1
+      },
+      "proposals": null,
+      "descriptor": {
+        "name": "synthstrip",
+        "schema-version": "0.5",
+        "tool-version": "freesurfer-8.2.0",
+        "description": "Skull-strip each session's T1-weighted image with SynthStrip: a binary brain mask, the brain-extracted image, and the brain's volume in mm3. One session is one unit; CPU, no licence.",
+        "container-image": {
+          "type": "docker",
+          "image": "docker.io/freesurfer/freesurfer@sha256:5648104ca75a24f6ee5a8786146f99b405c2bda1da12bff723a15056da8ddf6b"
+        },
+        "inputs": [
+          {
+            "id": "no_csf",
+            "name": "Exclude CSF",
+            "type": "Flag",
+            "description": "Exclude the cerebrospinal fluid from the mask (SynthStrip --no-csf) for a tighter brain.",
+            "value-key": "[NOCSF]",
+            "command-line-flag": "--no-csf",
+            "default-value": false
+          },
+          {
+            "id": "border",
+            "name": "Mask border",
+            "type": "Number",
+            "description": "Grow (or with a negative value shrink) the mask's boundary by this many millimetres.",
+            "value-key": "[BORDER]",
+            "default-value": 1,
+            "minimum": -5,
+            "maximum": 10,
+            "unit": "mm"
+          },
+          {
+            "id": "threads",
+            "name": "Threads",
+            "type": "Number",
+            "description": "The threads mri_synthstrip uses for one session.",
+            "value-key": "[THREADS]",
+            "default-value": 2,
+            "integer": true,
+            "minimum": 1,
+            "maximum": 32
+          }
+        ],
+        "command-line": "bash -c 'set -u; shopt -s nullglob; cd [InputDataset]; for f in sub-*/ses-*/anat/*_T1w.nii.gz; do d=[OutputLocation]/$(dirname \"$f\"); mkdir -p \"$d\"; b=$(basename \"$f\" .nii.gz); b=${b%_T1w}; mri_synthstrip -i \"$f\" -o \"$d/${b}_desc-brain_T1w.nii.gz\" -m \"$d/${b}_desc-brain_mask.nii.gz\" -b [BORDER] -t [THREADS] [NOCSF] || continue; v=$(fspython -c \"import sys, numpy, nibabel; i = nibabel.load(sys.argv[1]); print(float(numpy.count_nonzero(i.get_fdata() > 0) * numpy.prod(i.header.get_zooms()[:3])))\" \"$d/${b}_desc-brain_mask.nii.gz\") || continue; printf \"brain_volume\\n%s\\n\" \"$v\" > \"$d/${b}_desc-brain_volume.csv\"; done'",
+        "x-nils": {
+          "contract": 1,
+          "analysis-level": "session",
+          "input": {
+            "layout": "bids",
+            "roles": ["t1w"]
+          },
+          "units": "apart",
+          "outputs": [
+            {
+              "id": "brain_mask",
+              "kind": "mask",
+              "path-template": "sub-{subject}/ses-{session}/anat/*_desc-brain_mask.nii.gz",
+              "media-type": "application/x-nifti+gzip"
+            },
+            {
+              "id": "brain",
+              "kind": "output",
+              "path-template": "sub-{subject}/ses-{session}/anat/*_desc-brain_T1w.nii.gz",
+              "media-type": "application/x-nifti+gzip"
+            },
+            {
+              "id": "brain_volume",
+              "kind": "table",
+              "format": "csv",
+              "path-template": "sub-{subject}/ses-{session}/anat/*_desc-brain_volume.csv",
+              "columns": [
+                {
+                  "name": "brain_volume",
+                  "type": "number",
+                  "unit": "mm3",
+                  "description": "The volume inside the brain mask"
+                }
+              ]
+            }
+          ],
+          "qc": [
+            {
+              "metric": "brain_volume",
+              "op": ">=",
+              "value": 700000,
+              "description": "A mask smaller than 0.7 litres has cut into the brain"
+            },
+            {
+              "metric": "brain_volume",
+              "op": "<=",
+              "value": 2200000,
+              "description": "A mask larger than 2.2 litres has taken skull or neck"
+            }
+          ],
+          "needs": {
+            "cores-input": "threads",
+            "gpu": "none",
+            "cores": 2,
+            "memory-gb": 4,
+            "unit-minutes": 1
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "name": "synthseg",
+      "version": 1,
+      "label": "synthseg@1",
+      "tool_version": "freesurfer-8.2.0",
+      "description": "Segment each session's T1-weighted image with SynthSeg (robust): a label map, the volume of every structure in mm3, and SynthSeg's quality scores, held against 0.65. One session is one unit; CPU, no licence declared.",
+      "image": "docker.io/freesurfer/freesurfer@sha256:5648104ca75a24f6ee5a8786146f99b405c2bda1da12bff723a15056da8ddf6b",
+      "image_digest": "sha256:5648104ca75a24f6ee5a8786146f99b405c2bda1da12bff723a15056da8ddf6b",
+      "descriptor_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+      "layout": "bids",
+      "level": "session",
+      "state": "active",
+      "added_by": "engine",
+      "added_at": "2026-09-24T00:00:00Z",
+      "origin": "starter",
+      "starter": true,
+      "checks": [
+        {
+          "metric": "qc_general_white_matter",
+          "op": ">=",
+          "value": 0.65,
+          "description": "Below 0.65 SynthSeg has likely failed"
+        },
+        {
+          "metric": "qc_general_grey_matter",
+          "op": ">=",
+          "value": 0.65
+        },
+        {
+          "metric": "qc_general_csf",
+          "op": ">=",
+          "value": 0.65
+        }
+      ],
+      "roles": ["t1w"],
+      "parameters": [
+        {
+          "id": "robust",
+          "name": "Robust",
+          "type": "Flag",
+          "description": "SynthSeg-robust, slower and better on clinical scans of low resolution or odd contrast.",
+          "value-key": "[ROBUST]",
+          "command-line-flag": "--robust",
+          "default-value": true
+        },
+        {
+          "id": "threads",
+          "name": "Threads",
+          "type": "Number",
+          "description": "The threads mri_synthseg uses for one session.",
+          "value-key": "[THREADS]",
+          "default-value": 4,
+          "integer": true,
+          "minimum": 1,
+          "maximum": 32
+        }
+      ],
+      "inputs": null,
+      "outputs": [
+        {
+          "id": "labels",
+          "kind": "mask",
+          "path-template": "sub-{subject}/ses-{session}/anat/*_desc-synthseg_dseg.nii.gz",
+          "media-type": "application/x-nifti+gzip"
+        },
+        {
+          "id": "volumes",
+          "kind": "table",
+          "format": "csv",
+          "path-template": "sub-{subject}/ses-{session}/anat/*_desc-synthseg_volumes.csv",
+          "columns": [
+            {
+              "name": "total_intracranial",
+              "unit": "mm3",
+              "description": "Total intracranial volume"
+            },
+            {
+              "name": "left_cerebral_white_matter",
+              "unit": "mm3"
+            },
+            {
+              "name": "left_cerebral_cortex",
+              "unit": "mm3"
+            },
+            {
+              "name": "left_lateral_ventricle",
+              "unit": "mm3"
+            },
+            {
+              "name": "left_inferior_lateral_ventricle",
+              "unit": "mm3"
+            },
+            {
+              "name": "left_cerebellum_white_matter",
+              "unit": "mm3"
+            },
+            {
+              "name": "left_cerebellum_cortex",
+              "unit": "mm3"
+            },
+            {
+              "name": "left_thalamus",
+              "unit": "mm3"
+            },
+            {
+              "name": "left_caudate",
+              "unit": "mm3"
+            },
+            {
+              "name": "left_putamen",
+              "unit": "mm3"
+            },
+            {
+              "name": "left_pallidum",
+              "unit": "mm3"
+            },
+            {
+              "name": "third_ventricle",
+              "from": "3rd ventricle",
+              "unit": "mm3"
+            },
+            {
+              "name": "fourth_ventricle",
+              "from": "4th ventricle",
+              "unit": "mm3"
+            },
+            {
+              "name": "brain_stem",
+              "unit": "mm3"
+            },
+            {
+              "name": "left_hippocampus",
+              "unit": "mm3"
+            },
+            {
+              "name": "left_amygdala",
+              "unit": "mm3"
+            },
+            {
+              "name": "csf",
+              "unit": "mm3"
+            },
+            {
+              "name": "left_accumbens_area",
+              "unit": "mm3"
+            },
+            {
+              "name": "left_ventral_dc",
+              "unit": "mm3"
+            },
+            {
+              "name": "right_cerebral_white_matter",
+              "unit": "mm3"
+            },
+            {
+              "name": "right_cerebral_cortex",
+              "unit": "mm3"
+            },
+            {
+              "name": "right_lateral_ventricle",
+              "unit": "mm3"
+            },
+            {
+              "name": "right_inferior_lateral_ventricle",
+              "unit": "mm3"
+            },
+            {
+              "name": "right_cerebellum_white_matter",
+              "unit": "mm3"
+            },
+            {
+              "name": "right_cerebellum_cortex",
+              "unit": "mm3"
+            },
+            {
+              "name": "right_thalamus",
+              "unit": "mm3"
+            },
+            {
+              "name": "right_caudate",
+              "unit": "mm3"
+            },
+            {
+              "name": "right_putamen",
+              "unit": "mm3"
+            },
+            {
+              "name": "right_pallidum",
+              "unit": "mm3"
+            },
+            {
+              "name": "right_hippocampus",
+              "unit": "mm3"
+            },
+            {
+              "name": "right_amygdala",
+              "unit": "mm3"
+            },
+            {
+              "name": "right_accumbens_area",
+              "unit": "mm3"
+            },
+            {
+              "name": "right_ventral_dc",
+              "unit": "mm3"
+            }
+          ]
+        },
+        {
+          "id": "quality",
+          "kind": "table",
+          "format": "csv",
+          "path-template": "sub-{subject}/ses-{session}/anat/*_desc-synthseg_qc.csv",
+          "columns": [
+            {
+              "name": "qc_general_white_matter",
+              "from": "general white matter",
+              "description": "SynthSeg's quality score, 0 to 1"
+            },
+            {
+              "name": "qc_general_grey_matter",
+              "from": "general grey matter"
+            },
+            {
+              "name": "qc_general_csf",
+              "from": "general csf"
+            },
+            {
+              "name": "qc_cerebellum",
+              "from": "cerebellum"
+            },
+            {
+              "name": "qc_brainstem",
+              "from": "brainstem"
+            },
+            {
+              "name": "qc_thalamus",
+              "from": "thalamus"
+            },
+            {
+              "name": "qc_putamen_pallidum",
+              "from": "putamen+pallidum"
+            },
+            {
+              "name": "qc_hippocampus_amygdala",
+              "from": "hippocampus+amygdala"
+            }
+          ]
+        }
+      ],
+      "needs": {
+        "cores-input": "threads",
+        "gpu": "none",
+        "cores": 4,
+        "memory-gb": 12,
+        "unit-minutes": 5
+      },
+      "proposals": null,
+      "descriptor": {
+        "name": "synthseg",
+        "schema-version": "0.5",
+        "tool-version": "freesurfer-8.2.0",
+        "description": "Segment each session's T1-weighted image with SynthSeg (robust): a label map, the volume of every structure in mm3, and SynthSeg's quality scores, held against 0.65. One session is one unit; CPU, no licence declared.",
+        "container-image": {
+          "type": "docker",
+          "image": "docker.io/freesurfer/freesurfer@sha256:5648104ca75a24f6ee5a8786146f99b405c2bda1da12bff723a15056da8ddf6b"
+        },
+        "inputs": [
+          {
+            "id": "robust",
+            "name": "Robust",
+            "type": "Flag",
+            "description": "SynthSeg-robust, slower and better on clinical scans of low resolution or odd contrast.",
+            "value-key": "[ROBUST]",
+            "command-line-flag": "--robust",
+            "default-value": true
+          },
+          {
+            "id": "threads",
+            "name": "Threads",
+            "type": "Number",
+            "description": "The threads mri_synthseg uses for one session.",
+            "value-key": "[THREADS]",
+            "default-value": 4,
+            "integer": true,
+            "minimum": 1,
+            "maximum": 32
+          }
+        ],
+        "command-line": "bash -c 'set -u; shopt -s nullglob; cd [InputDataset]; for f in sub-*/ses-*/anat/*_T1w.nii.gz; do d=[OutputLocation]/$(dirname \"$f\"); mkdir -p \"$d\"; b=$(basename \"$f\" .nii.gz); b=${b%_T1w}; mri_synthseg --i \"$f\" --o \"$d/${b}_desc-synthseg_dseg.nii.gz\" --vol \"$d/${b}_desc-synthseg_volumes.csv\" --qc \"$d/${b}_desc-synthseg_qc.csv\" --threads [THREADS] --cpu [ROBUST] || true; done'",
+        "x-nils": {
+          "contract": 1,
+          "analysis-level": "session",
+          "input": {
+            "layout": "bids",
+            "roles": ["t1w"]
+          },
+          "units": "apart",
+          "outputs": [
+            {
+              "id": "labels",
+              "kind": "mask",
+              "path-template": "sub-{subject}/ses-{session}/anat/*_desc-synthseg_dseg.nii.gz",
+              "media-type": "application/x-nifti+gzip"
+            },
+            {
+              "id": "volumes",
+              "kind": "table",
+              "format": "csv",
+              "path-template": "sub-{subject}/ses-{session}/anat/*_desc-synthseg_volumes.csv",
+              "columns": [
+                {
+                  "name": "total_intracranial",
+                  "unit": "mm3",
+                  "description": "Total intracranial volume"
+                },
+                {
+                  "name": "left_cerebral_white_matter",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "left_cerebral_cortex",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "left_lateral_ventricle",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "left_inferior_lateral_ventricle",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "left_cerebellum_white_matter",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "left_cerebellum_cortex",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "left_thalamus",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "left_caudate",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "left_putamen",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "left_pallidum",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "third_ventricle",
+                  "from": "3rd ventricle",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "fourth_ventricle",
+                  "from": "4th ventricle",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "brain_stem",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "left_hippocampus",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "left_amygdala",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "csf",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "left_accumbens_area",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "left_ventral_dc",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "right_cerebral_white_matter",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "right_cerebral_cortex",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "right_lateral_ventricle",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "right_inferior_lateral_ventricle",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "right_cerebellum_white_matter",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "right_cerebellum_cortex",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "right_thalamus",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "right_caudate",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "right_putamen",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "right_pallidum",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "right_hippocampus",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "right_amygdala",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "right_accumbens_area",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "right_ventral_dc",
+                  "unit": "mm3"
+                }
+              ]
+            },
+            {
+              "id": "quality",
+              "kind": "table",
+              "format": "csv",
+              "path-template": "sub-{subject}/ses-{session}/anat/*_desc-synthseg_qc.csv",
+              "columns": [
+                {
+                  "name": "qc_general_white_matter",
+                  "from": "general white matter",
+                  "description": "SynthSeg's quality score, 0 to 1"
+                },
+                {
+                  "name": "qc_general_grey_matter",
+                  "from": "general grey matter"
+                },
+                {
+                  "name": "qc_general_csf",
+                  "from": "general csf"
+                },
+                {
+                  "name": "qc_cerebellum",
+                  "from": "cerebellum"
+                },
+                {
+                  "name": "qc_brainstem",
+                  "from": "brainstem"
+                },
+                {
+                  "name": "qc_thalamus",
+                  "from": "thalamus"
+                },
+                {
+                  "name": "qc_putamen_pallidum",
+                  "from": "putamen+pallidum"
+                },
+                {
+                  "name": "qc_hippocampus_amygdala",
+                  "from": "hippocampus+amygdala"
+                }
+              ]
+            }
+          ],
+          "qc": [
+            {
+              "metric": "qc_general_white_matter",
+              "op": ">=",
+              "value": 0.65,
+              "description": "Below 0.65 SynthSeg has likely failed"
+            },
+            {
+              "metric": "qc_general_grey_matter",
+              "op": ">=",
+              "value": 0.65
+            },
+            {
+              "metric": "qc_general_csf",
+              "op": ">=",
+              "value": 0.65
+            }
+          ],
+          "needs": {
+            "cores-input": "threads",
+            "gpu": "none",
+            "cores": 4,
+            "memory-gb": 12,
+            "unit-minutes": 5
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "name": "samseg-lesions",
+      "version": 1,
+      "label": "samseg-lesions@1",
+      "tool_version": "freesurfer-8.2.0",
+      "description": "Segment each session with SAMSEG from its T1w and FLAIR, lesions included: a label map and the volumes of the brain's structures and its white-matter lesions, with the intracranial volume. One session is one unit; CPU, about 45 minutes a session.",
+      "image": "docker.io/freesurfer/freesurfer@sha256:5648104ca75a24f6ee5a8786146f99b405c2bda1da12bff723a15056da8ddf6b",
+      "image_digest": "sha256:5648104ca75a24f6ee5a8786146f99b405c2bda1da12bff723a15056da8ddf6b",
+      "descriptor_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+      "layout": "bids",
+      "level": "session",
+      "state": "active",
+      "added_by": "engine",
+      "added_at": "2026-09-24T00:00:00Z",
+      "origin": "starter",
+      "starter": true,
+      "checks": [
+        {
+          "metric": "intracranial",
+          "op": ">=",
+          "value": 900000,
+          "description": "An intracranial volume under 0.9 litres is a failed segmentation more often than a head"
+        },
+        {
+          "metric": "intracranial",
+          "op": "<=",
+          "value": 2300000,
+          "description": "Over 2.3 litres the segmentation took more than the head"
+        }
+      ],
+      "roles": ["t1w", "flair"],
+      "parameters": [
+        {
+          "id": "lesion",
+          "name": "Segment lesions",
+          "type": "String",
+          "description": "on reads the FLAIR beside the T1w and segments white-matter lesions (label 99); off segments the anatomy from the T1w alone, in about a quarter of the time.",
+          "value-key": "[LESION]",
+          "value-choices": ["on", "off"],
+          "default-value": "on"
+        },
+        {
+          "id": "pallidum_separate",
+          "name": "Separate pallidum",
+          "type": "Flag",
+          "description": "Segment the pallidum as a class of its own rather than with the putamen.",
+          "value-key": "[PALLIDUM]",
+          "command-line-flag": "--pallidum-separate",
+          "default-value": true
+        },
+        {
+          "id": "threads",
+          "name": "Threads",
+          "type": "Number",
+          "description": "The threads SAMSEG uses for one session.",
+          "value-key": "[THREADS]",
+          "default-value": 4,
+          "integer": true,
+          "minimum": 1,
+          "maximum": 32
+        }
+      ],
+      "inputs": null,
+      "outputs": [
+        {
+          "id": "labels",
+          "kind": "mask",
+          "path-template": "sub-{subject}/ses-{session}/anat/*_desc-samseg_dseg.nii.gz",
+          "media-type": "application/x-nifti+gzip"
+        },
+        {
+          "id": "volumes",
+          "kind": "table",
+          "format": "json",
+          "path-template": "sub-{subject}/ses-{session}/anat/*_desc-samseg_volumes.json",
+          "columns": [
+            {
+              "name": "intracranial",
+              "from": "Intra-Cranial",
+              "unit": "mm3",
+              "description": "SAMSEG's intracranial volume (sbTIV)"
+            },
+            {
+              "name": "lesions",
+              "from": "Lesions",
+              "unit": "mm3",
+              "description": "White-matter lesion volume, label 99; absent when lesions were off"
+            },
+            {
+              "name": "left_cerebral_white_matter",
+              "unit": "mm3"
+            },
+            {
+              "name": "right_cerebral_white_matter",
+              "unit": "mm3"
+            },
+            {
+              "name": "left_cerebral_cortex",
+              "unit": "mm3"
+            },
+            {
+              "name": "right_cerebral_cortex",
+              "unit": "mm3"
+            },
+            {
+              "name": "left_lateral_ventricle",
+              "unit": "mm3"
+            },
+            {
+              "name": "right_lateral_ventricle",
+              "unit": "mm3"
+            },
+            {
+              "name": "left_thalamus",
+              "unit": "mm3"
+            },
+            {
+              "name": "right_thalamus",
+              "unit": "mm3"
+            },
+            {
+              "name": "left_hippocampus",
+              "unit": "mm3"
+            },
+            {
+              "name": "right_hippocampus",
+              "unit": "mm3"
+            },
+            {
+              "name": "brain_stem",
+              "unit": "mm3"
+            },
+            {
+              "name": "csf",
+              "unit": "mm3"
+            }
+          ]
+        }
+      ],
+      "needs": {
+        "cores-input": "threads",
+        "gpu": "none",
+        "cores": 4,
+        "memory-gb": 16,
+        "unit-minutes": 45
+      },
+      "proposals": null,
+      "descriptor": {
+        "name": "samseg-lesions",
+        "schema-version": "0.5",
+        "tool-version": "freesurfer-8.2.0",
+        "description": "Segment each session with SAMSEG from its T1w and FLAIR, lesions included: a label map and the volumes of the brain's structures and its white-matter lesions, with the intracranial volume. One session is one unit; CPU, about 45 minutes a session.",
+        "container-image": {
+          "type": "docker",
+          "image": "docker.io/freesurfer/freesurfer@sha256:5648104ca75a24f6ee5a8786146f99b405c2bda1da12bff723a15056da8ddf6b"
+        },
+        "inputs": [
+          {
+            "id": "lesion",
+            "name": "Segment lesions",
+            "type": "String",
+            "description": "on reads the FLAIR beside the T1w and segments white-matter lesions (label 99); off segments the anatomy from the T1w alone, in about a quarter of the time.",
+            "value-key": "[LESION]",
+            "value-choices": ["on", "off"],
+            "default-value": "on"
+          },
+          {
+            "id": "pallidum_separate",
+            "name": "Separate pallidum",
+            "type": "Flag",
+            "description": "Segment the pallidum as a class of its own rather than with the putamen.",
+            "value-key": "[PALLIDUM]",
+            "command-line-flag": "--pallidum-separate",
+            "default-value": true
+          },
+          {
+            "id": "threads",
+            "name": "Threads",
+            "type": "Number",
+            "description": "The threads SAMSEG uses for one session.",
+            "value-key": "[THREADS]",
+            "default-value": 4,
+            "integer": true,
+            "minimum": 1,
+            "maximum": 32
+          }
+        ],
+        "command-line": "bash -c 'set -u; shopt -s nullglob; cd [InputDataset]; for f in sub-*/ses-*/anat/*_T1w.nii.gz; do a=$(dirname \"$f\"); d=[OutputLocation]/$a; mkdir -p \"$d\"; b=$(basename \"$f\" .nii.gz); b=${b%_T1w}; w=$(mktemp -d [OutputLocation]/.work-XXXXXX); fl=\"\"; for g in $a/*_FLAIR.nii.gz; do fl=$g; break; done; if [ \"[LESION]\" = on ]; then if [ -z \"$fl\" ]; then echo \"$a holds no FLAIR, so no lesions\"; rm -rf \"$w\"; continue; fi; fspython -c \"import sys, surfa; surfa.load_volume(sys.argv[1]).resample_like(surfa.load_volume(sys.argv[2])).save(sys.argv[3])\" \"$fl\" \"$f\" \"$w/flair.mgz\" || { rm -rf \"$w\"; continue; }; run_samseg -i \"$f\" -i \"$w/flair.mgz\" --lesion --lesion-mask-pattern 0 1 -o \"$w/out\" --threads [THREADS] [PALLIDUM] || { rm -rf \"$w\"; continue; }; else run_samseg -i \"$f\" -o \"$w/out\" --threads [THREADS] [PALLIDUM] || { rm -rf \"$w\"; continue; }; fi; fspython -c \"import sys, surfa; surfa.load_volume(sys.argv[1]).save(sys.argv[2])\" \"$w/out/seg.mgz\" \"$d/${b}_desc-samseg_dseg.nii.gz\" || { rm -rf \"$w\"; continue; }; fspython -c \"import sys, json; print(json.dumps(dict((p[0].strip(), float(p[1])) for n in (\\\"samseg.stats\\\", \\\"sbtiv.stats\\\") for l in open(sys.argv[1] + \\\"/\\\" + n) if l.startswith(\\\"# Measure\\\") for p in [l[9:].split(\\\",\\\")])))\" \"$w/out\" > \"$d/${b}_desc-samseg_volumes.json\"; rm -rf \"$w\"; done'",
+        "x-nils": {
+          "contract": 1,
+          "analysis-level": "session",
+          "input": {
+            "layout": "bids",
+            "roles": ["t1w", "flair"]
+          },
+          "units": "apart",
+          "outputs": [
+            {
+              "id": "labels",
+              "kind": "mask",
+              "path-template": "sub-{subject}/ses-{session}/anat/*_desc-samseg_dseg.nii.gz",
+              "media-type": "application/x-nifti+gzip"
+            },
+            {
+              "id": "volumes",
+              "kind": "table",
+              "format": "json",
+              "path-template": "sub-{subject}/ses-{session}/anat/*_desc-samseg_volumes.json",
+              "columns": [
+                {
+                  "name": "intracranial",
+                  "from": "Intra-Cranial",
+                  "unit": "mm3",
+                  "description": "SAMSEG's intracranial volume (sbTIV)"
+                },
+                {
+                  "name": "lesions",
+                  "from": "Lesions",
+                  "unit": "mm3",
+                  "description": "White-matter lesion volume, label 99; absent when lesions were off"
+                },
+                {
+                  "name": "left_cerebral_white_matter",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "right_cerebral_white_matter",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "left_cerebral_cortex",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "right_cerebral_cortex",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "left_lateral_ventricle",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "right_lateral_ventricle",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "left_thalamus",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "right_thalamus",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "left_hippocampus",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "right_hippocampus",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "brain_stem",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "csf",
+                  "unit": "mm3"
+                }
+              ]
+            }
+          ],
+          "qc": [
+            {
+              "metric": "intracranial",
+              "op": ">=",
+              "value": 900000,
+              "description": "An intracranial volume under 0.9 litres is a failed segmentation more often than a head"
+            },
+            {
+              "metric": "intracranial",
+              "op": "<=",
+              "value": 2300000,
+              "description": "Over 2.3 litres the segmentation took more than the head"
+            }
+          ],
+          "needs": {
+            "cores-input": "threads",
+            "gpu": "none",
+            "cores": 4,
+            "memory-gb": 16,
+            "unit-minutes": 45
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "name": "mriqc",
+      "version": 1,
+      "label": "mriqc@1",
+      "tool_version": "24.0.2",
+      "description": "Measure the quality of each session's T1-weighted image with MRIQC: SNR, CNR, CJV, EFC, FBER, smoothness, intensity non-uniformity and the tissue volumes, one row a session, the SNR and the CJV held against thresholds. One session is one unit; CPU, no licence.",
+      "image": "docker.io/nipreps/mriqc@sha256:dabe930dd0d1180c565a42f2c6a34f2b23026d9642db5d110f05b427413b829f",
+      "image_digest": "sha256:dabe930dd0d1180c565a42f2c6a34f2b23026d9642db5d110f05b427413b829f",
+      "descriptor_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+      "layout": "bids",
+      "level": "session",
+      "state": "active",
+      "added_by": "engine",
+      "added_at": "2026-09-24T00:00:00Z",
+      "origin": "starter",
+      "starter": true,
+      "checks": [
+        {
+          "metric": "snr_total",
+          "op": ">=",
+          "value": 8,
+          "description": "A starting point: an SNR below 8 is worth a look"
+        },
+        {
+          "metric": "cjv",
+          "op": "<=",
+          "value": 0.8,
+          "description": "A starting point: a CJV above 0.8 is noise or motion"
+        }
+      ],
+      "roles": ["t1w"],
+      "parameters": [
+        {
+          "id": "processes",
+          "name": "Processes",
+          "type": "Number",
+          "description": "The processes and threads MRIQC uses.",
+          "value-key": "[NPROCS]",
+          "default-value": 4,
+          "integer": true,
+          "minimum": 1,
+          "maximum": 32
+        },
+        {
+          "id": "memory_gb",
+          "name": "Memory",
+          "type": "Number",
+          "description": "The memory MRIQC plans its work within.",
+          "value-key": "[MEM]",
+          "default-value": 12,
+          "minimum": 2,
+          "maximum": 256,
+          "unit": "GB"
+        }
+      ],
+      "inputs": null,
+      "outputs": [
+        {
+          "id": "iqms",
+          "kind": "table",
+          "format": "json",
+          "path-template": "sub-{subject}/ses-{session}/anat/sub-{subject}_ses-{session}_*T1w.json",
+          "columns": [
+            {
+              "name": "snr_total",
+              "description": "Signal to noise ratio over the brain's tissues"
+            },
+            {
+              "name": "snr_gm"
+            },
+            {
+              "name": "snr_wm"
+            },
+            {
+              "name": "snr_csf"
+            },
+            {
+              "name": "snrd_total",
+              "description": "Dietrich's SNR, from the air around the head"
+            },
+            {
+              "name": "cnr",
+              "description": "Contrast to noise ratio of grey and white matter"
+            },
+            {
+              "name": "cjv",
+              "description": "Coefficient of joint variation of grey and white matter; lower is better"
+            },
+            {
+              "name": "efc",
+              "description": "Entropy focus criterion; lower is better"
+            },
+            {
+              "name": "fber",
+              "description": "Foreground to background energy ratio"
+            },
+            {
+              "name": "fwhm_avg",
+              "unit": "mm",
+              "description": "Smoothness, the mean full width at half maximum"
+            },
+            {
+              "name": "inu_med",
+              "description": "Median of the intensity non-uniformity field"
+            },
+            {
+              "name": "qi_1",
+              "description": "Mortamet's quality index 1, artefacts in the background"
+            },
+            {
+              "name": "wm2max",
+              "description": "White matter median over the 95th percentile of intensity"
+            },
+            {
+              "name": "icvs_gm",
+              "description": "Grey matter share of the intracranial volume"
+            },
+            {
+              "name": "icvs_wm",
+              "description": "White matter share of the intracranial volume"
+            },
+            {
+              "name": "icvs_csf",
+              "description": "CSF share of the intracranial volume"
+            }
+          ]
+        }
+      ],
+      "needs": {
+        "cores-input": "processes",
+        "memory-input": "memory_gb",
+        "gpu": "none",
+        "cores": 4,
+        "memory-gb": 12,
+        "unit-minutes": 20
+      },
+      "proposals": null,
+      "descriptor": {
+        "name": "mriqc",
+        "schema-version": "0.5",
+        "tool-version": "24.0.2",
+        "description": "Measure the quality of each session's T1-weighted image with MRIQC: SNR, CNR, CJV, EFC, FBER, smoothness, intensity non-uniformity and the tissue volumes, one row a session, the SNR and the CJV held against thresholds. One session is one unit; CPU, no licence.",
+        "container-image": {
+          "type": "docker",
+          "image": "docker.io/nipreps/mriqc@sha256:dabe930dd0d1180c565a42f2c6a34f2b23026d9642db5d110f05b427413b829f"
+        },
+        "inputs": [
+          {
+            "id": "processes",
+            "name": "Processes",
+            "type": "Number",
+            "description": "The processes and threads MRIQC uses.",
+            "value-key": "[NPROCS]",
+            "default-value": 4,
+            "integer": true,
+            "minimum": 1,
+            "maximum": 32
+          },
+          {
+            "id": "memory_gb",
+            "name": "Memory",
+            "type": "Number",
+            "description": "The memory MRIQC plans its work within.",
+            "value-key": "[MEM]",
+            "default-value": 12,
+            "minimum": 2,
+            "maximum": 256,
+            "unit": "GB"
+          }
+        ],
+        "command-line": "[InputDataset] [OutputLocation] participant --participant-label [ParticipantLabels] -m T1w --no-sub -w [OutputLocation]/.work-mriqc --nprocs [NPROCS] --omp-nthreads [NPROCS] --mem-gb [MEM]",
+        "x-nils": {
+          "contract": 1,
+          "analysis-level": "session",
+          "input": {
+            "layout": "bids",
+            "roles": ["t1w"]
+          },
+          "units": "apart",
+          "outputs": [
+            {
+              "id": "iqms",
+              "kind": "table",
+              "format": "json",
+              "path-template": "sub-{subject}/ses-{session}/anat/sub-{subject}_ses-{session}_*T1w.json",
+              "columns": [
+                {
+                  "name": "snr_total",
+                  "description": "Signal to noise ratio over the brain's tissues"
+                },
+                {
+                  "name": "snr_gm"
+                },
+                {
+                  "name": "snr_wm"
+                },
+                {
+                  "name": "snr_csf"
+                },
+                {
+                  "name": "snrd_total",
+                  "description": "Dietrich's SNR, from the air around the head"
+                },
+                {
+                  "name": "cnr",
+                  "description": "Contrast to noise ratio of grey and white matter"
+                },
+                {
+                  "name": "cjv",
+                  "description": "Coefficient of joint variation of grey and white matter; lower is better"
+                },
+                {
+                  "name": "efc",
+                  "description": "Entropy focus criterion; lower is better"
+                },
+                {
+                  "name": "fber",
+                  "description": "Foreground to background energy ratio"
+                },
+                {
+                  "name": "fwhm_avg",
+                  "unit": "mm",
+                  "description": "Smoothness, the mean full width at half maximum"
+                },
+                {
+                  "name": "inu_med",
+                  "description": "Median of the intensity non-uniformity field"
+                },
+                {
+                  "name": "qi_1",
+                  "description": "Mortamet's quality index 1, artefacts in the background"
+                },
+                {
+                  "name": "wm2max",
+                  "description": "White matter median over the 95th percentile of intensity"
+                },
+                {
+                  "name": "icvs_gm",
+                  "description": "Grey matter share of the intracranial volume"
+                },
+                {
+                  "name": "icvs_wm",
+                  "description": "White matter share of the intracranial volume"
+                },
+                {
+                  "name": "icvs_csf",
+                  "description": "CSF share of the intracranial volume"
+                }
+              ]
+            }
+          ],
+          "qc": [
+            {
+              "metric": "snr_total",
+              "op": ">=",
+              "value": 8,
+              "description": "A starting point: an SNR below 8 is worth a look"
+            },
+            {
+              "metric": "cjv",
+              "op": "<=",
+              "value": 0.8,
+              "description": "A starting point: a CJV above 0.8 is noise or motion"
+            }
+          ],
+          "needs": {
+            "cores-input": "processes",
+            "memory-input": "memory_gb",
+            "gpu": "none",
+            "cores": 4,
+            "memory-gb": 12,
+            "unit-minutes": 20
+          }
+        }
+      }
+    },
+    {
+      "id": 6,
+      "name": "freesurfer-recon-all",
+      "version": 1,
+      "label": "freesurfer-recon-all@1",
+      "tool_version": "8.2.0",
+      "description": "Run FreeSurfer 8.2.0 recon-all on each session's T1-weighted image: the subject folder as one archive, and the volumes of aseg with the intracranial volume and the surface holes as a table. One session is one unit; CPU, hours a session, the lab's licence.",
+      "image": "docker.io/freesurfer/freesurfer@sha256:5648104ca75a24f6ee5a8786146f99b405c2bda1da12bff723a15056da8ddf6b",
+      "image_digest": "sha256:5648104ca75a24f6ee5a8786146f99b405c2bda1da12bff723a15056da8ddf6b",
+      "descriptor_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+      "layout": "bids",
+      "level": "session",
+      "state": "active",
+      "added_by": "engine",
+      "added_at": "2026-09-24T00:00:00Z",
+      "origin": "starter",
+      "starter": true,
+      "checks": [
+        {
+          "metric": "surface_holes",
+          "op": "<=",
+          "value": 200,
+          "description": "More holes than 200 is a surface a person should look at"
+        }
+      ],
+      "roles": ["t1w"],
+      "parameters": [
+        {
+          "id": "threads",
+          "name": "Threads",
+          "type": "Number",
+          "description": "The threads recon-all's OpenMP steps use.",
+          "value-key": "[THREADS]",
+          "default-value": 2,
+          "integer": true,
+          "minimum": 1,
+          "maximum": 32
+        }
+      ],
+      "inputs": null,
+      "outputs": [
+        {
+          "id": "subject",
+          "kind": "output",
+          "path-template": "sub-{subject}/ses-{session}/anat/sub-{subject}_ses-{session}_desc-freesurfer_subject.tar.gz",
+          "media-type": "application/gzip"
+        },
+        {
+          "id": "aseg",
+          "kind": "table",
+          "format": "tsv",
+          "path-template": "sub-{subject}/ses-{session}/anat/sub-{subject}_ses-{session}_desc-aseg_volumes.tsv",
+          "columns": [
+            {
+              "name": "intracranial",
+              "from": "EstimatedTotalIntraCranialVol",
+              "unit": "mm3",
+              "description": "The estimated total intracranial volume (eTIV)"
+            },
+            {
+              "name": "brain_segmentation",
+              "from": "BrainSegVol",
+              "unit": "mm3"
+            },
+            {
+              "name": "cortex",
+              "from": "CortexVol",
+              "unit": "mm3"
+            },
+            {
+              "name": "cerebral_white_matter",
+              "from": "CerebralWhiteMatterVol",
+              "unit": "mm3"
+            },
+            {
+              "name": "surface_holes",
+              "from": "SurfaceHoles",
+              "type": "integer",
+              "description": "Topological defects of the surfaces before fixing"
+            },
+            {
+              "name": "left_hippocampus",
+              "unit": "mm3"
+            },
+            {
+              "name": "right_hippocampus",
+              "unit": "mm3"
+            },
+            {
+              "name": "left_amygdala",
+              "unit": "mm3"
+            },
+            {
+              "name": "right_amygdala",
+              "unit": "mm3"
+            },
+            {
+              "name": "left_thalamus",
+              "unit": "mm3"
+            },
+            {
+              "name": "right_thalamus",
+              "unit": "mm3"
+            },
+            {
+              "name": "left_lateral_ventricle",
+              "unit": "mm3"
+            },
+            {
+              "name": "right_lateral_ventricle",
+              "unit": "mm3"
+            },
+            {
+              "name": "wm_hypointensities",
+              "from": "WM-hypointensities",
+              "unit": "mm3"
+            }
+          ]
+        }
+      ],
+      "needs": {
+        "cores-input": "threads",
+        "gpu": "none",
+        "cores": 2,
+        "memory-gb": 8,
+        "unit-minutes": 420
+      },
+      "proposals": null,
+      "descriptor": {
+        "name": "freesurfer-recon-all",
+        "schema-version": "0.5",
+        "tool-version": "8.2.0",
+        "description": "Run FreeSurfer 8.2.0 recon-all on each session's T1-weighted image: the subject folder as one archive, and the volumes of aseg with the intracranial volume and the surface holes as a table. One session is one unit; CPU, hours a session, the lab's licence.",
+        "container-image": {
+          "type": "docker",
+          "image": "docker.io/freesurfer/freesurfer@sha256:5648104ca75a24f6ee5a8786146f99b405c2bda1da12bff723a15056da8ddf6b"
+        },
+        "inputs": [
+          {
+            "id": "threads",
+            "name": "Threads",
+            "type": "Number",
+            "description": "The threads recon-all's OpenMP steps use.",
+            "value-key": "[THREADS]",
+            "default-value": 2,
+            "integer": true,
+            "minimum": 1,
+            "maximum": 32
+          }
+        ],
+        "command-line": "bash -c 'set -u; shopt -s nullglob; cd [InputDataset]; for f in sub-*/ses-*/anat/*_T1w.nii.gz; do a=$(dirname \"$f\"); s=$(echo \"${a%/anat}\" | tr / _); d=[OutputLocation]/$a; mkdir -p \"$d\"; w=$(mktemp -d [OutputLocation]/.work-XXXXXX); recon-all -all -s \"$s\" -i \"$f\" -sd \"$w\" -threads [THREADS] || { rm -rf \"$w\"; continue; }; SUBJECTS_DIR=\"$w\" asegstats2table --subjects \"$s\" --meas volume --tablefile \"$d/${s}_desc-aseg_volumes.tsv\"; tar -C \"$w\" -czf \"$d/${s}_desc-freesurfer_subject.tar.gz\" \"$s\"; rm -rf \"$w\"; done'",
+        "x-nils": {
+          "contract": 1,
+          "analysis-level": "session",
+          "input": {
+            "layout": "bids",
+            "roles": ["t1w"]
+          },
+          "units": "apart",
+          "secrets": [
+            {
+              "id": "freesurfer_license",
+              "mount": "/opt/fs/license.txt",
+              "env": "FS_LICENSE"
+            }
+          ],
+          "outputs": [
+            {
+              "id": "subject",
+              "kind": "output",
+              "path-template": "sub-{subject}/ses-{session}/anat/sub-{subject}_ses-{session}_desc-freesurfer_subject.tar.gz",
+              "media-type": "application/gzip"
+            },
+            {
+              "id": "aseg",
+              "kind": "table",
+              "format": "tsv",
+              "path-template": "sub-{subject}/ses-{session}/anat/sub-{subject}_ses-{session}_desc-aseg_volumes.tsv",
+              "columns": [
+                {
+                  "name": "intracranial",
+                  "from": "EstimatedTotalIntraCranialVol",
+                  "unit": "mm3",
+                  "description": "The estimated total intracranial volume (eTIV)"
+                },
+                {
+                  "name": "brain_segmentation",
+                  "from": "BrainSegVol",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "cortex",
+                  "from": "CortexVol",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "cerebral_white_matter",
+                  "from": "CerebralWhiteMatterVol",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "surface_holes",
+                  "from": "SurfaceHoles",
+                  "type": "integer",
+                  "description": "Topological defects of the surfaces before fixing"
+                },
+                {
+                  "name": "left_hippocampus",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "right_hippocampus",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "left_amygdala",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "right_amygdala",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "left_thalamus",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "right_thalamus",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "left_lateral_ventricle",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "right_lateral_ventricle",
+                  "unit": "mm3"
+                },
+                {
+                  "name": "wm_hypointensities",
+                  "from": "WM-hypointensities",
+                  "unit": "mm3"
+                }
+              ]
+            }
+          ],
+          "qc": [
+            {
+              "metric": "surface_holes",
+              "op": "<=",
+              "value": 200,
+              "description": "More holes than 200 is a surface a person should look at"
+            }
+          ],
+          "needs": {
+            "cores-input": "threads",
+            "gpu": "none",
+            "cores": 2,
+            "memory-gb": 8,
+            "unit-minutes": 420
+          }
+        }
+      }
+    }
+  ],
+  "capability": {
+    "enabled": true,
+    "runtime": {
+      "name": "podman",
+      "version": "5.4.0",
+      "gpu": false
+    },
+    "place": "work",
+    "pipelines": 6
+  }
+}

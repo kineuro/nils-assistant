@@ -92,6 +92,13 @@ describe("the grant", () => {
     expect(operationOf("GET", "/api/ask/handles/77/rows?page=1")).toBe("handles/{id}/rows");
     expect(operationOf("POST", "/api/ask/apply")).toBe("apply");
     expect(operationOf("POST", "/api/review/12/apply")).toBe("review/{id}/apply");
+    // record 49: a pipeline by id, name or name@version, and its pre-flight
+    expect(operationOf("GET", "/api/pipelines/3")).toBe("pipelines/{name}");
+    expect(operationOf("GET", "/api/pipelines/synthseg")).toBe("pipelines/{name}");
+    expect(operationOf("POST", "/api/pipelines/samseg-lesions%401/preflight")).toBe(
+      "pipelines/{name}/preflight",
+    );
+    expect(operationOf("GET", "/api/pipeline-runs/12")).toBe("pipeline-runs/{id}");
     expect(operationOf("GET", "/api/packs/mri")).toBe("packs/{name}");
     expect(operationOf("GET", "/api/linkage/held?place=scanner-a")).toBe("linkage/held");
     for (const f of FORBIDDEN) expect(() => new GrantKeeper({ [f]: {} })).toThrow(/a person's/u);

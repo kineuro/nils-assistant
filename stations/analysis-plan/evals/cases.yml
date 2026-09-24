@@ -1,0 +1,112 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# analysis-plan's cases (record 49 A5): a question, the plan that answers it,
+# and the engine's pre-flight of that plan as the stub engine answers it.
+# The catalog is bench/analyses/catalog.json, the starter catalog of record
+# 49 A4 as GET /api/pipelines lists it. Cohorts and selections are made up;
+# the unit counts are synthetic. The held-out split is bench/manifest/split.ts,
+# by the hash of each id.
+#
+# expect.plan false: the right answer is no plan (a cohort the registry does
+# not list), and the station settles without one.
+
+cohorts:
+  - {name: ms-cohort-a, subjects: 24, sessions: 71, stacks: 640}
+  - {name: ms-cohort-b, subjects: 24, sessions: 66, stacks: 590}
+  - {name: nmosd, subjects: 9, sessions: 27, stacks: 230}
+
+selections: [ms-baseline@1, every-t1@2]
+
+cases:
+  - id: hippocampus-nmosd
+    question: What are the hippocampal volumes in the NMOSD cohort?
+    expect:
+      pipeline: synthseg
+      cohorts: [nmosd]
+      sessions: all
+    preflight: {total: 27, ready: 26, missing: [{why: "no live pick of role t1w", units: 1}], minutes: 135}
+
+  - id: lesions-ms-a-over-time
+    question: How does lesion load change over time in the MS patients of cohort A?
+    expect:
+      pipeline: samseg-lesions
+      params: {lesion: "on"}
+      cohorts: [ms-cohort-a]
+      sessions: all
+    preflight: {total: 71, ready: 58, missing: [{why: "no live pick of role flair", units: 13}], minutes: 3195}
+
+  - id: lesions-baseline-b
+    question: White-matter lesion volume at baseline for cohort B
+    expect:
+      pipeline: samseg-lesions
+      params: {lesion: "on"}
+      cohorts: [ms-cohort-b]
+      sessions: first
+    preflight: {total: 24, ready: 22, missing: [{why: "no live pick of role flair", units: 2}], minutes: 1080}
+
+  - id: thalamus-latest-a
+    question: Thalamic volume at each subject's most recent visit in cohort A
+    expect:
+      pipeline: synthseg
+      cohorts: [ms-cohort-a]
+      sessions: latest
+    preflight: {total: 24, ready: 24, missing: [], minutes: 120}
+
+  - id: quality-of-selection
+    question: Which scans in my selection ms-baseline@1 have poor image quality?
+    expect:
+      pipeline: mriqc
+      selection: selection:ms-baseline@1
+    preflight: {total: 40, ready: 40, missing: [], minutes: 800}
+
+  - id: thickness-by-hand
+    question: Cortical thickness for cohort B, computed the way we do it by hand in FreeSurfer
+    expect:
+      pipeline: freesurfer-recon-all
+      cohorts: [ms-cohort-b]
+      sessions: all
+    preflight: {total: 66, ready: 66, missing: [], minutes: 27720}
+
+  - id: skull-strip-first-a
+    question: Brain volume from a skull strip of cohort A's first scans
+    expect:
+      pipeline: synthstrip
+      cohorts: [ms-cohort-a]
+      sessions: first
+    preflight: {total: 24, ready: 24, missing: [], minutes: 24}
+
+  - id: volumes-without-flair-b
+    question: Whole-brain volumes with SAMSEG for cohort B; many sessions there have no FLAIR, so leave the lesions out
+    expect:
+      pipeline: samseg-lesions
+      params: {lesion: "off"}
+      cohorts: [ms-cohort-b]
+      sessions: all
+    preflight: {total: 66, ready: 66, missing: [], minutes: 792}
+
+  - id: intracranial-every-t1
+    question: The intracranial volume of everyone in selection every-t1@2
+    expect:
+      pipeline: synthseg
+      selection: selection:every-t1@2
+    preflight: {total: 112, ready: 110, missing: [{why: "no live pick of role t1w", units: 2}], minutes: 560}
+
+  - id: snr-latest-a
+    question: Signal to noise of the latest scans in cohort A
+    expect:
+      pipeline: mriqc
+      cohorts: [ms-cohort-a]
+      sessions: latest
+    preflight: {total: 24, ready: 24, missing: [], minutes: 480}
+
+  - id: ventricles-both-ms
+    question: Ventricle size across both MS cohorts
+    expect:
+      pipeline: synthseg
+      cohorts: [ms-cohort-a, ms-cohort-b]
+      sessions: all
+    preflight: {total: 137, ready: 135, missing: [{why: "no live pick of role t1w", units: 2}], minutes: 685}
+
+  - id: unknown-cohort
+    question: Hippocampal volumes in the ALS cohort
+    expect:
+      plan: false

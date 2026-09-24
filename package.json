@@ -14,6 +14,7 @@
     "check": "tsc -p tsconfig.json --noEmit && biome check .",
     "bench:gold": "tsc -p tsconfig.build.json && node dist/bench/gold.js",
     "bench:baseline": "tsc -p tsconfig.build.json && node dist/bench/baseline.js",
+    "bench:analyses": "tsc -p tsconfig.build.json && node dist/bench/analyses.js",
     "dev": "vite dev",
     "start": "node bin/serve.mjs",
     "records:export": "tsc -p tsconfig.build.json && node dist/src/host/records.js export",

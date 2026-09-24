@@ -1,0 +1,59 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# run-read (record 49 A6), as contracts/suite/v1/station.schema.json fixes a manifest.
+id: run-read
+app: nils-assistant
+purpose: assistant.run-read
+content: rows
+ceiling: reviewer
+grant:
+  capabilities:
+    calls: 2
+  pipeline-runs:
+    calls: 2
+  pipeline-runs/{id}:
+    calls: 3
+  pipelines/{name}:
+    calls: 3
+  review:
+    calls: 3
+  draft:
+    calls: 3
+brief:
+  path: SKILL.md
+  hash: 85b51e0f359517d3820765fedcfd8ec22738ab3aadf67f80e8c1f68845a86a87
+result:
+  type: object
+  required:
+  - sentence
+  - reading
+  properties:
+    sentence:
+      type: string
+      description: how the run ended, the failed units by reason, each broken check and what it means, and the campaign proposed
+    reading:
+      type: string
+      description: the id read_run answered
+    note:
+      type: object
+      description: the reading, filled by the host (units, failed units by reason, breaches by check, the draft ask of the doubtful stacks, the campaign a person may make, the steps); never made by the station
+checks:
+- read
+- names_the_checks
+- proposes_only
+budget:
+  turns: 6
+  tool_calls: 8
+  wall_clock_seconds: 120
+  input_tokens: 80000
+writes:
+- document_version
+- note
+phases:
+  initial: read
+  follow_up: read
+  transitions:
+  - from: read
+    to: propose
+  - from: propose
+    to: finish
+evals: evals

@@ -1,0 +1,119 @@
+{
+  "about": "run-read's cases (record 49 A6): each a run as GET /api/pipeline-runs/{id} answers it, its pipeline:qc items as GET /api/review lists them, and what the reading must name. Synthetic: made-up unit labels, planted failures and breaches. The catalog is bench/analyses/catalog.json.",
+  "cases": [
+    {
+      "id": "planted-synthseg",
+      "run": {
+        "id": 12,
+        "pipeline_id": 3,
+        "pipeline": "synthseg@1",
+        "job_id": 90,
+        "handle_id": 41,
+        "status": "partial",
+        "units_run": [
+          { "unit": "sub-synth01_ses-1", "status": "failed" },
+          { "unit": "sub-synth02_ses-1", "status": "failed" },
+          { "unit": "sub-synth03_ses-2", "status": "failed" },
+          { "unit": "sub-synth04_ses-1", "status": "unreported" }
+        ],
+        "summary": {
+          "units": { "total": 20, "succeeded": 16, "failed": 3, "skipped": 0, "unreported": 1 },
+          "refused_files": 0,
+          "numbers": {
+            "measures": 528,
+            "checks": { "declared": 3, "breaches": 4, "unchecked": 0 }
+          },
+          "breaches": [
+            {
+              "unit": "sub-synth05_ses-1",
+              "breaches": [
+                { "metric": "qc_general_white_matter", "value": 0.41, "check": "qc_general_white_matter >= 0.65", "op": ">=", "threshold": 0.65 },
+                { "metric": "qc_general_csf", "value": 0.52, "check": "qc_general_csf >= 0.65", "op": ">=", "threshold": 0.65 }
+              ]
+            },
+            {
+              "unit": "sub-synth06_ses-2",
+              "breaches": [
+                { "metric": "qc_general_white_matter", "value": 0.6, "check": "qc_general_white_matter >= 0.65", "op": ">=", "threshold": 0.65 }
+              ]
+            },
+            {
+              "unit": "sub-synth07_ses-1",
+              "breaches": [
+                { "metric": "qc_general_white_matter", "value": 0.63, "check": "qc_general_white_matter >= 0.65", "op": ">=", "threshold": 0.65 }
+              ]
+            }
+          ]
+        }
+      },
+      "items": [
+        { "id": 501, "kind": "pipeline:qc", "status": "open", "ref": { "run_id": 12, "pipeline": "synthseg@1", "unit": "sub-synth01_ses-1" }, "evidence": { "status": "failed", "error": "sub-synth01/ses-1 holds no T1w", "metrics": {} } },
+        { "id": 502, "kind": "pipeline:qc", "status": "open", "ref": { "run_id": 12, "pipeline": "synthseg@1", "unit": "sub-synth02_ses-1" }, "evidence": { "status": "failed", "error": "sub-synth02/ses-1 holds no T1w", "metrics": {} } },
+        { "id": 503, "kind": "pipeline:qc", "status": "open", "ref": { "run_id": 12, "pipeline": "synthseg@1", "unit": "sub-synth03_ses-2" }, "evidence": { "status": "failed", "error": "the container exited with code 1", "metrics": {} } },
+        { "id": 504, "kind": "pipeline:qc", "status": "open", "ref": { "run_id": 12, "pipeline": "synthseg@1", "unit": "sub-synth04_ses-1" }, "evidence": { "status": "unreported", "error": null, "metrics": {} } },
+        { "id": 505, "kind": "pipeline:qc", "status": "open", "ref": { "run_id": 12, "pipeline": "synthseg@1", "unit": "sub-synth05_ses-1" }, "evidence": { "status": "breach", "error": "qc_general_white_matter 0.41 breaks qc_general_white_matter >= 0.65", "metrics": { "qc_general_white_matter": 0.41 } } },
+        { "id": 506, "kind": "pipeline:qc", "status": "open", "ref": { "run_id": 12, "pipeline": "synthseg@1", "unit": "sub-synth06_ses-2" }, "evidence": { "status": "breach", "error": "qc_general_white_matter 0.6 breaks qc_general_white_matter >= 0.65", "metrics": { "qc_general_white_matter": 0.6 } } },
+        { "id": 507, "kind": "pipeline:qc", "status": "open", "ref": { "run_id": 12, "pipeline": "synthseg@1", "unit": "sub-synth07_ses-1" }, "evidence": { "status": "breach", "error": "qc_general_white_matter 0.63 breaks qc_general_white_matter >= 0.65", "metrics": { "qc_general_white_matter": 0.63 } } },
+        { "id": 490, "kind": "pipeline:qc", "status": "open", "ref": { "run_id": 11, "pipeline": "synthseg@1", "unit": "sub-synth09_ses-1" }, "evidence": { "status": "failed", "error": "another run's failure", "metrics": {} } }
+      ],
+      "expect": {
+        "failed": 4,
+        "reasons": { "a missing input": 2, "the tool failed": 1, "no result reported": 1 },
+        "breaches": { "qc_general_white_matter >= 0.65": 3, "qc_general_csf >= 0.65": 1 },
+        "doubtful": 7,
+        "campaign": true,
+        "role": "t1w"
+      }
+    },
+    {
+      "id": "samseg-both-sides",
+      "run": {
+        "id": 14,
+        "pipeline_id": 4,
+        "pipeline": "samseg-lesions@1",
+        "job_id": 93,
+        "handle_id": 44,
+        "status": "done",
+        "units_run": [],
+        "summary": {
+          "units": { "total": 8, "succeeded": 8, "failed": 0, "skipped": 0, "unreported": 0 },
+          "refused_files": 0,
+          "numbers": { "measures": 112, "checks": { "declared": 2, "breaches": 2, "unchecked": 0 } },
+          "breaches": [
+            { "unit": "sub-synth11_ses-1", "breaches": [{ "metric": "intracranial", "value": 610000, "op": ">=", "threshold": 900000 }] },
+            { "unit": "sub-synth12_ses-3", "breaches": [{ "metric": "intracranial", "value": 2710000, "op": "<=", "threshold": 2300000 }] }
+          ]
+        }
+      },
+      "items": [],
+      "expect": {
+        "failed": 0,
+        "reasons": {},
+        "breaches": { "intracranial >= 900000": 1, "intracranial <= 2300000": 1 },
+        "doubtful": 2,
+        "campaign": true,
+        "role": "t1w"
+      }
+    },
+    {
+      "id": "clean-mriqc",
+      "run": {
+        "id": 13,
+        "pipeline_id": 5,
+        "pipeline": "mriqc@1",
+        "job_id": 91,
+        "handle_id": 42,
+        "status": "done",
+        "units_run": [],
+        "summary": {
+          "units": { "total": 6, "succeeded": 6, "failed": 0, "skipped": 0, "unreported": 0 },
+          "refused_files": 0,
+          "numbers": { "measures": 96, "checks": { "declared": 2, "breaches": 0, "unchecked": 0 } },
+          "breaches": []
+        }
+      },
+      "items": [],
+      "expect": { "failed": 0, "reasons": {}, "breaches": {}, "doubtful": 0, "campaign": false, "role": "t1w" }
+    }
+  ]
+}
