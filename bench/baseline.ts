@@ -96,7 +96,7 @@ async function live(question: string): Promise<AssistantMessageEvent[]> {
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (kvasirToken) headers.authorization = `Bearer ${kvasirToken}`;
   if (purpose) headers["x-kvasir-purpose"] = purpose;
-  const r = await fetch(`${kvasir}/v1/messages`, {
+  const r = await fetch(`${kvasir}/v1/pi/messages`, {
     method: "POST",
     headers,
     body: JSON.stringify({

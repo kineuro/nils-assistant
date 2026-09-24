@@ -4,6 +4,10 @@ All notable changes to the NILS assistant are recorded here. The format follows 
 
 ## [Unreleased]
 
+### Changed
+
+- Kvasir's pi-messages door moved to `/v1/pi/messages` (record 47), and `/v1/config` now gives `{origin}/v1/pi` as the base address. The fallback catalog used when Kvasir does not answer at start and the baseline bench call follow it.
+
 ## [1.0.0-alpha.25] - 2026-09-16
 
 ### Added

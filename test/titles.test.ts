@@ -71,7 +71,7 @@ describe("a conversation named by the model", () => {
       });
     }) as typeof fetch;
     const catalog = {
-      baseUrl: "http://kvasir.test/v1",
+      baseUrl: "http://kvasir.test/v1/pi",
       models: [
         {
           id: "qwen",
@@ -92,7 +92,7 @@ describe("a conversation named by the model", () => {
         complete as NonNullable<typeof complete>,
       ),
     ).toBe("Subjects per cohort");
-    expect(seen.url).toBe("http://kvasir.test/v1/messages");
+    expect(seen.url).toBe("http://kvasir.test/v1/pi/messages");
     expect(seen.purpose).toBe("assistant.title");
     expect(seen.auth).toBe("Bearer the-app-key");
     expect(seen.body).toContain("How many subjects does each cohort hold?");
