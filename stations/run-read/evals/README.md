@@ -8,7 +8,7 @@ Record 49 A6's bar: a run with planted failures gets a summary that names them a
 
 ## Offline
 
-`test/run-read.test.ts` plays each through `read_run` against a stub engine: the failures are counted by reason, the breaches by check, the doubtful stacks become a draft ask (each breached check a set of the sessions this run measured past it, their union, the stacks of the pipeline's first input role), and the campaign document names that ask's selection, a form question and no close; nothing but the draft is written. A summary that leaves a check out is sent back.
+`test/run-read.test.ts` plays each through `read_run` against a stub engine: the failures are counted by reason, the breaches by check, the doubtful stacks become a draft ask (each breached check a set of the sessions this run measured past it, their union, the stacks of the pipeline's first input role), and the campaign document names that ask's selection, a form question and no close; nothing but the draft is written. A summary that leaves a check out is sent back. Read below detail quasi, with every unit label blanked as the engine blanks it, the same run gives counts by reason and by check only (each under five said as fewer than five), no unit, value or error words, and no campaign.
 
 ## Live
 

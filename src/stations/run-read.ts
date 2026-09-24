@@ -15,7 +15,14 @@ import type { Seam } from "../seam/client.ts";
 import { toolResult } from "../seam/client.ts";
 import { type StationDefinition, type StationTool, stationAgent } from "./agent.ts";
 import type { Manifest } from "./manifest.ts";
-import { breachDocument, campaignDocument, entryOf, type Reading, readingOf } from "./pipelines.ts";
+import {
+  breachDocument,
+  campaignDocument,
+  type Detail,
+  entryOf,
+  type Reading,
+  readingOf,
+} from "./pipelines.ts";
 import type { Check, Verdict } from "./verdict.ts";
 
 /** What a reading leaves: the run read, and the campaign a person may make over its doubtful cases. */
@@ -53,15 +60,12 @@ export function withNote(result: Record<string, unknown>, conversation: string):
       pipeline: r.pipeline,
       status: r.status,
       units: r.units,
-      failed: r.failed,
-      breaches: r.breaches.map(({ metric, check, description, count, units, worst }) => ({
-        metric,
-        check,
-        description,
-        count,
-        units,
-        worst,
-      })),
+      detail: r.detail,
+      // below detail quasi the fields that would hold a unit, a value or an error's words are left out, not blanked
+      failed: r.detail === "plain" ? r.failed.map(({ units: _u, example: _e, ...rest }) => rest) : r.failed,
+      breaches:
+        r.detail === "plain" ? r.breaches.map(({ units: _u, worst: _w, ...rest }) => rest) : r.breaches,
+      doubtful_units: r.doubtful_units,
       ask_document: h.note.ask_document,
       campaign: h.note.campaign,
       steps: h.note.steps,
@@ -73,7 +77,21 @@ async function get(seam: Seam, path: string, id: string, phase: string) {
   return seam.call({ method: "GET", path, toolCallId: id, phase });
 }
 
-/** One run read whole: the run, its catalog entry, its pipeline:qc items. */
+const RANK: Record<Detail, number> = { plain: 0, quasi: 1, sensitive: 2 };
+
+/**
+ * The detail a reading is disclosed at: the person's as the engine answers
+ * it, never above the station's reviewer ceiling (quasi), and plain when it
+ * cannot be read.
+ */
+export async function detailFor(seam: Seam, id: string, phase: string): Promise<Detail> {
+  const a = await get(seam, "/api/capabilities", `${id}-detail`, phase);
+  const d = a.kind === "ok" ? (a.body as { detail?: unknown }).detail : null;
+  const held: Detail = d === "quasi" || d === "sensitive" ? d : "plain";
+  return RANK[held] > RANK.quasi ? "quasi" : held;
+}
+
+/** One run read whole: the run, its catalog entry, its pipeline:qc items, at the person's detail. */
 export async function readRun(
   seam: Seam,
   run: number,
@@ -90,36 +108,48 @@ export async function readRun(
       : null;
   const entry = p?.kind === "ok" ? entryOf(p.body as Record<string, unknown>) : null;
   const items = await get(seam, "/api/review?kind=pipeline:qc&limit=500", `${id}-items`, phase);
-  const reading = readingOf(body, entry, items.kind === "ok" ? items.body : []);
+  const detail = await detailFor(seam, id, phase);
+  const reading = readingOf(body, entry, items.kind === "ok" ? items.body : [], detail);
   return { reading, role: entry?.roles[0] ?? null };
 }
 
-/** The reading as the model reads it: the counts, the reasons, the checks, the units by their run labels. */
+/** A count as the model reads it: the number, or "fewer than five" below detail quasi. */
+const said = (x: { count: number | null; fewer_than_five: boolean }): number | string =>
+  x.fewer_than_five ? "fewer than five" : (x.count ?? 0);
+
+/** The failed units the run's own summary counts: the engine's number, never one of labels. */
+export const failedOf = (r: Reading): number => r.units.failed + r.units.unreported;
+
+/** The reading as the model reads it: counts, reasons and checks, and the units and values only at detail quasi. */
 function spoken(n: RunNote): Record<string, unknown> {
   const r = n.reading;
+  const perScan = r.detail !== "plain";
   return {
     run: r.run,
     pipeline: r.pipeline,
     status: r.status,
     units: r.units,
-    failed: r.failed.map((f) => ({ reason: f.reason, count: f.count, units: f.units.slice(0, 20) })),
+    failed: r.failed.map((f) => ({
+      reason: f.reason,
+      count: said(f),
+      ...(perScan ? { units: f.units.slice(0, 20) } : {}),
+    })),
     breaches: r.breaches.map((b) => ({
       check: b.check,
       means: b.description,
-      count: b.count,
-      worst: b.worst,
-      units: b.units.slice(0, 20),
+      count: said(b),
+      ...(perScan ? { worst: b.worst, units: b.units.slice(0, 20) } : {}),
     })),
     measures: r.measures,
     refused_files: r.refused_files,
     open_items: r.open_items,
-    campaign: n.campaign
-      ? {
-          name: n.campaign.name,
-          ask_document: n.ask_document,
-          stacks_of: r.breaches.reduce((k, b) => k + b.count, 0),
-        }
-      : null,
+    campaign: n.campaign ? { name: n.campaign.name, ask_document: n.ask_document } : null,
+    ...(perScan
+      ? {}
+      : {
+          disclosure:
+            "Below detail quasi: counts by reason and by check only, a count under five said as fewer than five; never a unit, a value or an error's words.",
+        }),
   };
 }
 
@@ -166,7 +196,8 @@ export function runReadTools(): StationTool[] {
         const { reading, role } = got;
         let document: number | null = null;
         const steps: string[] = [];
-        const doc = breachDocument(reading, role);
+        // a list of the scans a measure filter keeps is refused below detail quasi (R4), so no campaign is drafted there
+        const doc = reading.detail === "plain" ? null : breachDocument(reading, role);
         const evidence: { documents: number[] } = { documents: [] };
         if (doc) {
           const drafted = await ctx.seam.call({
@@ -190,20 +221,24 @@ export function runReadTools(): StationTool[] {
             `make the campaign ${selection} over that selection (its first version, selection:${selection}@1) with the question and settings written here`,
           );
         }
-        if (reading.failed.length > 0)
+        if (!doc && reading.breaches.length > 0)
           steps.push(
-            `read the ${reading.failed.reduce((k, f) => k + f.count, 0)} failed units on run ${reading.run}'s page, where each stands as a pipeline:qc item; a failed unit made no measure and is run again, not rated`,
+            "a person at detail quasi or above reads the units past a check and makes the campaign over them",
+          );
+        if (failedOf(reading) > 0)
+          steps.push(
+            `read the ${failedOf(reading)} failed units on run ${reading.run}'s page, where each stands as a pipeline:qc item; a failed unit made no measure and is run again, not rated`,
           );
         const note: RunNote = { reading, ask_document: document, campaign, steps };
         const id = `run-note-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
         readings.set(id, { conversation: ctx.conversation, note });
-        const failedUnits = reading.failed.reduce((k, f) => k + f.count, 0);
-        const breached = new Set(reading.breaches.flatMap((b) => b.units)).size;
+        const failedUnits = failedOf(reading);
+        const breached = said(reading.doubtful_units) !== 0 && reading.breaches.length > 0;
         return {
           output: {
             reading: id,
             ...spoken(note),
-            say: `Say run ${reading.run} of ${reading.name} ended ${reading.status} with ${reading.units.succeeded} of ${reading.units.total} units done; ${failedUnits ? `name the ${failedUnits} failed units by reason` : "no unit failed"}; ${breached ? `name the ${breached} units past a check and the check each broke` : "no unit broke a check"}; ${campaign ? `and that a campaign over them is proposed for a person to make` : "and that no campaign is needed"}.`,
+            say: `Say run ${reading.run} of ${reading.name} ended ${reading.status} with ${reading.units.succeeded} of ${reading.units.total} units done; ${failedUnits ? `name the ${failedUnits} failed units by reason` : "no unit failed"}; ${breached ? `name each check broken, by its metric, with its count` : "no unit broke a check"}; ${campaign ? `and that a campaign over them is proposed for a person to make` : "and that no campaign is needed"}.`,
             text: "The reading is recorded. Settle now with the reading id and one short summary; the person makes the campaign.",
           } as JsonValue,
           evidence,
@@ -235,7 +270,7 @@ export function runReadChecks(): Record<string, Check> {
       const s = String(verdict.result.sentence ?? "").toLowerCase();
       const r = h.note.reading;
       const missing: string[] = [];
-      const failed = r.failed.reduce((k, f) => k + f.count, 0);
+      const failed = failedOf(r);
       if (failed > 0 && !s.includes(String(failed))) missing.push(`the ${failed} failed units`);
       for (const b of r.breaches)
         if (!s.includes(b.metric.toLowerCase())) missing.push(`the check on ${b.metric}`);

@@ -12,6 +12,7 @@ A pipeline run has ended. You tell the person, in a few plain sentences, what it
 - **Units:** how many the run had, how many are done, failed, skipped or unreported.
 - **Failed units, by reason:** a missing input (a session with no FLAIR, no T1w picked), the tool failed, out of memory or time, a missing licence, no result reported, a file the engine refused. A failed unit made no measure; it is run again after its cause is fixed, not rated.
 - **Checks broken:** each declared check (`qc_general_white_matter >= 0.65`, `intracranial >= 900000`, `snr_total >= 8`) with the units past it and the worst value. A breach is not a failure: the unit has numbers, and a person decides whether to trust them.
+- **Below detail quasi** the reading holds counts by reason and by check only, and a count under five says "fewer than five": no unit, no value, no error's words, and no campaign, which a person at detail quasi makes. Say it that way.
 - **The campaign:** when units broke a check, the host has stored the ask of their stacks as a draft and written the campaign a person may make over it (a form: is this result usable, yes, no or unsure). The person saves the draft as a selection and makes the campaign; you never do.
 
 ## What the checks mean

@@ -6,6 +6,8 @@ purpose: assistant.run-read
 content: rows
 ceiling: reviewer
 grant:
+  capabilities:
+    calls: 2
   pipeline-runs:
     calls: 2
   pipeline-runs/{id}:
@@ -18,7 +20,7 @@ grant:
     calls: 3
 brief:
   path: SKILL.md
-  hash: 3a711961ab8cb45cd6ac6de3c6ce18adf0463608dd25f4429ba8ad8b72eeb861
+  hash: 85b51e0f359517d3820765fedcfd8ec22738ab3aadf67f80e8c1f68845a86a87
 result:
   type: object
   required:

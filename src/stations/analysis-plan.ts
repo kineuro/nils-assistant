@@ -47,6 +47,7 @@ export interface RunDocument {
   why: string;
   pipeline: string;
   select?: string;
+  /** The stacks the proposed ask froze into for the pre-flight; not kept, so a Run over it may find it gone and save `proposed.document` as a selection first. */
   handle?: number;
   params: Record<string, unknown>;
   /** The engine's pre-flight answer, each missing unit said by its reason only (as the engine says it below detail quasi). */
@@ -281,10 +282,11 @@ export function analysisPlanTools(): StationTool[] {
               } as JsonValue,
             };
           evidence.documents.push(document);
+          // a handle for the pre-flight only, never kept (R5): the run a person starts goes over the document once they save it
           const ran = await ctx.seam.call({
             method: "POST",
             path: "/api/ask/run",
-            body: { document_id: document, keep: true, name: `analysis-plan ${entry.name}` },
+            body: { document_id: document, keep: false, name: `analysis-plan ${entry.name}` },
             toolCallId: `${ctx.toolCallId}-run`,
             phase,
           });

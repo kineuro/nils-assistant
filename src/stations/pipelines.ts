@@ -412,24 +412,55 @@ export function reasonClass(status: string, error: string | null): string {
 
 const INVERSE: Record<string, string> = { ">=": "<", ">": "<=", "<=": ">", "<": ">=", "=": "<>", "<>": "=" };
 
-/** What a run's checks came to, read from the run, its descriptor and its pipeline:qc items. */
+/** The detail a reading is disclosed at: the person's, never above the station's ceiling. */
+export type Detail = "plain" | "quasi" | "sensitive";
+
+/**
+ * The smallest group whose count is shown below detail quasi: the engine's
+ * k for a measure's totals (record 49 R4b, D27's federation default).
+ */
+export const K_MIN = 5;
+
+/** A count as it may be shown: the number, or null with `fewer_than_five` below detail quasi. */
+export interface Shown {
+  count: number | null;
+  fewer_than_five: boolean;
+}
+
+function shown(n: number, perScan: boolean): Shown {
+  return !perScan && n > 0 && n < K_MIN
+    ? { count: null, fewer_than_five: true }
+    : { count: n, fewer_than_five: false };
+}
+
+/** A unit label as the engine answers it; below detail quasi the engine blanks it, and a blank is no label. */
+const labelOf = (x: unknown): string | null => (typeof x === "string" && x.length > 0 ? x : null);
+
+/**
+ * What a run's checks came to, read from the run, its descriptor and its
+ * pipeline:qc items. At detail quasi and above it names the units, the
+ * worst value past each check and an example of each failure; below quasi
+ * (record 49 R4, R4b) it holds counts by reason and by check only, a count
+ * of fewer than five scans said as that and never as its number, and no
+ * unit, value or error text.
+ */
 export interface Reading {
   run: number;
   pipeline: string;
   name: string;
   status: string;
   handle: number | null;
+  detail: Detail;
   units: { total: number; succeeded: number; failed: number; skipped: number; unreported: number };
-  failed: { reason: string; count: number; units: string[]; example: string | null }[];
-  breaches: {
+  failed: ({ reason: string; units: string[]; example: string | null } & Shown)[];
+  breaches: ({
     metric: string;
     check: string;
     description: string | null;
-    count: number;
     units: string[];
     worst: number | null;
-  }[];
-  doubtful_units: number;
+  } & Shown)[];
+  doubtful_units: Shown;
   measures: number | null;
   checks: { declared: number | null; breaches: number | null; unchecked: number | null };
   refused_files: number;
@@ -437,8 +468,14 @@ export interface Reading {
   declared: QcCheck[];
 }
 
-/** One run read: the run's own summary, the descriptor's checks, and the run's pipeline:qc items. */
-export function readingOf(runBody: unknown, entry: Entry | null, itemsBody: unknown): Reading {
+/** One run read: the run's own summary, the descriptor's checks, and the run's pipeline:qc items, disclosed at `detail`. */
+export function readingOf(
+  runBody: unknown,
+  entry: Entry | null,
+  itemsBody: unknown,
+  detail: Detail,
+): Reading {
+  const perScan = detail !== "plain";
   const r = (runBody ?? {}) as Record<string, unknown>;
   const s = (r.summary ?? {}) as Record<string, unknown>;
   const u = (s.units ?? {}) as Record<string, unknown>;
@@ -451,44 +488,61 @@ export function readingOf(runBody: unknown, entry: Entry | null, itemsBody: unkn
       unknown
     >[]
   ).filter((it) => Number(((it.ref ?? it.reference ?? {}) as Record<string, unknown>).run_id) === id);
-  const failed = new Map<string, { count: number; units: string[]; example: string | null }>();
-  const breachUnits = new Set<string>();
-  const doubtful = new Set<string>();
+  // counted per item and per breach entry, each one unit: never by label, which the engine may blank
+  const failed = new Map<string, { n: number; units: string[]; example: string | null }>();
+  const seen = new Set<string>();
+  let failedUnits = 0;
+  let breachItems = 0;
   let open = 0;
   for (const it of items) {
     if ((it.status ?? "open") === "open") open++;
     const ref = (it.ref ?? it.reference ?? {}) as Record<string, unknown>;
     const ev = (it.evidence ?? {}) as Record<string, unknown>;
     const status = String(ev.status ?? it.status ?? "failed");
-    const unit = String(ref.unit ?? "run");
+    const unit = labelOf(ref.unit);
     if (status === "breach") {
-      breachUnits.add(unit);
+      breachItems++;
       continue;
     }
     const reason = reasonClass(status, str(ev.error) ?? null);
-    const f = failed.get(reason) ?? { count: 0, units: [], example: null };
-    f.count++;
-    f.units.push(unit);
+    const f = failed.get(reason) ?? { n: 0, units: [], example: null };
+    f.n++;
+    if (unit) {
+      f.units.push(unit);
+      seen.add(unit);
+    }
     f.example ??= str(ev.error)?.slice(0, 160) ?? null;
     failed.set(reason, f);
-    doubtful.add(unit);
+    failedUnits++;
   }
-  // the failed units the run names beside the items, where an item was not raised or was closed
+  // a failed unit the run names that has no item (one closed, or never raised): only by a real label, so a blank never counts twice
   for (const x of (Array.isArray(r.units_run) ? r.units_run : []) as Record<string, unknown>[]) {
     const status = String(x.status ?? "");
-    const unit = String(x.unit ?? "");
-    if ((status !== "failed" && status !== "unreported") || !unit || doubtful.has(unit)) continue;
+    const unit = labelOf(x.unit);
+    if ((status !== "failed" && status !== "unreported") || !unit || seen.has(unit)) continue;
     const reason = reasonClass(status, null);
-    const f = failed.get(reason) ?? { count: 0, units: [], example: null };
-    f.count++;
+    const f = failed.get(reason) ?? { n: 0, units: [], example: null };
+    f.n++;
     f.units.push(unit);
+    seen.add(unit);
     failed.set(reason, f);
-    doubtful.add(unit);
+    failedUnits++;
   }
   const declared = entry?.checks ?? [];
-  const byMetric = new Map<string, Reading["breaches"][number]>();
-  for (const b of (Array.isArray(s.breaches) ? s.breaches : []) as Record<string, unknown>[]) {
-    const unit = String(b.unit ?? "");
+  const byMetric = new Map<
+    string,
+    {
+      metric: string;
+      check: string;
+      description: string | null;
+      n: number;
+      units: string[];
+      worst: number | null;
+    }
+  >();
+  const entries = (Array.isArray(s.breaches) ? s.breaches : []) as Record<string, unknown>[];
+  for (const b of entries) {
+    const unit = labelOf(b.unit);
     for (const x of (Array.isArray(b.breaches) ? b.breaches : []) as Record<string, unknown>[]) {
       const metric = String(x.metric ?? "");
       const op = String(x.op ?? declared.find((c) => c.metric === metric)?.op ?? "");
@@ -496,14 +550,14 @@ export function readingOf(runBody: unknown, entry: Entry | null, itemsBody: unkn
       const key = `${metric} ${op} ${threshold}`;
       const had = byMetric.get(key) ?? {
         metric,
-        check: `${metric} ${op} ${threshold}`,
+        check: key,
         description: str(x.description) ?? declared.find((c) => c.metric === metric)?.description ?? null,
-        count: 0,
+        n: 0,
         units: [],
         worst: null,
       };
-      had.count++;
-      had.units.push(unit);
+      had.n++;
+      if (unit) had.units.push(unit);
       const value = num(x.value);
       if (value !== null)
         had.worst =
@@ -513,10 +567,8 @@ export function readingOf(runBody: unknown, entry: Entry | null, itemsBody: unkn
               ? Math.min(had.worst, value)
               : Math.max(had.worst, value);
       byMetric.set(key, had);
-      breachUnits.add(unit);
     }
   }
-  for (const unit of breachUnits) doubtful.add(unit);
   const numbers = (s.numbers ?? {}) as Record<string, unknown>;
   const checks = (numbers.checks ?? {}) as Record<string, unknown>;
   return {
@@ -525,6 +577,7 @@ export function readingOf(runBody: unknown, entry: Entry | null, itemsBody: unkn
     name,
     status: String(r.status ?? ""),
     handle: num(r.handle_id),
+    detail,
     units: {
       total: num(u.total) ?? 0,
       succeeded: num(u.succeeded) ?? 0,
@@ -532,9 +585,25 @@ export function readingOf(runBody: unknown, entry: Entry | null, itemsBody: unkn
       skipped: num(u.skipped) ?? 0,
       unreported: num(u.unreported) ?? 0,
     },
-    failed: [...failed.entries()].map(([reason, f]) => ({ reason, ...f })).sort((a, b) => b.count - a.count),
-    breaches: [...byMetric.values()].sort((a, b) => b.count - a.count),
-    doubtful_units: doubtful.size,
+    failed: [...failed.entries()]
+      .sort((a, b) => b[1].n - a[1].n)
+      .map(([reason, f]) => ({
+        reason,
+        ...shown(f.n, perScan),
+        units: perScan ? f.units : [],
+        example: perScan ? f.example : null,
+      })),
+    breaches: [...byMetric.values()]
+      .sort((a, b) => b.n - a.n)
+      .map((b) => ({
+        metric: b.metric,
+        check: b.check,
+        description: b.description,
+        ...shown(b.n, perScan),
+        units: perScan ? b.units : [],
+        worst: perScan ? b.worst : null,
+      })),
+    doubtful_units: shown(failedUnits + Math.max(entries.length, breachItems), perScan),
     measures: num(numbers.measures),
     checks: {
       declared: num(checks.declared) ?? declared.length,

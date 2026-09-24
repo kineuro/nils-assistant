@@ -10,7 +10,7 @@ import { readFileSync } from "node:fs";
 import { afterAll, describe, expect, it } from "vitest";
 import { loadManifests } from "../src/stations/manifest.ts";
 import { breachDocument, entriesOf, readingOf, reasonClass } from "../src/stations/pipelines.ts";
-import { readingById, runReadChecks, runReadTools, withNote } from "../src/stations/run-read.ts";
+import { detailFor, readingById, runReadChecks, runReadTools, withNote } from "../src/stations/run-read.ts";
 import type { Verdict } from "../src/stations/verdict.ts";
 import { type Dialled, seamOf, stubEngine, toolContext } from "./child/stub-engine.ts";
 
@@ -40,9 +40,10 @@ afterAll(() => {
   for (const c of closers) c();
 });
 
-async function engineFor(c: Case) {
+async function engineFor(c: Case, detail = "sensitive") {
   const e = await stubEngine((call: Dialled) => {
     const path = call.path.replace(/\?.*$/u, "");
+    if (call.method === "GET" && path === "/api/capabilities") return { body: { detail } };
     if (call.method === "GET" && path === `/api/pipeline-runs/${c.run.id}`) return { body: c.run };
     if (call.method === "GET" && path === "/api/pipeline-runs") return { body: { runs: [c.run] } };
     const p = /^\/api\/pipelines\/(\d+)$/u.exec(path);
@@ -71,6 +72,7 @@ describe("run-read's manifest", () => {
     expect(manifest.content).toBe("rows");
     expect(manifest.ceiling).toBe("reviewer");
     expect(Object.keys(manifest.grant).sort()).toEqual([
+      "capabilities",
       "draft",
       "pipeline-runs",
       "pipeline-runs/{id}",
@@ -98,7 +100,7 @@ describe("a run's checks, read", () => {
   it("turns a run's breaches into the ask of the stacks past each check, from this run's measures alone", () => {
     const c = fixture.cases.find((x) => x.id === "planted-synthseg") as Case;
     const entry = entriesOf(catalog).find((e) => e.id === c.run.pipeline_id) ?? null;
-    const r = readingOf(c.run, entry, { items: c.items });
+    const r = readingOf(c.run, entry, { items: c.items }, "quasi");
     const doc = breachDocument(r, "t1w") as { sets: Record<string, Record<string, unknown>>; keep: string[] };
     expect(doc.sets.breach_1.where).toEqual([
       ["=", {}, ["field", {}, "measure.synthseg.run"], 12],
@@ -142,10 +144,13 @@ describe("the fixture set: a run's reading names its failures and proposes a cam
       const held = readingById(out.reading);
       if (!held) throw new Error("no reading held");
       const r = held.note.reading;
-      expect(r.failed.reduce((k, f) => k + f.count, 0)).toBe(c.expect.failed);
+      // above the ceiling a person is read at quasi, the station's own
+      expect(r.detail).toBe("quasi");
+      expect(r.failed.reduce((k, f) => k + (f.count ?? 0), 0)).toBe(c.expect.failed);
+      expect(r.units.failed + r.units.unreported).toBe(c.expect.failed);
       expect(Object.fromEntries(r.failed.map((f) => [f.reason, f.count]))).toEqual(c.expect.reasons);
       expect(Object.fromEntries(r.breaches.map((b) => [b.check, b.count]))).toEqual(c.expect.breaches);
-      expect(r.doubtful_units).toBe(c.expect.doubtful);
+      expect(r.doubtful_units.count).toBe(c.expect.doubtful);
       expect(held.note.campaign !== null).toBe(c.expect.campaign);
       if (c.expect.campaign) {
         expect(held.note.ask_document).toBe(600 + c.run.id);
@@ -173,7 +178,7 @@ describe("the fixture set: a run's reading names its failures and proposes a cam
       const worst = r.breaches
         .map((b) => `${b.count} past ${b.metric} (${b.description ?? b.check})`)
         .join(", ");
-      const failed = r.failed.reduce((k, f) => k + f.count, 0);
+      const failed = r.units.failed + r.units.unreported;
       const sentence = `Run ${r.run} of ${r.name} ended ${r.status}: ${r.units.succeeded} of ${r.units.total} done; ${failed ? `${failed} failed (${r.failed.map((f) => `${f.count} ${f.reason}`).join(", ")})` : "none failed"}; ${worst || "no check was broken"}.`;
       const result = withNote({ reading: out.reading, sentence }, conversation);
       const note = result.note as { campaign: unknown; failed: unknown[] };
@@ -198,6 +203,84 @@ describe("the fixture set: a run's reading names its failures and proposes a cam
       ).toMatch(/claims an act/u);
     });
   }
+
+  it("below detail quasi holds counts by reason and check only: no unit, value or error words, fewer than five said as that, and no campaign", async () => {
+    const c = fixture.cases.find((x) => x.id === "planted-synthseg") as Case;
+    // the engine blanks every unit label below quasi
+    const blank = {
+      ...c,
+      run: {
+        ...c.run,
+        units_run: (c.run.units_run as Record<string, unknown>[]).map((u) => ({ ...u, unit: null })),
+        summary: {
+          ...(c.run.summary as Record<string, unknown>),
+          breaches: ((c.run.summary as { breaches: Record<string, unknown>[] }).breaches ?? []).map((b) => ({
+            ...b,
+            unit: null,
+          })),
+        },
+      },
+      items: c.items.map((it) => ({ ...it, ref: { ...(it.ref as object), unit: null } })),
+    } as Case;
+    const e = await engineFor(blank, "plain");
+    const seam = seamOf(
+      e.url,
+      { id: "run-read", grant: manifest.grant, ceiling: "reviewer", content: "rows" },
+      "rr-plain",
+    );
+    const out = (await tool("read_run").run({ run: c.run.id }, toolContext(seam, "rr-plain", "read")))
+      .output as Record<string, unknown>;
+    const r = readingById(String(out.reading))?.note.reading;
+    if (!r) throw new Error("no reading");
+    expect(r.detail).toBe("plain");
+    // three failure reasons of one or two units each, and checks broken by three and by one: all under five
+    for (const f of r.failed)
+      expect([f.count, f.fewer_than_five, f.units, f.example]).toEqual([null, true, [], null]);
+    for (const b of r.breaches)
+      expect([b.count, b.fewer_than_five, b.units, b.worst]).toEqual([null, true, [], null]);
+    // counted by the engine's items, never by blanked labels: seven doubtful units, not one called "null"
+    expect(r.doubtful_units).toEqual({ count: 7, fewer_than_five: false });
+    const note = withNote({ reading: out.reading, sentence: "s" }, "rr-plain").note;
+    for (const text of [JSON.stringify(out), JSON.stringify(note)]) {
+      expect(text).not.toMatch(/sub-|null_|"null"|holds no|exited|0\.41|0\.6\b/u);
+      expect(text).not.toContain('"worst"');
+    }
+    expect((out.failed as { count: unknown }[])[0].count).toBe("fewer than five");
+    expect(out.campaign).toBeNull();
+    expect(e.seen.some((s) => s.path === "/api/ask/draft")).toBe(false);
+    // the summary still names the engine's failed count and each check
+    const checks = runReadChecks();
+    const verdict = {
+      result: {
+        reading: out.reading,
+        sentence: "4 failed; fewer than five past qc_general_white_matter and qc_general_csf.",
+      },
+    } as unknown as Verdict;
+    expect(await checks.names_the_checks(verdict, { conversation: "rr-plain" })).toBeNull();
+  });
+
+  it("counts a group of five or more below quasi, and treats an unreadable detail as plain", async () => {
+    const c = fixture.cases.find((x) => x.id === "planted-synthseg") as Case;
+    const many = Array.from({ length: 6 }, (_, i) => ({
+      unit: null,
+      breaches: [{ metric: "qc_general_white_matter", value: 0.5, op: ">=", threshold: 0.65 }],
+      i,
+    }));
+    const run = { ...c.run, summary: { ...(c.run.summary as object), breaches: many } };
+    const entry = entriesOf(catalog).find((x) => x.id === c.run.pipeline_id) ?? null;
+    const r = readingOf(run, entry, { items: [] }, "plain");
+    expect(r.breaches[0]).toMatchObject({ count: 6, fewer_than_five: false, units: [], worst: null });
+    const e = await stubEngine((call) =>
+      call.path.startsWith("/api/capabilities") ? { status: 403, body: {} } : null,
+    );
+    closers.push(e.close);
+    const seam = seamOf(
+      e.url,
+      { id: "run-read", grant: manifest.grant, ceiling: "reviewer", content: "rows" },
+      "rr-d",
+    );
+    expect(await detailFor(seam, "x", "read")).toBe("plain");
+  });
 
   it("says why when a run cannot be read", async () => {
     const e = await stubEngine(() => ({ status: 404, body: { error: "no pipeline run 99" } }));

@@ -261,6 +261,9 @@ describe("the fixture set: each question becomes a runnable document", () => {
         expect(d.proposed?.cohorts).toEqual(c.expect.cohorts);
         expect(d.proposed?.sessions).toBe(c.expect.sessions);
         expect(d.command).toEqual(expect.arrayContaining(["--handle", String(d.handle)]));
+        // the pre-flight's handle is never kept (R5)
+        const ran = e.seen.find((s) => s.path === "/api/ask/run");
+        expect((ran?.body as { keep?: unknown } | undefined)?.keep).toBe(false);
         const drafted = e.seen.find((s) => s.path === "/api/ask/draft")?.body as { text: string };
         const doc = JSON.parse(drafted.text) as { sets: { scope: { where: unknown[] } } };
         expect(JSON.stringify(doc.sets.scope.where)).toContain(c.expect.cohorts?.[0] ?? "");

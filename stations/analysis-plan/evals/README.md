@@ -4,7 +4,7 @@ Record 49 A5's bar: a question about images becomes a runnable document at the s
 
 ## Offline
 
-`test/analysis-plan.test.ts` plays every case through `plan_run` against a stub engine: each becomes a run document with the pipeline as name@version, `select` or `handle`, the parameters with their defaults, the engine's pre-flight (each missing unit by its reason alone), the question and the reason, and the job's command line a person's Run would queue; the checks pass on it; nothing is queued, no campaign is made, no selection is saved. The unknown cohort is refused with the cohorts there are.
+`test/analysis-plan.test.ts` plays every case through `plan_run` against a stub engine: each becomes a run document with the pipeline as name@version, `select` or `handle`, the parameters with their defaults, the engine's pre-flight (each missing unit by its reason alone), the question and the reason, and the job's command line a person's Run would queue; the checks pass on it; nothing is queued, no campaign is made, no selection is saved, and the handle the pre-flight runs over is never kept. The unknown cohort is refused with the cohorts there are.
 
 ## Live
 
