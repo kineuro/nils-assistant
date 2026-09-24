@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# analysis-plan (record 49 A5), as contracts/suite/v1/station.schema.json fixes a manifest.
+id: analysis-plan
+app: nils-assistant
+purpose: assistant.analysis-plan
+content: rows
+ceiling: reviewer
+grant:
+  pipelines:
+    calls: 4
+  pipelines/{name}/preflight:
+    calls: 3
+  cohorts:
+    calls: 4
+  draft:
+    calls: 2
+  run:
+    calls: 2
+brief:
+  path: SKILL.md
+  hash: b13ebc2ac1a36fb79c4226f739a0b81c13324902e5ec813422cd2e6df2e031fb
+result:
+  type: object
+  required:
+  - sentence
+  - plan
+  properties:
+    sentence:
+      type: string
+      description: what will be measured and why this analysis, with the pre-flight's own numbers, in the person's words
+    plan:
+      type: string
+      description: the id plan_run answered
+    run_document:
+      type: object
+      description: "the run document, filled by the host from the plan: pipeline (name@version), select or handle, params, preflight, why, question"
+checks:
+- no_sql
+- planned
+- preflight_read
+- sentence_true
+- runs_nothing
+budget:
+  turns: 8
+  tool_calls: 12
+  wall_clock_seconds: 180
+  input_tokens: 120000
+writes:
+- document_version
+phases:
+  initial: read
+  follow_up: read
+  transitions:
+  - from: read
+    to: plan
+  - from: plan
+    to: finish
+evals: evals

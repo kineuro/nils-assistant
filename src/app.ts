@@ -83,6 +83,7 @@ import {
   tokens,
   verdicts,
 } from "./seam/for.ts";
+import { AnalysisPlan } from "./stations/analysis-plan-agent.ts";
 import { AskHelp } from "./stations/ask-help-agent.ts";
 import { Concierge } from "./stations/concierge-agent.ts";
 import { Echo } from "./stations/echo.ts";
@@ -92,6 +93,7 @@ import { loadManifests } from "./stations/manifest.ts";
 import { useLadderStore } from "./stations/operator.ts";
 import { Operator } from "./stations/operator-agent.ts";
 import { warmPrelude } from "./stations/prelude.ts";
+import { RunRead } from "./stations/run-read-agent.ts";
 
 const c = config();
 const runs = new Runs();
@@ -116,6 +118,8 @@ if (manifests.has("concierge")) agents.set("concierge", Concierge);
 if (manifests.has("keyword-tune")) agents.set("keyword-tune", KeywordTune);
 if (manifests.has("identity-check")) agents.set("identity-check", IdentityCheck);
 if (manifests.has("operator")) agents.set("operator", Operator);
+if (manifests.has("analysis-plan")) agents.set("analysis-plan", AnalysisPlan);
+if (manifests.has("run-read")) agents.set("run-read", RunRead);
 agents.set("echo", Echo);
 // the stations a concierge may delegate to, by id (section 9.12)
 for (const [id, a] of agents) registerAgent(id, a);
