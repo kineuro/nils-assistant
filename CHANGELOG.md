@@ -4,6 +4,8 @@ All notable changes to the NILS assistant are recorded here. The format follows 
 
 ## [Unreleased]
 
+## [1.0.0-alpha.27] - 2026-09-25
+
 ### Added
 
 - analysis-plan (record 49 A5, purpose `assistant.analysis-plan`, content `rows`, ceiling reviewer): a question about images becomes a run document the desk reads as `result.run_document`: the pipeline as name@version, whom it runs over (`select`, a saved selection, or `handle`, the stacks of an ask the station drafts from cohorts with all, first or latest sessions), the parameters held to the descriptor with their defaults, the engine's pre-flight with each missing unit by its reason alone, the question and the reason, and the command a person's Run would queue. The brief carries a short cookbook of which analysis answers which question, and the catalog and the cohorts travel with every turn. It never starts a run.
