@@ -73,11 +73,28 @@ export function part10(sop: string, dataset: Elem[]): Buffer {
   ]);
 }
 
-/** One slice of one person's T1 MPRAGE: made-up values, a square in the middle of a gradient. */
-function slice(person: number, n: number): { sop: string; bytes: Buffer } {
-  const root = `${ROOT}.7${String(person).padStart(3, "0")}`;
-  const study = `${root}.1`;
-  const series = `${root}.1.1`;
+/** One series of made-up files: who it is said to be about, when, and what the scanner called it. */
+export interface Series {
+  /** A unique number under the example root: one per series of the whole bench. */
+  uid: number;
+  /** The study it belongs to, by its own number; series of one study share it. */
+  study: number;
+  /** PatientID as the file carries it: a made-up code, never a real identifier. */
+  patientId: string;
+  /** StudyDate, YYYYMMDD. */
+  day: string;
+  description: string;
+  protocol: string;
+  /** PatientBirthDate and PatientSex, made up, for the files that carry them. */
+  birth?: string;
+  sex?: "F" | "M";
+  slices?: number;
+}
+
+/** One slice of a series: made-up values, a square in the middle of a gradient. */
+function slice(s: Series, n: number): Buffer {
+  const study = `${ROOT}.6${String(s.study).padStart(4, "0")}`;
+  const series = `${study}.${s.uid}`;
   const sop = `${series}.${n}`;
   const pixels = Buffer.alloc(32 * 32 * 2);
   for (let i = 0; i < 32 * 32; i++) {
@@ -86,22 +103,24 @@ function slice(person: number, n: number): { sop: string; bytes: Buffer } {
     const inside = x >= 8 && x < 24 && y >= 8 && y < 24;
     pixels.writeUInt16LE(200 + x * 7 + y * 3 + n * 11 + (inside ? 600 : 0), i * 2);
   }
-  const day = `2021${String(1 + (person % 12)).padStart(2, "0")}15`;
   const dataset: Elem[] = [
     text(0x0008, 0x0008, "CS", "ORIGINAL\\PRIMARY\\M\\ND"),
     text(0x0008, 0x0016, "UI", MR_IMAGE),
     text(0x0008, 0x0018, "UI", sop),
-    text(0x0008, 0x0020, "DA", day),
+    text(0x0008, 0x0020, "DA", s.day),
     text(0x0008, 0x0031, "TM", "101415"),
     text(0x0008, 0x0060, "CS", "MR"),
     text(0x0008, 0x0070, "LO", "SYNTHETIC"),
-    text(0x0008, 0x103e, "LO", "t1_mprage_sag"),
-    text(0x0010, 0x0020, "LO", plantedCode(person)),
+    text(0x0008, 0x103e, "LO", s.description),
+    text(0x0010, 0x0020, "LO", s.patientId),
+    ...(s.birth ? [text(0x0010, 0x0030, "DA", s.birth)] : []),
+    ...(s.sex ? [text(0x0010, 0x0040, "CS", s.sex)] : []),
     text(0x0018, 0x0023, "CS", "3D"),
     text(0x0018, 0x0050, "DS", "1.0"),
-    text(0x0018, 0x1030, "LO", "MPRAGE"),
+    text(0x0018, 0x1030, "LO", s.protocol),
     text(0x0020, 0x000d, "UI", study),
     text(0x0020, 0x000e, "UI", series),
+    text(0x0020, 0x0011, "IS", String(s.uid % 1000)),
     text(0x0020, 0x0013, "IS", String(n)),
     text(0x0020, 0x0032, "DS", `${n}\\0\\0`),
     text(0x0020, 0x0037, "DS", "0\\1\\0\\0\\0\\-1"),
@@ -117,19 +136,29 @@ function slice(person: number, n: number): { sop: string; bytes: Buffer } {
     text(0x0028, 0x0301, "CS", "NO"),
     [0x7fe0, 0x0010, "OW", pixels],
   ];
-  return { sop, bytes: part10(sop, dataset) };
+  return part10(sop, dataset);
+}
+
+/** Writes one series into a folder of its own. */
+export function writeSeries(dir: string, s: Series): void {
+  mkdirSync(dir, { recursive: true });
+  for (let n = 1; n <= (s.slices ?? 12); n++) writeFileSync(join(dir, `${n}.dcm`), slice(s, n));
 }
 
 /** The made-up identifier a planted person's files carry, before the engine pseudonymises it. */
 export const plantedCode = (person: number) => `PLANT${String(person).padStart(3, "0")}`;
 
-/** Writes the tree: one folder per person, one series of twelve slices each. */
+/** Writes the planted tree: one folder per person, one T1 MPRAGE series of twelve slices each. */
 export function writeTree(dir: string, people: number): void {
-  for (let p = 1; p <= people; p++) {
-    const at = join(dir, plantedCode(p), "1");
-    mkdirSync(at, { recursive: true });
-    for (let n = 1; n <= 12; n++) writeFileSync(join(at, `${n}.dcm`), slice(p, n).bytes);
-  }
+  for (let p = 1; p <= people; p++)
+    writeSeries(join(dir, plantedCode(p), "1"), {
+      uid: 7000 + p,
+      study: 7000 + p,
+      patientId: plantedCode(p),
+      day: `2021${String(1 + (p % 12)).padStart(2, "0")}15`,
+      description: "t1_mprage_sag",
+      protocol: "MPRAGE",
+    });
 }
 
 // ------------------------------------------------------------------ the plans

@@ -12,6 +12,13 @@
 //   bench/planted.ts over a small synthetic DICOM tree, run by the engine
 //   through a stand-in container runtime, and their run ids written as the
 //   `RUNS` the measure takes.
+// - keyword-tune, identity-check and the operator (stations/<id>/evals/
+//   cases.yml, bench/fixtures.ts): the batch `keyword-bench` with two site
+//   words, classified; five datasets that arrive identified, each with its
+//   map filed and pseudonymised once so the held door answers; the
+//   registered location `inbox`; one stored question. Classifying the
+//   keyword batch judges every stack again, synth's too: the counts of the
+//   analysis-plan pre-flight move with it, which its cases do not score.
 //
 // It is a registry of its own, never the one ask-help's golds were derived
 // on: a third cohort changes the answers of the cohort inventory and the
@@ -21,15 +28,24 @@
 //
 //   node dist/bench/seed.js --home <empty dir> --pack-dir <packs> [--nils <binary>]
 //
-// Then serve it on a port of its own (`nils serve --registry <home>/registry
-// --bind 127.0.0.1:<port>`) with an assistant host pointed at it, and give
-// the measure the RUNS line `<home>/seeded.json` holds.
+// Then serve it on a port of its own with the command `seeded.json` holds
+// under `serve` (it registers the location `inbox`), point an assistant host
+// at it, and give the measure `--seeded <home>/seeded.json`.
 
 import { execFileSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { delimiter, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { descriptor, PLANTED, PLANTED_PEOPLE, STAND_IN_RUNTIME, writeTree } from "./planted.ts";
+import {
+  DATASETS,
+  datasetSeries,
+  INBOX,
+  inboxSeries,
+  KEYWORD_BATCH,
+  keywordSeries,
+  QUESTION,
+} from "./fixtures.ts";
+import { descriptor, PLANTED, PLANTED_PEOPLE, STAND_IN_RUNTIME, writeSeries, writeTree } from "./planted.ts";
 
 /** The batch name the planted tree is digested under; with synth's own, the only batches a seeded home holds. */
 export const PLANTED_BATCH = "planted-bench";
@@ -288,6 +304,38 @@ export async function seed(o: Options): Promise<Record<string, unknown>> {
     });
   }
 
+  // keyword-tune: the site words on a batch of their own, fingerprinted and classified
+  const keywords = join(o.home, "keywords");
+  for (const k of keywordSeries()) writeSeries(join(keywords, k.folder), k.series);
+  nils(["digest", "--name", KEYWORD_BATCH, "--no-private", ...packs, keywords]);
+  nils(["fingerprint"]);
+  nils(["classify", ...packs]);
+
+  // identity-check and the operator: the datasets, each with its map filed, pseudonymised once
+  const datasets: { name: string; held: string }[] = [];
+  for (const [i, d] of DATASETS.entries()) {
+    const at = join(o.home, "datasets", d.name);
+    for (const f of datasetSeries(d, 10000 + i * 100)) writeSeries(join(at, f.folder), f.series);
+    nils(["place", "add", d.name, at, "--role", "source", "--arrives", "identified", "--unmapped", "hold"]);
+    const mapped = d.people.filter((p) => p.code);
+    if (mapped.length > 0) {
+      const map = join(scratch, `${d.name}-map.csv`);
+      writeFileSync(map, `identifier,code\n${mapped.map((p) => `${p.patientId},${p.code}`).join("\n")}\n`);
+      nils(["linkage", "import", map, "--id-type", "patient-id", "--place", d.name]);
+    }
+    const out = nils(["pseudonymize", `@${d.name}`, ...packs]);
+    datasets.push({ name: d.name, held: /held by shape\s+(.*)/u.exec(out)?.[1]?.trim() ?? "none" });
+  }
+
+  // the registered location, served with --ingest-root
+  const inbox = join(o.home, INBOX);
+  for (const f of inboxSeries()) writeSeries(join(inbox, f.folder), f.series);
+
+  // the operator: one stored question to run
+  const drafted = JSON.parse(
+    nils(["ask", "draft", "--file", file("question.json", QUESTION.doc), ...packs, "--json"]),
+  ) as { document?: number };
+
   const seeded = {
     at: new Date().toISOString(),
     registry,
@@ -295,6 +343,23 @@ export async function seed(o: Options): Promise<Record<string, unknown>> {
     selections,
     runs,
     RUNS: runs.map((r) => `${r.run}:${r.case}`).join(","),
+    keyword_batch: KEYWORD_BATCH,
+    datasets,
+    ingest_roots: { [INBOX]: inbox },
+    question: { name: QUESTION.name, document: drafted.document ?? null },
+    serve: [
+      o.nils,
+      "serve",
+      "--registry",
+      registry,
+      "--pack-dir",
+      o.packDir,
+      "--ingest-root",
+      `${INBOX}=${inbox}`,
+      "--worker",
+      "--bind",
+      "127.0.0.1:<port>",
+    ],
   };
   writeFileSync(join(o.home, "seeded.json"), `${JSON.stringify(seeded, null, 2)}\n`);
   return seeded;
@@ -305,4 +370,8 @@ if (process.argv[1] && resolve(process.argv[1]).endsWith(join("bench", "seed.js"
   console.log(`seeded ${s.registry}`);
   console.log(`selections: ${(s.selections as string[]).join(", ")}`);
   console.log(`RUNS=${s.RUNS as string}`);
+  console.log(
+    `datasets: ${(s.datasets as { name: string; held: string }[]).map((d) => `${d.name} (held ${d.held})`).join(", ")}`,
+  );
+  console.log(`serve: ${(s.serve as string[]).join(" ")}`);
 }

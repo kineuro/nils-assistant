@@ -21,22 +21,26 @@ The baseline is one shot: the model reads the engine's guide and the question, w
 
 ## Measuring the stations (Wave 7a)
 
-`bench/measure.ts` runs every station's questions through a running assistant host and its engine, scores each against its golds, and writes one dated result, `bench/results/stations-<date>-<model>.json`, with the table beside it as `.md` and each station's own file under `bench/results/stations-<date>-<model>/`. It runs the scripts above as children (ask-help on both corpora, the concierge through the chains, analysis-plan and run-read through `analyses.ts`), and a station with `stations/<id>/evals/cases.yml` through its cases: a message each, passed when the run settles with every check passed and the result's named fields as the case says. A station with no question set is reported unmeasured, with the reason.
+`bench/measure.ts` runs every station's questions through a running assistant host and its engine, scores each against its golds, and writes one dated result, `bench/results/stations-<date>-<model>.json`, with the table beside it as `.md` and each station's own file under `bench/results/stations-<date>-<model>/`. It runs the scripts above as children (ask-help on both corpora, the concierge through the chains, analysis-plan and run-read through `analyses.ts`), and keyword-tune, identity-check and the operator through their question sets. A station with no question set is reported unmeasured, with the reason.
 
 The endpoints are arguments and default to this machine; another host is refused unless `--allow-remote` says it is the site's own. The model is the one the host serves; `--model` names it for the record.
 
+The question sets of keyword-tune, identity-check and the operator are `stations/<id>/evals/cases.yml`, read by `bench/cases.ts`: a message a case, and what the run must leave in its result, in the plan the host keeps and in the conversation's ledger. A case may carry `gap`, what the station cannot do yet that the case expects; it is scored like the rest and listed beside the score.
+
+concierge and ask-help are measured on the registry their golds were derived on:
+
 ```sh
 npm run bench:measure -- --model <name> --assistant http://127.0.0.1:<host port> --engine http://127.0.0.1:<engine port> \
-  --stations concierge,ask-help,keyword-tune,identity-check,operator
+  --stations concierge,ask-help
 ```
 
-analysis-plan and run-read are measured on a registry of their own, since a third cohort changes the answers of the cohort inventory and the per-cohort counts: `bench/seed.ts` builds it from nothing in an empty directory (the synthetic registry, the cohort `nmosd` of nine synthetic subjects, the saved selections `ms-baseline@1` and `every-t1@2`, the starter catalog, and the three planted runs of `bench/planted.ts` over a small synthetic DICOM tree, run through a stand-in container runtime), then serve it and point a second host at it:
+The other five are measured on a registry of their own, since a third cohort changes the answers of the cohort inventory and the per-cohort counts: `bench/seed.ts` builds it from nothing in an empty directory (the synthetic registry; the cohort `nmosd` of nine synthetic subjects; the saved selections `ms-baseline@1` and `every-t1@2`; the starter catalog; the three planted runs of `bench/planted.ts` over a small synthetic DICOM tree, run through a stand-in container runtime; the batch `keyword-bench` with two made-up site words; five datasets that arrive identified, with their maps filed; the location `inbox`; one stored question, all from `bench/fixtures.ts`). Serve it with the command `seeded.json` holds under `serve`, point a second host at it, and measure:
 
 ```sh
 npm run bench:seed -- --home <empty dir> --nils <nils binary> --pack-dir <packs>
-nils serve --registry <empty dir>/registry --bind 127.0.0.1:<engine port> --pack-dir <packs>
+<the serve command of <empty dir>/seeded.json, with a port>
 npm run bench:measure -- --model <name> --assistant http://127.0.0.1:<second host port> --engine http://127.0.0.1:<engine port> \
-  --stations analysis-plan,run-read --seeded <empty dir>/seeded.json
+  --stations keyword-tune,analysis-plan,run-read,identity-check,operator --seeded <empty dir>/seeded.json
 ```
 
 A second invocation of the same day and model adds its stations to the same result file.

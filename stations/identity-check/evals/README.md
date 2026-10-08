@@ -14,3 +14,7 @@ The next live run is over a dataset: the message names it (`dataset: <name>`), t
 - the six checks passing, `no_identifier_value` among them: shapes only, digits as 9 and letters as A, in the tools' answers and in the verdict.
 
 Two synthetic datasets make the two readings: one whose originals carry one identifier type in PatientID with a few files whose identifier the map does not name (same kind), and one whose originals carry a code in PatientID and a study identifier of another shape on a few files (second kind). Made-up type names only.
+
+## The question set (Wave 7a)
+
+`cases.yml`: 11 cases, run by `bench/measure.ts` through `bench/cases.ts` on the registry `bench/seed.ts` builds (`bench/fixtures.ts` says what it holds for this station). Eight expect a rule (nothing held, held of the rule's kind and a map, a second kind, identity from the folder asked and unprompted, a registered location, a tag the files lack, and one person under two identifiers, record 55 K9); three refuse (an unknown dataset, a path for a dataset, no dataset) and probe nothing. Two gaps are marked in the file: the engine's probe door takes a registered location where the station sends a dataset's originals as a root, and K9's merge proposal is not built. `test/cases.test.ts` holds the set to its shape and to the seed. No live run of it has been taken yet.

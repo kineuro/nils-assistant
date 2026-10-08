@@ -9,7 +9,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
-import { endpoint, missesOf, type Score, STATIONS, slug, table } from "../bench/measure.ts";
+import { endpoint, type Score, STATIONS, slug, table } from "../bench/measure.ts";
 import { descriptor, PLANTED, PLANTED_PEOPLE, part10, plantedCode } from "../bench/planted.ts";
 import { NMOSD, SELECTIONS } from "../bench/seed.ts";
 import { reasonClass } from "../src/stations/pipelines.ts";
@@ -28,34 +28,6 @@ describe("the measure's endpoints", () => {
   it("names a result file after its model", () => {
     expect(slug("qwen38-27b-fast")).toBe("qwen38-27b-fast");
     expect(slug("The Local 27B / thinking off")).toBe("the-local-27b-thinking-off");
-  });
-});
-
-describe("a case of the generic runner", () => {
-  const c = {
-    id: "one",
-    message: "m",
-    expect: { result: { "held.reading": "same_kind", proposed: "present" } },
-  };
-  it("passes when it settles, every check passed and the named fields hold", () => {
-    const v = {
-      result: { held: { reading: "same_kind" }, proposed: { id_type: "x" } },
-      checks: [{ name: "a", passed: true }],
-    };
-    expect(missesOf(c, v, "settled")).toEqual([]);
-  });
-  it("names each miss: the terminal, a failed check, a field", () => {
-    const v = {
-      result: { held: { reading: "none" } },
-      checks: [{ name: "no_identifier_value", passed: false, why: "a value" }],
-    };
-    expect(missesOf(c, v, "budget")).toEqual([
-      "ended budget, not settled",
-      "check no_identifier_value: a value",
-      'held.reading is "none", not "same_kind"',
-      'proposed is undefined, not "present"',
-    ]);
-    expect(missesOf(c, null, "failed")).toEqual(["ended failed, not settled", "no verdict"]);
   });
 });
 

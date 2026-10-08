@@ -11,9 +11,10 @@
 //   analysis-plan   bench/analyses.ts: the plans that name the expected pipeline, parameters and selection
 //   run-read        bench/analyses.ts: the readings that count the planted failures and breaches
 //   keyword-tune, identity-check, operator
-//                   stations/<id>/evals/cases.yml when it exists: each case's message through the
-//                   station, passed when it settles with every check passed and the result's named
-//                   fields as the case says; without that file the station is reported unmeasured
+//                   stations/<id>/evals/cases.yml through the generic runner (bench/cases.ts): each
+//                   case's message through the station, passed when the run ends as the case says,
+//                   with every check passed when it settles, and its result, plan and ledger as the
+//                   case expects; a station without that file is reported unmeasured
 //
 // The endpoints are arguments and default to this machine alone; any other
 // host is refused unless --allow-remote says it is the site's own. The model
@@ -24,9 +25,10 @@
 //     [--stations a,b,...] [--runs <run>:<case>,...] [--seeded <home>/seeded.json]
 //     [--token <token>] [--out <dir>] [--allow-remote]
 //
-// analysis-plan and run-read need the registry bench/seed.ts builds, which is
-// not the one ask-help's golds were derived on: measure them in a second
-// invocation against a host over the seeded registry. A run of the same day
+// keyword-tune, analysis-plan, run-read, identity-check and the operator
+// need the registry bench/seed.ts builds, which is not the one ask-help's
+// golds were derived on: measure them in a second invocation against a host
+// over the seeded registry. A run of the same day
 // and model adds its stations to the same result file, so the two
 // invocations make one result.
 
@@ -35,6 +37,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { parse } from "yaml";
+import { type Case, type LedgerRow, missesOf, resolve as named, planView } from "./cases.ts";
 import { report } from "./manifest/split.ts";
 
 export const STATIONS = [
@@ -92,52 +95,6 @@ export const slug = (s: string) =>
     .toLowerCase()
     .replace(/[^a-z0-9.]+/gu, "-")
     .replace(/^-+|-+$/gu, "");
-
-/** A case of a station measured by the generic runner: a message, and what its verdict must hold. */
-export interface Case {
-  id: string;
-  message: string;
-  expect?: {
-    /** The terminal the run must end on; settled when not said. */
-    terminal?: string;
-    /** Result fields by dotted path: the value, or `present` for any value. */
-    result?: Record<string, unknown>;
-  };
-}
-
-/** The dotted path of an object. */
-function at(o: unknown, path: string): unknown {
-  return path
-    .split(".")
-    .reduce<unknown>(
-      (v, k) => (v && typeof v === "object" ? (v as Record<string, unknown>)[k] : undefined),
-      o,
-    );
-}
-
-/** Why a verdict misses its case: nothing when it passes. */
-export function missesOf(
-  c: Case,
-  verdict: {
-    result?: Record<string, unknown>;
-    checks?: { name: string; passed: boolean; why?: string | null }[];
-  } | null,
-  terminal: string,
-): string[] {
-  const misses: string[] = [];
-  const want = c.expect?.terminal ?? "settled";
-  if (terminal !== want) misses.push(`ended ${terminal}, not ${want}`);
-  if (!verdict?.result) return [...misses, "no verdict"];
-  for (const k of verdict.checks ?? []) if (!k.passed) misses.push(`check ${k.name}: ${k.why ?? "failed"}`);
-  for (const [path, value] of Object.entries(c.expect?.result ?? {})) {
-    const got = at(verdict.result, path);
-    if (
-      value === "present" ? got === undefined || got === null : JSON.stringify(got) !== JSON.stringify(value)
-    )
-      misses.push(`${path} is ${JSON.stringify(got)}, not ${JSON.stringify(value)}`);
-  }
-  return misses;
-}
 
 interface Options {
   model: string;
@@ -321,7 +278,7 @@ async function measure(o: Options, station: StationId, dir: string, date: string
   }
 
   // the generic runner: the station's own cases, when it has them
-  const measure = "cases settled with every check passed";
+  const measure = "cases ended as expected, every check passed";
   const at = join("stations", station, "evals", "cases.yml");
   if (!existsSync(at))
     return {
@@ -337,23 +294,30 @@ async function measure(o: Options, station: StationId, dir: string, date: string
     id: string;
     passed: boolean;
     why: string;
+    gap: string | null;
     terminal: string;
     seconds: number;
     model: unknown;
+    conversation: string;
   }[] = [];
   const auth = { authorization: `Bearer ${o.token}` };
   const get = async (url: string) =>
     (await (await fetch(url, { headers: auth })).json()) as Record<string, unknown>;
+  const lookup = async (kind: "batch" | "document", name: string): Promise<number | null> => {
+    const body = await get(kind === "batch" ? `${o.engine}/api/batches` : `${o.engine}/api/ask/documents`);
+    const list = (kind === "batch" ? (body.batches ?? body) : body.documents) as Record<string, unknown>[];
+    const found = (Array.isArray(list) ? list : []).find((x) => x.name === name);
+    const id = found?.[kind === "batch" ? "id" : "document"];
+    return typeof id === "number" ? id : null;
+  };
   for (const c of cases) {
     const started = Date.now();
+    const conversation = `bench-${c.id}-${Date.now().toString(36)}`;
     const run = (await (
       await fetch(`${o.assistant}/stations/${station}/runs`, {
         method: "POST",
         headers: { "content-type": "application/json", ...auth },
-        body: JSON.stringify({
-          message: c.message,
-          conversation: `bench-${c.id}-${Date.now().toString(36)}`,
-        }),
+        body: JSON.stringify({ message: await named(c.message, lookup), conversation }),
       })
     ).json()) as Record<string, unknown>;
     let state = run;
@@ -363,21 +327,34 @@ async function measure(o: Options, station: StationId, dir: string, date: string
     }
     const reply = state.reply as { metadata?: { terminal?: string } } | null;
     const terminal = reply?.metadata?.terminal ?? String(state.state);
-    const verdict = (await get(`${o.assistant}/runs/${String(run.run)}/verdict`).catch(
-      () => null,
-    )) as Parameters<typeof missesOf>[1] & { model?: unknown };
-    const misses = missesOf(c, verdict, terminal);
+    const verdict = (await get(`${o.assistant}/runs/${String(run.run)}/verdict`).catch(() => null)) as {
+      result?: Record<string, unknown>;
+      checks?: { name: string; passed: boolean; why?: string | null }[];
+      model?: unknown;
+    } | null;
+    const planId = verdict?.result?.plan;
+    const plan =
+      typeof planId === "string"
+        ? planView(await get(`${o.assistant}/plans/${encodeURIComponent(planId)}`).catch(() => null))
+        : null;
+    const kept = await get(`${o.assistant}/ledger/${encodeURIComponent(conversation)}`).catch(
+      (): Record<string, unknown> => ({}),
+    );
+    const ledger = (Array.isArray(kept.rows) ? kept.rows : []) as LedgerRow[];
+    const misses = missesOf(c, { terminal, verdict: verdict?.result ? verdict : null, plan, ledger });
     const seconds = Math.round((Date.now() - started) / 1000);
     results.push({
       id: c.id,
       passed: misses.length === 0,
       why: misses.join("; "),
+      gap: c.gap ?? null,
       terminal,
       seconds,
       model: verdict?.model ?? null,
+      conversation,
     });
     console.log(
-      `${station} ${c.id}: ${misses.length === 0 ? "pass" : `FAIL (${misses.join("; ")})`} [${terminal}, ${seconds} s]`,
+      `${station} ${c.id}: ${misses.length === 0 ? "pass" : `FAIL (${misses.join("; ")})`} [${terminal}, ${seconds} s]${c.gap ? " (a known gap)" : ""}`,
     );
   }
   const f = `run-${date}.json`;
@@ -394,7 +371,10 @@ async function measure(o: Options, station: StationId, dir: string, date: string
     of: results.length,
     loop: two.loop,
     held_out: two.held_out,
-    detail: { median_seconds: median(results.map((r) => r.seconds)) },
+    detail: {
+      median_seconds: median(results.map((r) => r.seconds)),
+      gaps: results.filter((r) => r.gap).map((r) => ({ id: r.id, passed: r.passed, gap: r.gap })),
+    },
     file: rel(f),
   };
 }

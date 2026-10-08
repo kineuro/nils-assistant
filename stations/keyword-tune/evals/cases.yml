@@ -1,0 +1,147 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# keyword-tune's question set (Wave 7a §14, T10), run by bench/measure.ts's
+# generic runner (bench/cases.ts) on the registry bench/seed.ts builds.
+#
+# The batch `keyword-bench` (bench/fixtures.ts) holds six stacks a group:
+# `t1 mprage zorvex` (zorvex, a made-up contrast agent the pack does not
+# know), `t1 mprage` (no contrast), `t1 mprage gadovist` (an agent the
+# pack knows), `t2 flair ax` (FLAIR the pack reads) and `t2 darkwater ax`
+# (darkwater, a made-up site word for FLAIR). Rehearsed through the engine,
+# zorvex in contrast_positive moves its six stacks on post_contrast and
+# nothing else, and darkwater in modifier.FLAIR moves its six on modifier.
+#
+# A success proposes one overlay of one list with the diff keep. A refusal
+# proposes nothing: the overlays door is never answered, however the run
+# ends; one with a scope has read the signals first, so a station that does
+# nothing passes no refusal but the one without a scope.
+
+cases:
+  - id: agent-into-its-bucket
+    message: |
+      scope: batch:{batch:keyword-bench}
+      list: contrast_positive
+      term: zorvex
+    expect:
+      result:
+        axis: post_contrast
+        list: contrast_positive
+        bucket: contrast_positive
+        diff: keep
+        overlay.buckets.contrast_positive.add: {has: [zorvex]}
+        proposal: present
+      calls: {ok: [classify/signals, classify/try, overlays]}
+
+  - id: agent-list-left-to-the-station
+    message: |
+      scope: batch:{batch:keyword-bench}
+      term: zorvex
+      Our contrast agent is called zorvex, and the series that carry it are after contrast.
+    expect:
+      result:
+        axis: post_contrast
+        list: contrast_positive
+        diff: keep
+        proposal: present
+      calls: {ok: [classify/try, overlays]}
+
+  - id: agent-in-the-persons-words
+    message: |
+      scope: batch:{batch:keyword-bench}
+      The radiographers write the agent's name, zorvex, into the series description when contrast was given. Teach the classifier that word.
+    expect:
+      result:
+        axis: post_contrast
+        list: contrast_positive
+        diff: keep
+        proposal: present
+      calls: {ok: [classify/try, overlays]}
+
+  - id: agent-over-the-origin
+    message: |
+      scope: origin:SYNTHETIC
+      list: contrast_positive
+      term: zorvex
+    expect:
+      result:
+        axis: post_contrast
+        list: contrast_positive
+        diff: keep
+        proposal: present
+      calls: {ok: [classify/try, overlays]}
+
+  - id: flair-word-into-the-value-list
+    message: |
+      scope: batch:{batch:keyword-bench}
+      list: modifier.FLAIR
+      term: darkwater
+    expect:
+      result:
+        axis: modifier
+        list: modifier.FLAIR
+        value: FLAIR
+        diff: keep
+        proposal: present
+      calls: {ok: [classify/try, overlays]}
+
+  - id: flair-word-list-left-to-the-station
+    message: |
+      scope: batch:{batch:keyword-bench}
+      term: darkwater
+      Our scanners call the fluid-suppressed T2 darkwater.
+    expect:
+      result:
+        axis: modifier
+        list: modifier.FLAIR
+        diff: keep
+        proposal: present
+      calls: {ok: [classify/try, overlays]}
+
+  - id: refuses-a-term-the-list-holds
+    message: |
+      scope: batch:{batch:keyword-bench}
+      list: contrast_positive
+      term: gadovist
+    expect:
+      terminal: any
+      result:
+        proposal: absent
+      calls: {ok: [classify/signals, "packs/{name}"], none: [overlays]}
+
+  - id: refuses-a-term-that-takes-plain-series
+    message: |
+      scope: batch:{batch:keyword-bench}
+      list: contrast_positive
+      term: mprage
+    expect:
+      terminal: any
+      result:
+        proposal: absent
+      calls: {ok: [classify/signals], none: [overlays]}
+
+  - id: refuses-to-remove-a-working-agent
+    message: |
+      scope: batch:{batch:keyword-bench}
+      list: contrast_positive
+      Remove gadovist from the list.
+    expect:
+      terminal: any
+      result:
+        proposal: absent
+      calls: {ok: [classify/signals], none: [overlays]}
+
+  - id: nothing-to-tune-where-the-word-is-absent
+    message: |
+      scope: batch:{batch:planted-bench}
+      list: contrast_positive
+      term: zorvex
+    expect:
+      terminal: any
+      result:
+        proposal: absent
+      calls: {ok: [classify/signals], none: [overlays]}
+
+  - id: no-scope-no-rehearsal
+    message: Tune the contrast words; our agent is zorvex.
+    expect:
+      terminal: any
+      calls: {none: [classify/try, overlays]}
