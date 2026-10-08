@@ -314,9 +314,11 @@ export async function seed(o: Options): Promise<Record<string, unknown>> {
   // identity-check and the operator: the datasets, each with its map filed, pseudonymised once
   const datasets: { name: string; held: string }[] = [];
   for (const [i, d] of DATASETS.entries()) {
+    // how a dataset's files arrive is read from its folder (Wave 7a §5): derivatives/dcm-original is identified data
     const at = join(o.home, "datasets", d.name);
-    for (const f of datasetSeries(d, 10000 + i * 100)) writeSeries(join(at, f.folder), f.series);
-    nils(["place", "add", d.name, at, "--role", "source", "--arrives", "identified", "--unmapped", "hold"]);
+    const originals = join(at, "derivatives", "dcm-original");
+    for (const f of datasetSeries(d, 10000 + i * 100)) writeSeries(join(originals, f.folder), f.series);
+    nils(["place", "add", d.name, at, "--role", "source", "--unmapped", "hold"]);
     const mapped = d.people.filter((p) => p.code);
     if (mapped.length > 0) {
       const map = join(scratch, `${d.name}-map.csv`);
