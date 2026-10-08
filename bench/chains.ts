@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // The chains and the stability check of ask-help (Wave 4c §9.11, D4).
+// STATION runs them through another station (the concierge, which delegates
+// each turn to ask-help); ask-help by default.
 //
 // A chain is one standing selection edited over and over, turn by turn,
 // through one conversation of the station; a follow-up turn re-enters the
@@ -22,6 +24,7 @@ import { parse } from "yaml";
 const host = (process.env.ASSISTANT_URL ?? "http://127.0.0.1:7300").replace(/\/+$/u, "");
 const nils = (process.env.NILS_URL ?? "http://127.0.0.1:8437").replace(/\/+$/u, "");
 const token = process.env.NILS_TOKEN ?? "the-persons-token";
+const station = process.env.STATION ?? "ask-help";
 const only = process.env.ONLY?.split(",").filter(Boolean);
 const stability = process.env.STABILITY ?? "shape-23:5";
 const root = process.cwd();
@@ -58,13 +61,14 @@ const expect = JSON.parse(readFileSync(join(root, "bench", "gold", "expect.json"
 >;
 
 async function json(url: string, init?: RequestInit): Promise<Record<string, unknown>> {
-  const r = await fetch(url, init);
+  // the person's token on every door: a run and its verdict are read by their owner
+  const r = await fetch(url, { ...init, headers: { authorization: `Bearer ${token}`, ...init?.headers } });
   return (await r.json()) as Record<string, unknown>;
 }
 
 /** The tool calls a conversation has made so far, from its history: the count and the refused ones. */
 async function calls(conversation: string): Promise<{ tool_calls: number; refused: number }> {
-  const h = (await json(`${host}/agents/ask-help/${conversation}?view=history`).catch(() => null)) as {
+  const h = (await json(`${host}/agents/${station}/${conversation}?view=history`).catch(() => null)) as {
     messages?: { role?: string; parts?: { type?: string; output?: unknown }[] }[];
   } | null;
   let tool_calls = 0;
@@ -93,7 +97,7 @@ async function turn(
 }> {
   const before = await calls(conversation);
   const started = Date.now();
-  const run = await json(`${host}/stations/ask-help/runs`, {
+  const run = await json(`${host}/stations/${station}/runs`, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
     body: JSON.stringify({ message, conversation }),
@@ -368,7 +372,7 @@ if (stableShape?.rebased.gold && expect[stableShape.rebased.gold]?.content_hash)
 const kind = (out.chains as unknown[]).length === 0 && out.stability ? "stability" : "chains";
 writeFileSync(
   join(
-    process.env.EVALS_OUT ?? join(root, "stations", "ask-help", "evals"),
+    process.env.EVALS_OUT ?? join(root, "stations", station, "evals"),
     `${kind}-${new Date().toISOString().slice(0, 10)}.json`,
   ),
   `${JSON.stringify(out, null, 2)}\n`,

@@ -19,6 +19,28 @@ KVASIR_URL=... KVASIR_TOKEN=... npm run bench:baseline # the one-shot baseline t
 
 The baseline is one shot: the model reads the engine's guide and the question, writes an ask document, the engine runs it, and the content hash is compared to the gold. The number published beside the prototype's 17.9 percent is that fraction on the rebased corpus; the provider's answers are recorded into `gate/fixtures/` so the number is reproducible from the repository alone.
 
+## Measuring the stations (Wave 7a)
+
+`bench/measure.ts` runs every station's questions through a running assistant host and its engine, scores each against its golds, and writes one dated result, `bench/results/stations-<date>-<model>.json`, with the table beside it as `.md` and each station's own file under `bench/results/stations-<date>-<model>/`. It runs the scripts above as children (ask-help on both corpora, the concierge through the chains, analysis-plan and run-read through `analyses.ts`), and a station with `stations/<id>/evals/cases.yml` through its cases: a message each, passed when the run settles with every check passed and the result's named fields as the case says. A station with no question set is reported unmeasured, with the reason.
+
+The endpoints are arguments and default to this machine; another host is refused unless `--allow-remote` says it is the site's own. The model is the one the host serves; `--model` names it for the record.
+
+```sh
+npm run bench:measure -- --model <name> --assistant http://127.0.0.1:<host port> --engine http://127.0.0.1:<engine port> \
+  --stations concierge,ask-help,keyword-tune,identity-check,operator
+```
+
+analysis-plan and run-read are measured on a registry of their own, since a third cohort changes the answers of the cohort inventory and the per-cohort counts: `bench/seed.ts` builds it from nothing in an empty directory (the synthetic registry, the cohort `nmosd` of nine synthetic subjects, the saved selections `ms-baseline@1` and `every-t1@2`, the starter catalog, and the three planted runs of `bench/planted.ts` over a small synthetic DICOM tree, run through a stand-in container runtime), then serve it and point a second host at it:
+
+```sh
+npm run bench:seed -- --home <empty dir> --nils <nils binary> --pack-dir <packs>
+nils serve --registry <empty dir>/registry --bind 127.0.0.1:<engine port> --pack-dir <packs>
+npm run bench:measure -- --model <name> --assistant http://127.0.0.1:<second host port> --engine http://127.0.0.1:<engine port> \
+  --stations analysis-plan,run-read --seeded <empty dir>/seeded.json
+```
+
+A second invocation of the same day and model adds its stations to the same result file.
+
 ## The baseline, 2026-09-09
 
 The prototype's frozen gate passed 17.9 percent one shot on the best model of its day, against the live archive. On the rebased corpus (eighteen shapes with a gold answer, registry epoch 2, pack mri 0.1.1), one shot with the engine's guide, the worked examples and a catalog slice in the prompt, temperature 0:

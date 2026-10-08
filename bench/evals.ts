@@ -64,7 +64,8 @@ const expect = JSON.parse(readFileSync(join(root, "bench", "gold", "expect.json"
 >;
 
 async function json(url: string, init?: RequestInit): Promise<Record<string, unknown>> {
-  const r = await fetch(url, init);
+  // the person's token on every door: a run and its verdict are read by their owner
+  const r = await fetch(url, { ...init, headers: { authorization: `Bearer ${token}`, ...init?.headers } });
   return (await r.json()) as Record<string, unknown>;
 }
 
