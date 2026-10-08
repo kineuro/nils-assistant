@@ -12,6 +12,11 @@
 // they are unmapped identifiers of the rule's kind and a map releases them;
 // unlike, a second kind of identifier is on this dataset. A re-digest under
 // a changed rule, a map and a new type are a person's acts.
+//
+// Record 55 K9: a dataset's probe also answers the subjects whose birth
+// date and sex agree and whose visits overlap, by their codes (the engine
+// reads the originals and answers no date). The station proposes the merge
+// of such a pair; a person merges, at the engine's merge door.
 
 import type { JsonValue } from "@flue/runtime";
 import * as v from "valibot";
@@ -20,11 +25,20 @@ import { type StationDefinition, type StationTool, stationAgent } from "./agent.
 import type { Manifest } from "./manifest.ts";
 import type { Check, Verdict } from "./verdict.ts";
 
+/** Two subjects a dataset's probe found alike (record 55 K9): their codes, what agrees, and the visits they share; never a date. */
+export interface AlikePair {
+  subjects: [string, string];
+  agree: string[];
+  visits: { shared: number; of: [number, number] };
+}
+
 /** One candidate of a probe's result, as the engine answers it: shapes and counts per source, never a value. */
 export interface ProbeCandidate {
   label?: string;
   rule?: { id_type?: string; sources?: string[] };
   sources?: { source?: string; shapes?: Record<string, number>; answered?: number }[];
+  /** A dataset's probe: the subjects alike under this rule, those that are one subject already, those with an identifier no map names, and how many pairs a caller below detail quasi is not shown. */
+  alike?: { pairs?: AlikePair[]; linked?: number; unmapped?: number; withheld?: number };
 }
 
 export interface Probed {
@@ -40,6 +54,20 @@ export interface Probed {
 export interface NewType {
   name: string;
   description: string;
+}
+/**
+ * A merge the station proposes (record 55 K9): two subjects the probe found alike, the one kept and the one merged
+ * into it, and why. The station never merges; `act` is what a person sends to the engine's merge door.
+ */
+export interface MergeProposed {
+  subjects: [string, string];
+  canonical: string;
+  alias: string;
+  agree: string[];
+  visits: { shared: number; of: [number, number] };
+  why: string;
+  act: { door: "POST /api/linkage/merge"; body: { canonical: string; alias: string; why: string } };
+  at: number;
 }
 export interface Proposed {
   rule: Record<string, unknown>;
@@ -61,6 +89,7 @@ export type HeldReading = "none" | "same_kind" | "second_kind" | "mixed" | "unkn
 
 const probes = new Map<string, Probed[]>();
 const proposals = new Map<string, Proposed>();
+const merges = new Map<string, MergeProposed>();
 /** The identifier types the run read, by conversation; absent when the door was never read. */
 const typesRead = new Map<string, string[]>();
 /** The held shapes the run read, by conversation; absent when the door was never read. */
@@ -72,6 +101,44 @@ export function probesOf(conversation: string): Probed[] {
 export function proposedOf(conversation: string): Proposed | null {
   return proposals.get(conversation) ?? null;
 }
+export function mergeOf(conversation: string): MergeProposed | null {
+  return merges.get(conversation) ?? null;
+}
+
+/** The pairs of subjects a conversation's dataset probes found alike, once each, in the order the engine answered them. */
+export function alikeOf(conversation: string): AlikePair[] {
+  const out: AlikePair[] = [];
+  const seen = new Set<string>();
+  for (const p of probesOf(conversation)) {
+    if (p.dataset === null) continue;
+    for (const c of p.candidates ?? [])
+      for (const pair of c.alike?.pairs ?? []) {
+        if (!Array.isArray(pair?.subjects) || pair.subjects.length !== 2) continue;
+        const key = [...pair.subjects].sort().join("\u0000");
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(pair);
+      }
+  }
+  return out;
+}
+
+/** The alike pair two codes name, in either order, or null. */
+export function alikePair(conversation: string, a: string, b: string): AlikePair | null {
+  return (
+    alikeOf(conversation).find(
+      (p) => (p.subjects[0] === a && p.subjects[1] === b) || (p.subjects[0] === b && p.subjects[1] === a),
+    ) ?? null
+  );
+}
+
+/** A result's text with the subject codes the probe named alike taken out: a code is not an identifier, and the merge must name its two. */
+export function withoutAlikeCodes(text: string, conversation: string): string {
+  let out = text;
+  for (const p of alikeOf(conversation)) for (const c of p.subjects) out = out.split(c).join("[subject]");
+  return out;
+}
+
 export function typesOf(conversation: string): string[] | null {
   return typesRead.get(conversation) ?? null;
 }
@@ -121,11 +188,6 @@ export function datasetName(value: unknown): string | null {
   return name && !name.includes("/") ? name : null;
 }
 
-/** The root a probe over a dataset reads: its originals, never a path of the host (record 26). */
-export function rootOf(dataset: string): string {
-  return `@${dataset}/originals`;
-}
-
 /** The identifier types a types door answers, by name; a list of names or of {name}, bare or under types. */
 export function typeNames(body: unknown): string[] {
   const list = Array.isArray(body) ? body : ((body as { types?: unknown } | null)?.types ?? []);
@@ -153,9 +215,16 @@ export function heldShapesOf(body: unknown): HeldShape[] {
 
 /** The shapes a candidate's sources answered with, from the probe's own result. */
 export function shapesOf(candidate: ProbeCandidate | undefined): string[] {
-  const out = new Set<string>();
-  for (const s of candidate?.sources ?? []) for (const k of Object.keys(s.shapes ?? {})) out.add(k);
-  return [...out];
+  return Object.keys(shapeCounts(candidate));
+}
+
+/** How many sampled files each shape a candidate's sources read was seen on, summed over its sources. */
+export function shapeCounts(candidate: ProbeCandidate | undefined): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const s of candidate?.sources ?? [])
+    for (const [k, n] of Object.entries(s.shapes ?? {}))
+      out[k] = (out[k] ?? 0) + (typeof n === "number" ? n : 0);
+  return out;
 }
 
 /**
@@ -163,14 +232,29 @@ export function shapesOf(candidate: ProbeCandidate | undefined): string[] {
  * when every held shape is one the rule answered with, so a map releases them and no rule change would; a
  * second kind when none is, so another identifier is on this dataset; mixed when both; unknown when the
  * rule's shapes could not be read. A map is needed whenever identifiers of the rule's kind are held.
+ *
+ * With the probe's counts, a held shape the rule read only on as many files as are held under it, beside a
+ * shape the rule read on files that are not held, is a second kind too: no mapped identifier has its shape,
+ * and the rule's own identifiers have another (a study number in a few files' PatientID). The counts are a
+ * sample's, so a shape the rule read on no other is the rule's own.
  */
 export function heldReading(
   held: HeldShape[],
-  ruleShapes: string[] | null,
+  ruleShapes: string[] | Record<string, number> | null,
 ): { reading: HeldReading; map_needed: boolean } {
   if (held.length === 0) return { reading: "none", map_needed: false };
   if (ruleShapes === null) return { reading: "unknown", map_needed: false };
-  const alike = held.filter((h) => ruleShapes.includes(h.shape)).length;
+  const counts = Array.isArray(ruleShapes) ? null : ruleShapes;
+  const shapes = Array.isArray(ruleShapes) ? ruleShapes : Object.keys(ruleShapes);
+  const heldFiles = (shape: string) => held.filter((h) => h.shape === shape).reduce((n, h) => n + h.files, 0);
+  const own = (shape: string) => {
+    if (!shapes.includes(shape)) return false;
+    if (counts === null) return true;
+    const allHeld = (counts[shape] ?? 0) <= heldFiles(shape);
+    const another = shapes.some((s) => s !== shape && (counts[s] ?? 0) > heldFiles(s));
+    return !(allHeld && another);
+  };
+  const alike = held.filter((h) => own(h.shape)).length;
   if (alike === held.length) return { reading: "same_kind", map_needed: true };
   if (alike === 0) return { reading: "second_kind", map_needed: false };
   return { reading: "mixed", map_needed: true };
@@ -252,14 +336,21 @@ export function identityCheckTools(): StationTool[] {
     {
       name: "nils_dataset",
       description:
-        "A dataset as the registry declares it, by name: what arrives (identified, deidentified or coded), its current identity rule (the one the probe compares against), whether an unmapped identifier is held or coded, how many files and identifiers it holds, and whether it has an originals tree. Never a path.",
-      input: v.object({ dataset: v.string() }),
+        "A dataset as the registry declares it, by name (without a name, the datasets by name): what arrives (identified, deidentified or coded), its current identity rule (the one the probe compares against), whether an unmapped identifier is held or coded, how many files and identifiers it holds, and whether it has an originals tree. Never a path.",
+      input: v.object({ dataset: v.optional(v.string()) }),
       phases: ["read"],
       salient: ["dataset"],
       async run(args, ctx) {
-        const name = datasetName(args.dataset);
-        if (name === null)
-          return { output: { refused: true, why: "a dataset is one name, as the sources door lists it" } };
+        // no dataset named: the datasets the sources door lists, by name, and nothing else
+        const listing = args.dataset === undefined || !String(args.dataset).trim();
+        const name = listing ? null : datasetName(args.dataset);
+        if (!listing && name === null)
+          return {
+            output: {
+              refused: true,
+              why: "a dataset is one name, as the sources door lists it; ask without one for the list",
+            },
+          };
         const a = await ctx.seam.call({
           method: "GET",
           path: "/api/sources",
@@ -269,6 +360,12 @@ export function identityCheckTools(): StationTool[] {
         if (a.kind !== "ok") return { output: toolResult(a).output };
         const body = a.body as { sources?: unknown } | unknown[];
         const list = (Array.isArray(body) ? body : (body?.sources ?? [])) as Record<string, unknown>[];
+        if (listing)
+          return {
+            output: {
+              datasets: list.map((s) => String(s?.name ?? s?.place ?? "")).filter(Boolean),
+            } as JsonValue,
+          };
         const found = list.find((s) => String(s?.name ?? s?.place ?? "") === name);
         if (!found) {
           const names = list.map((s) => String(s?.name ?? s?.place ?? "")).filter(Boolean);
@@ -385,7 +482,8 @@ export function identityCheckTools(): StationTool[] {
               why: "a probe reads a dataset's originals by the dataset's name, or a registered location by its name: one of the two",
             } as JsonValue,
           };
-        const where = dataset === null ? { location } : { root: rootOf(dataset) };
+        // a dataset by its name: the engine reads its originals, never a path of the host (Wave 7a)
+        const where = dataset === null ? { location } : { dataset };
         const a = await ctx.seam.call({
           method: "POST",
           path: "/api/ingest/probe",
@@ -410,7 +508,7 @@ export function identityCheckTools(): StationTool[] {
     {
       name: "nils_job",
       description:
-        "A job by id: its state, and once done its result. For a probe: per candidate, per source, the shape histogram and how many files answered, were empty, unparsed or unread; identity_constant; subjects and studies.",
+        "A job by id: its state, and once done its result. For a probe: per candidate, per source, the shape histogram and how many files answered, were empty, unparsed or unread; identity_constant; subjects and studies. For a dataset's probe also `alike`: the pairs of subjects, by code, whose birth date and sex agree and whose visits overlap, the pairs that are one subject already (`linked`), those with an identifier no map names (`unmapped`, which a map names, not a merge), and `withheld` when the person may not see the codes.",
       input: v.object({ job: v.number() }),
       phases: ["diagnose", "propose"],
       salient: ["job"],
@@ -492,6 +590,67 @@ export function identityCheckTools(): StationTool[] {
         return { output: { recorded: true, proposed: p } as unknown as JsonValue };
       },
     },
+    {
+      name: "propose_merge",
+      description:
+        "Record 55 K9: propose that two subjects the dataset's probe found alike (the same birth date and sex, visits that overlap) are one person, by their two codes as the probe's `alike.pairs` named them, which one is kept (`canonical`, the first when not said), and why in words that name what agrees, never a date. Only a pair the probe answered is taken. You propose; a person merges, at the engine's merge door, which no station dials.",
+      input: v.object({
+        subjects: v.array(v.string()),
+        canonical: v.optional(v.string()),
+        why: v.string(),
+      }),
+      phases: ["propose"],
+      salient: ["subjects"],
+      async run(args, ctx) {
+        const codes = (args.subjects as string[]).map((c) => String(c).trim()).filter(Boolean);
+        if (codes.length !== 2 || codes[0] === codes[1])
+          return {
+            output: {
+              refused: true,
+              why: "a merge names two subjects, by the codes the probe named",
+            } as JsonValue,
+          };
+        const pair = alikePair(ctx.conversation, codes[0], codes[1]);
+        if (!pair) {
+          const named = alikeOf(ctx.conversation);
+          return {
+            output: {
+              refused: true,
+              why:
+                named.length === 0
+                  ? "the dataset's probe named no subjects alike; probe the dataset and read the job first"
+                  : "these two are not a pair the probe named alike; propose one of its alike.pairs",
+            } as JsonValue,
+          };
+        }
+        const canonical =
+          typeof args.canonical === "string" && args.canonical.trim() ? args.canonical.trim() : codes[0];
+        if (!codes.includes(canonical))
+          return { output: { refused: true, why: "canonical is one of the two subjects" } as JsonValue };
+        const alias = codes[0] === canonical ? codes[1] : codes[0];
+        const why = String(args.why ?? "").trim();
+        if (!why)
+          return { output: { refused: true, why: "say why: what agrees, never a date" } as JsonValue };
+        const m: MergeProposed = {
+          subjects: [canonical, alias],
+          canonical,
+          alias,
+          agree: pair.agree,
+          visits: pair.visits,
+          why,
+          act: { door: "POST /api/linkage/merge", body: { canonical, alias, why } },
+          at: Date.now(),
+        };
+        merges.set(ctx.conversation, m);
+        return {
+          output: {
+            recorded: true,
+            merge: m,
+            text: "a person merges at the engine's merge door; settle with the merge in the result",
+          } as unknown as JsonValue,
+        };
+      },
+    },
   ];
 }
 
@@ -504,7 +663,7 @@ export function heldVerdict(conversation: string): {
   if (held === null) return { held: null, map_needed: null };
   const p = proposedOf(conversation);
   const candidate = p ? candidateFor(probesOf(conversation), p.rule) : null;
-  const r = heldReading(held, candidate ? shapesOf(candidate) : null);
+  const r = heldReading(held, candidate ? shapeCounts(candidate) : null);
   return {
     held: { shapes: held.map((h) => ({ shape: h.shape, files: h.files })), reading: r.reading },
     map_needed: r.map_needed,
@@ -535,8 +694,10 @@ export function identityCheckChecks(): Record<string, Check> {
       return null;
     },
     /** No identifier value anywhere: shapes only, as the probe answers them. */
-    no_identifier_value: (verdict: Verdict) => {
-      const found = carriesValue(JSON.stringify(verdict.result));
+    no_identifier_value: (verdict: Verdict, ctx) => {
+      const found = carriesValue(
+        withoutAlikeCodes(JSON.stringify(verdict.result), String(ctx?.conversation ?? "")),
+      );
       return found ? `the verdict carries a value, not a shape: ${found.replace(/[0-9]/gu, "9")}` : null;
     },
     /** A path source answers the direct-identifier question explicitly. */
@@ -588,6 +749,25 @@ export function identityCheckChecks(): Record<string, Check> {
         return "a held shape is unlike the rule's: the sentence says a second kind of identifier is on this dataset";
       return null;
     },
+    /**
+     * Record 55 K9: the subjects the probe found alike are proposed as a merge, the merge in the result is one
+     * propose_merge recorded, and the sentence says a merge is proposed, a person's act.
+     */
+    merge_named: (verdict: Verdict, ctx) => {
+      const conversation = String(ctx.conversation ?? "");
+      const pairs = alikeOf(conversation);
+      const m = mergeOf(conversation);
+      const got = verdict.result.merge as { subjects?: unknown } | null | undefined;
+      if (pairs.length === 0 && !m)
+        return got ? "the probe named no subjects alike; the result proposes no merge" : null;
+      if (!m)
+        return "the probe named subjects whose birth date, sex and visits agree: propose their merge with propose_merge";
+      if (!got || !same(got.subjects, m.subjects))
+        return "the result's merge is not the one propose_merge recorded";
+      if (!/\bmerge/u.test(String(verdict.result.sentence ?? "")))
+        return "a merge is proposed: the sentence says so, and that a person merges";
+      return null;
+    },
   };
 }
 
@@ -616,7 +796,7 @@ export function identityCheck(
     brief,
     model,
     instructions:
-      "You are identity-check. You are given a dataset by name. Read what it declares with nils_dataset (its current identity rule is the one to compare against), the identifier types with nils_identifier_types and what it holds with nils_held; probe the current rule and one candidate side by side over the dataset's originals with nils_probe, the current rule first; read the job until it is done; propose the rule the shapes bear out with propose_rule, naming a type the registry knows or a new one, answering the path question when the rule reads a path; then settle with the dataset as location, the probe's job, what you saw per rule (shapes and counts, never a value), the proposed rule, the path answer, the new type when there is one, the held shapes with your reading of them, whether a map is needed, and one sentence that names the source the rule reads and the shape it saw and, when identifiers are held, whether they are of the rule's kind (a map is needed) or a second kind. A re-digest under the rule, a map and a new type are a person's acts, not yours. The proposals list carries one entry {kind: identity_rule, ref: {rule}, sentence}; there is no other kind.",
+      "You are identity-check. You are given a dataset by name. Read what it declares with nils_dataset (its current identity rule is the one to compare against), the identifier types with nils_identifier_types and what it holds with nils_held; probe the current rule and one candidate side by side over the dataset's originals with nils_probe, the current rule first; read the job until it is done; propose the rule the shapes bear out with propose_rule, naming a type the registry knows or a new one, answering the path question when the rule reads a path; then settle with the dataset as location, the probe's job, what you saw per rule (shapes and counts, never a value), the proposed rule, the path answer, the new type when there is one, the held shapes with your reading of them, whether a map is needed, and one sentence that names the source the rule reads and the shape it saw and, when identifiers are held, whether they are of the rule's kind (a map is needed) or a second kind. When the probe's job names subjects alike (alike.pairs: the same birth date and sex, visits that overlap), propose their merge with propose_merge after the rule, settle with it as merge, and say in the sentence that a merge is proposed for a person to make. A re-digest under the rule, a map, a new type and a merge are a person's acts, not yours. The proposals list carries one entry {kind: identity_rule, ref: {rule}, sentence}; there is no other kind.",
     tools: identityCheckTools(),
     checks: identityCheckChecks(),
     briefInline: true,
@@ -636,6 +816,7 @@ export function identityCheck(
         new_type: p?.new_type ?? result.new_type ?? null,
         held: h.held ?? result.held ?? null,
         map_needed: h.map_needed ?? result.map_needed ?? null,
+        merge: mergeOf(ctx.conversation) ?? null,
         probe_jobs: probed.map((x) => x.job),
       };
     },

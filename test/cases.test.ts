@@ -173,7 +173,9 @@ describe("the question sets", () => {
       const named = /(?:dataset|location): (\S+)/u.exec(c.message)?.[1];
       if (named && !refusal(c)) expect(known.has(named), c.id).toBe(true);
     }
-    expect(sets["identity-check"].some((c) => c.gap && /K9/u.test(c.gap))).toBe(true);
+    // record 55 K9: one case asks for the merge, and with the probe door and the merge built no case is a gap
+    expect(sets["identity-check"].some((c) => c.expect?.result?.merge === "present")).toBe(true);
+    expect(sets["identity-check"].filter((c) => c.gap)).toEqual([]);
   });
   it("the operator's plans use only the verbs the host knows", () => {
     for (const c of sets.operator)

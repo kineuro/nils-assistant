@@ -4,6 +4,17 @@ All notable changes to the NILS assistant are recorded here. The format follows 
 
 ## [Unreleased]
 
+### Added
+
+- identity-check proposes a merge (record 55 K9): a dataset's probe names the subjects whose birth date and sex agree and whose visits overlap, by their codes, and `propose_merge` takes one such pair, the subject kept first, with why. The result carries `merge` (`subjects`, `canonical`, `alias`, `agree`, `visits`, `why`, and `act`, the body a person sends to the engine's merge door, `POST /api/linkage/merge`); the station never merges and never dials that door. The check `merge_named` asks for the merge when the probe named a pair and refuses one it did not, and the merge's two codes are the one exception to shapes only.
+- `npm run bench:offline`: a station's question set run through its own code against a seeded engine with a stub model, no model and no network.
+
+### Changed
+
+- identity-check probes a dataset by its name (`{dataset}`), which the engine's probe door now takes, instead of `root: @<name>/originals`, which it refused.
+- identity-check reads a held shape as a second kind of identifier also when the rule read it only on the files held under it, beside the rule's own shape on files that are not held (a study number in a few files' PatientID).
+- `nils_dataset` without a name answers the datasets by name.
+
 ## [1.0.0-alpha.27] - 2026-09-25
 
 ### Added

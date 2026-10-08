@@ -17,6 +17,7 @@
     "bench:analyses": "tsc -p tsconfig.build.json && node dist/bench/analyses.js",
     "bench:measure": "tsc -p tsconfig.build.json && node dist/bench/measure.js",
     "bench:seed": "tsc -p tsconfig.build.json && node dist/bench/seed.js",
+    "bench:offline": "tsc -p tsconfig.build.json && node dist/bench/offline.js",
     "dev": "vite dev",
     "start": "node bin/serve.mjs",
     "records:export": "tsc -p tsconfig.build.json && node dist/src/host/records.js export",

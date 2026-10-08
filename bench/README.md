@@ -45,6 +45,14 @@ npm run bench:measure -- --model <name> --assistant http://127.0.0.1:<second hos
 
 A second invocation of the same day and model adds its stations to the same result file.
 
+### Offline, with the stub model
+
+`bench/offline.ts` runs a station's question set through the station's own code, in this process, against the seeded engine, with the stub model of `bench/stub-model.ts` in place of a model: a provider with no network that follows the station's brief by a fixed policy and calls the station's tools. Each case is scored as the measure scores it. It says whether the engine's doors, the station's tools and checks and the cases agree, before a model is put to them; it measures no model. The stub has a policy for identity-check.
+
+```sh
+npm run bench:offline -- --engine http://127.0.0.1:<engine port> [--stations identity-check] [--out <file>]
+```
+
 ## The baseline, 2026-09-09
 
 The prototype's frozen gate passed 17.9 percent one shot on the best model of its day, against the live archive. On the rebased corpus (eighteen shapes with a gold answer, registry epoch 2, pack mri 0.1.1), one shot with the engine's guide, the worked examples and a catalog slice in the prompt, temperature 0:

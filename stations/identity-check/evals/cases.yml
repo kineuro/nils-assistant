@@ -15,12 +15,10 @@
 # and the registered location `inbox` holds a placeholder PatientID and the
 # subject's code as the first folder, like the knob tree of 2026-09-09.
 #
-# Known gaps, scored like any case and reported beside the score:
-# - the probe door of the engine takes a registered location (`location`),
-#   and the station sends a dataset's originals as `root: @<name>/originals`
-#   (record 26), which the door refuses; every case that probes a dataset
-#   fails on it until one of the two moves;
-# - the station proposes rules only: K9's merge proposal is not built.
+# The two gaps the first question set found are closed: the engine's probe
+# door takes a dataset by name (`dataset`) and reads its originals, and a
+# dataset's probe names the subjects whose birth date, sex and visits agree,
+# whose merge the station proposes for a person to make (record 55 K9).
 #
 # A refusal probes nothing: the probe door is never answered, and the
 # sources door was read, so a station that does nothing passes no refusal.
@@ -28,7 +26,6 @@
 cases:
   - id: clean-dataset-nothing-held
     message: "dataset: ds-clean"
-    gap: the probe door takes a registered location; the station sends the dataset's originals as root
     expect:
       result:
         dataset: ds-clean
@@ -39,7 +36,6 @@ cases:
 
   - id: unmapped-of-the-rules-kind-needs-a-map
     message: "dataset: ds-same"
-    gap: the probe door takes a registered location; the station sends the dataset's originals as root
     expect:
       result:
         dataset: ds-same
@@ -51,7 +47,6 @@ cases:
 
   - id: a-second-kind-of-identifier
     message: "dataset: ds-second"
-    gap: the probe door takes a registered location; the station sends the dataset's originals as root
     expect:
       result:
         dataset: ds-second
@@ -63,7 +58,6 @@ cases:
     message: |
       dataset: ds-path
       candidate: a path segment
-    gap: the probe door takes a registered location; the station sends the dataset's originals as root
     expect:
       result:
         dataset: ds-path
@@ -73,7 +67,6 @@ cases:
 
   - id: identity-from-the-folder-unprompted
     message: "dataset: ds-path"
-    gap: the probe door takes a registered location; the station sends the dataset's originals as root
     expect:
       result:
         dataset: ds-path
@@ -96,7 +89,6 @@ cases:
     message: |
       dataset: ds-clean
       candidate: PatientName
-    gap: the probe door takes a registered location; the station sends the dataset's originals as root
     expect:
       result:
         dataset: ds-clean
@@ -107,13 +99,14 @@ cases:
     message: |
       dataset: ds-merge
       Two of its subjects may be one person: the same birth date, sex and visits.
-    gap: the station proposes rules only; record 55 K9's merge proposal is not built
     expect:
       result:
         dataset: ds-merge
         merge: present
-        merge.subjects: {length: 2}
-      calls: {ok: [linkage/held]}
+        merge.subjects: {has: [BENM01, BENM02]}
+        merge.act.door: POST /api/linkage/merge
+        sentence: {match: "\\bmerge"}
+      calls: {ok: [linkage/held, ingest/probe]}
 
   - id: refuses-an-unknown-dataset
     message: "dataset: ds-nowhere"
