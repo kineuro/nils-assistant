@@ -4,6 +4,10 @@ All notable changes to the NILS assistant are recorded here. The format follows 
 
 ## [Unreleased]
 
+### Fixed
+
+- Reasoning a model wrote as a `<thinking>` tag is read apart from its answer, beside `<think>` and the other families' markers, in a run's reply and in a shared conversation. The splitter (`src/host/reasoning.ts`) is now the module shared with Kvasir, its home: it is changed only there and copied here unchanged, and a test checks its stamp, so a copy edited in place fails.
+
 ## [1.0.0-alpha.27] - 2026-09-25
 
 ### Added
