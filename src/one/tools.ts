@@ -57,6 +57,14 @@ import {
 import { catalogOf, prelude } from "../stations/prelude.ts";
 import { failedOf, readRun } from "../stations/run-read.ts";
 import { CARD_OF, type ChangeKind, theChanges } from "./changes.ts";
+import {
+  type DatasetFact,
+  datasetsOf,
+  knownDatasets,
+  lineOf,
+  newestFirst,
+  readDatasets,
+} from "./datasets.ts";
 import type { Mounted, ToolName } from "./mount.ts";
 import { type ConversationState, conversationOf, type Probe, type TurnState } from "./state.ts";
 import { plainly } from "./words.ts";
@@ -218,35 +226,58 @@ const registrySummary: OneTool = {
   },
 };
 
-/** The names of the registry that hold any of the words: fields, sorting values, kinds, cohorts, derived fields. */
-export function searchCatalog(cat: ReturnType<typeof catalogOf>, words: string): string[] {
-  if (!cat) return [];
+/** The names of the registry that hold any of the words: fields, sorting values, kinds, cohorts, datasets, derived fields. */
+export function searchCatalog(
+  cat: ReturnType<typeof catalogOf>,
+  words: string,
+  datasets: readonly DatasetFact[] = [],
+): string[] {
   const ws = words
     .toLowerCase()
     .split(/[^a-z0-9.+-]+/u)
     .filter((w) => w.length >= 2);
   const hit = (s: string) => ws.some((w) => s.toLowerCase().includes(w));
   const out: string[] = [];
-  for (const l of cat.levels ?? [])
+  for (const l of cat?.levels ?? [])
     for (const f of l.fields) if (hit(f.path)) out.push(`field ${f.path} of ${l.level} (${f.type})`);
-  for (const a of cat.axes ?? [])
+  for (const a of cat?.axes ?? [])
     for (const x of a.values)
       if (hit(x.id) || hit(x.label ?? "") || hit(a.name))
         out.push(`scan sorting ${a.name} = ${x.id}${x.label ? ` (${x.label})` : ""}`);
-  for (const k of cat.kinds ?? [])
+  for (const k of cat?.kinds ?? [])
     if (hit(k.name)) out.push(`event kind ${k.name}${k.unit ? ` in ${k.unit}` : ""}`);
-  for (const c of cat.cohorts ?? [])
+  for (const c of cat?.cohorts ?? [])
     if (hit(c.name)) out.push(`cohort ${c.name} (${c.members ?? "?"} members)`);
-  for (const d of cat.derived ?? []) if (hit(d.name)) out.push(`derived ${d.name} (${d.grain})`);
-  for (const d of cat.diseases ?? [])
+  // a dataset is where scans came from, never a cohort: its line carries its counts
+  for (const d of datasets) if (hit(d.name)) out.push(`dataset ${lineOf(d)}`);
+  for (const d of cat?.derived ?? []) if (hit(d.name)) out.push(`derived ${d.name} (${d.grain})`);
+  for (const d of cat?.diseases ?? [])
     for (const c of d.courses ?? []) if (hit(c) || hit(d.name)) out.push(`course ${c} of ${d.name}`);
   return [...new Set(out)].slice(0, 40);
+}
+
+/** The datasets a person's turn read; read now when none were. */
+async function datasetsFor(ctx: ToolCtx): Promise<DatasetFact[]> {
+  const have = knownDatasets(ctx.subject);
+  if (have) return have;
+  try {
+    const r = await readDatasets({
+      key: ctx.subject,
+      sources: () => seam(ctx, "identity-check"),
+      cohorts: () => seam(ctx, "analysis-plan"),
+      toolCallId: `${ctx.toolCallId}-datasets`,
+      phase: PHASE,
+    });
+    return r.kind === "ok" ? r.list : [];
+  } catch {
+    return [];
+  }
 }
 
 const registrySearch: OneTool = {
   name: "registry_search",
   description:
-    "Find the registry's own names for the person's words: fields, sorting values of scans (base, technique, modifier and the others), event kinds, cohorts, derived fields, disease courses. Give `words`. With `level` and `field` instead, a sample of what one field holds (at most 20 values).",
+    "Find the registry's own names for the person's words: fields, sorting values of scans (base, technique, modifier and the others), event kinds, cohorts, datasets (with their counts), derived fields, disease courses. Give `words`. With `level` and `field` instead, a sample of what one field holds (at most 20 values).",
   input: v.object({
     words: v.optional(v.string()),
     level: v.optional(v.string()),
@@ -277,7 +308,7 @@ const registrySearch: OneTool = {
     const words = str(args.words);
     if (!words) return refuse("nothing to look for", "Give words, or a level and a field.");
     if (!catalogOf(ctx.subject)) await summaryText(ctx);
-    const found = searchCatalog(catalogOf(ctx.subject), words);
+    const found = searchCatalog(catalogOf(ctx.subject), words, await datasetsFor(ctx));
     return found.length
       ? { output: data(found, "use fewer or more exact words") }
       : refuse(
@@ -330,7 +361,7 @@ function noteSignals(c: ConversationState, body: unknown): void {
 const registryDescribe: OneTool = {
   name: "registry_describe",
   description:
-    "Read one kind of thing the registry keeps, by `what`: document (a stored question by `id`, with its parent), documents (the stored questions), batches (the newest batches), cohorts (with their subjects and sessions counted), pipelines (the analyses with their parameters, measures and checks) or pipeline (one by `name`), datasets or dataset (by `name`: what arrives, its identity rule, what is held), identifier_types, held (the identifiers a dataset holds as shapes, by `name`), signals (the sorting's signals over a `scope` such as batch:12), word_lists (the sorting's word lists, `axis` to narrow), review (the open review items, or one by `id`).",
+    "Read one kind of thing the registry keeps, by `what`: document (a stored question by `id`, with its parent), documents (the stored questions), batches (the newest batches), cohorts (with their subjects and sessions counted), pipelines (the analyses with their parameters, measures and checks) or pipeline (one by `name`), datasets (each with its state, its subjects, visits and scans, and the cohort it feeds) or dataset (by `name`: those counts, what arrives, its identity rule, what is held), identifier_types, held (the identifiers a dataset holds as shapes, by `name`), signals (the sorting's signals over a `scope` such as batch:12), word_lists (the sorting's word lists, `axis` to narrow), review (the open review items, or one by `id`).",
   input: v.object({
     what: v.picklist(DESCRIBE),
     id: v.optional(v.number()),
@@ -389,16 +420,49 @@ const registryDescribe: OneTool = {
       }
       case "datasets":
       case "dataset": {
-        const a = await get(ctx, "identity-check", "/api/sources");
+        const a = await get(ctx, "identity-check", "/api/sources?recent=1");
         if (a.kind !== "ok") return notOk(a, again);
         const body = a.body as { sources?: unknown } | unknown[];
         const list = (Array.isArray(body) ? body : (body?.sources ?? [])) as Record<string, unknown>[];
         const names = list.map((s) => String(s?.name ?? s?.place ?? "")).filter(Boolean);
-        if (what === "datasets" || !name) return { output: data({ datasets: names }, "") };
+        const facts = datasetsOf(a.body);
+        if (what === "datasets" || !name)
+          return {
+            output: data(
+              {
+                datasets: newestFirst(facts).map(lineOf),
+                note: "a question of the registry cannot narrow to one dataset; a dataset's counts are these",
+              },
+              "ask for one dataset by name",
+            ),
+          };
         const one = datasetName(name);
         const found = list.find((s) => String(s?.name ?? s?.place ?? "") === one);
+        const fact = facts.find((f) => f.name === one);
         return found
-          ? { output: data(datasetView(found), "") }
+          ? {
+              output: data(
+                {
+                  ...datasetView(found),
+                  ...(fact
+                    ? {
+                        state: fact.state,
+                        counts: {
+                          subjects: fact.subjects,
+                          visits: fact.visits,
+                          scans: fact.scans,
+                          sure: fact.sure,
+                          need_a_look: fact.look,
+                          not_sorted_yet: fact.unsorted,
+                        },
+                        feeds: fact.feeds,
+                      }
+                    : {}),
+                  note: "a question of the registry cannot narrow to one dataset",
+                },
+                "",
+              ),
+            }
           : refuse(
               `no dataset named ${name}`,
               `Name one of ${names.join(", ") || "none"}, or say there is none.`,

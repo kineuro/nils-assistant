@@ -4,7 +4,8 @@
 // offered as a new version; the turn's facts arrive as one message; the
 // tools follow the person's grants; the repeat detector warns and stops; an
 // answer in engine words is sent back once; a question card ends the turn;
-// an analysis is proposed, never run.
+// an analysis is proposed, never run; a dataset the words name is answered
+// from its own counts, never said not to be there.
 
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -66,6 +67,20 @@ const engine = await stubEngine((c) => {
       },
     };
   if (p === "/api/cohorts") return { body: [{ name: "nmosd", subjects: 9, sessions: 20 }] };
+  if (p === "/api/sources")
+    return {
+      body: {
+        count: 1,
+        sources: [
+          {
+            name: "study-big",
+            dataset: { kind: "dataset", state: "identified", cohort: null },
+            digests: { count: 1, last: { name: "today", finished_at: "2026-10-09 09:00:00" } },
+            totals: { subjects: 120, sessions: 340, stacks: 5210, to_sort: 310, sure: 4900, unsorted: 0 },
+          },
+        ],
+      },
+    };
   if (p === "/api/ask/run") return { body: { handle: 55, truncated: false } };
   if (p.startsWith("/api/pipelines/") && p.endsWith("/preflight"))
     return {
@@ -192,6 +207,33 @@ describe("the one agent", () => {
         .rows("oc-find")
         .map((r) => r.operation),
     ).toEqual(expect.arrayContaining(["draft", "preview", "validate"]));
+  }, 60_000);
+
+  it("answers how much a dataset holds from its own counts, and sends back an answer that says it is not there", async () => {
+    play([
+      { text: "There's no cohort or dataset called study-big in the registry." },
+      { text: "study-big holds 5210 scans from 120 subjects over 340 visits." },
+    ]);
+    const h = init(Nils, { id: "oc-dataset" });
+    const reply = await h.read(await h.dispatch("How many T1 scans with contrast are in study-big?"));
+    // the facts carry the datasets with their counts, and the hint names the dataset in place of drafting
+    const first = appended(seen[0]);
+    expect(first).toMatch(/## The datasets \(where the scans came from\)/u);
+    expect(first).toMatch(
+      /- study-big \(identified\): 120 subjects, 340 visits, 5210 scans \(4900 sure, 310 need a look\); feeds no cohort/u,
+    );
+    expect(first).toMatch(/they name the dataset study-big/u);
+    expect(first).not.toMatch(/this looks like the find-data skill/u);
+    expect(turnOf("oc-dataset").datasets).toEqual(["study-big"]);
+    // the answer that said there was no such dataset went back once, and the count stands
+    expect(calls).toBe(2);
+    expect(text(seen[1])).toMatch(/the words name the dataset study-big, which the registry holds/u);
+    expect(reply.text).toMatch(/5210 scans/u);
+    expect(
+      theLedger()
+        .rows("oc-dataset")
+        .map((r) => r.operation),
+    ).toEqual(expect.arrayContaining(["sources", "cohorts"]));
   }, 60_000);
 
   it("mounts from the person's grants: no data tools for a person without query:see", async () => {

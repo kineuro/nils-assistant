@@ -34,8 +34,8 @@ const RULES: { skill: SkillId; re: RegExp; because: string }[] = [
   },
   {
     skill: "check-identities",
-    re: /\bidentit(y|ies)\b|\btells? (its|their) people apart\b|\bone person\b|\bsame person\b|\bmerge\b|\bpatient ?id\b|\bheld back\b|\bdataset ds-/iu,
-    because: "how a dataset tells people apart is asked",
+    re: /\bidentit(y|ies)\b|\btells? (its|their) (people|subjects) apart\b|\bone person\b|\bsame person\b|\bmerge\b|\bpatient ?id\b|\bheld back\b/iu,
+    because: "how a dataset tells its subjects apart is asked",
   },
   {
     skill: "plan-work",
@@ -50,7 +50,7 @@ const RULES: { skill: SkillId; re: RegExp; because: string }[] = [
 ];
 
 const SUMMARY =
-  /^\s*(which|what)\s+(cohorts|clinical scores|scores|disease courses|courses|kinds of scans|scan kinds|kinds of scan|event kinds|diseases)\b|^\s*how many cohorts\b|\bwhat (clinical )?scores (are|does)\b/iu;
+  /^\s*(which|what)\s+(cohorts|datasets|clinical scores|scores|disease courses|courses|kinds of scans|scan kinds|kinds of scan|event kinds|diseases)\b|^\s*how many (cohorts|datasets)\b|\bwhat (clinical )?scores (are|does)\b/iu;
 
 const FIND =
   /\b(how many|which|list|show|count|give me|who|what is the|what are the|latest|mean|average|subjects?|sessions?|stacks?|scans?|series|edss|sdmt|cohort)\b/iu;
@@ -66,7 +66,8 @@ export function routeOf(message: string): Route {
 
 /** The hint as the turn's facts carry it: one line the model may overrule. */
 export function hintLine(r: Route, mounted: readonly string[]): string {
-  if (r.summary) return "Hint from the words: the registry summary above answers this; no skill is needed.";
+  if (r.summary)
+    return "Hint from the words: the facts above (the registry summary and the datasets) answer this; no skill is needed.";
   if (r.skill === "find-data" && mounted.includes(r.skill))
     return `Hint from the words (${r.because}): this looks like the find-data skill: activate it and draft the question, even when the summary seems to hold the number. Overrule it when the words mean otherwise.`;
   if (r.skill && mounted.includes(r.skill))

@@ -9,6 +9,7 @@ import { VERBS } from "../host/ladder.ts";
 import type { Seam } from "../seam/client.ts";
 import { heldReading, shapeCounts } from "../stations/identity-check.ts";
 import { ladderStore } from "../stations/operator.ts";
+import { saysNotThere } from "./datasets.ts";
 import { answerOf, type ConversationState, type TurnState } from "./state.ts";
 import { alikePairs } from "./tools.ts";
 import { unplainWords } from "./words.ts";
@@ -52,6 +53,11 @@ export async function complaintsOf(c: CheckContext): Promise<string[]> {
     );
   if (SQL.test(answer)) out.push("the answer carries SQL; say what was counted in words");
   if (PERSONAL.test(answer)) out.push("the answer carries an identifier value; leave it out");
+  // a dataset the words name and the facts list is there: the chat once said it was not (2026-10-09)
+  if (c.turn.datasets.length && saysNotThere(answer, c.turn.datasets))
+    out.push(
+      `the words name the dataset ${c.turn.datasets.join(" and ")}, which the registry holds: answer from its counts in the facts, and never say it is not there`,
+    );
   const active = activeSkills(c.turn);
   // a question for data answered from memory: the person gets no question to keep, and the number is unchecked
   if (

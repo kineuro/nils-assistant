@@ -2,9 +2,9 @@
 // The turn's facts (one chat, 2026-10-09): what is true now and differs per
 // person and per turn, appended as one message at the turn boundary so the
 // instructions above them stay the same for every conversation and a
-// runtime's prefix cache serves them. The registry summary and the line of
-// what the person may do are sent once per conversation, and again only when
-// they change; the routing hint goes with every turn.
+// runtime's prefix cache serves them. The registry summary, the datasets and
+// the line of what the person may do are sent once per conversation, and
+// again only when they change; the routing hint goes with every turn.
 //
 // A signal reaches the model as a user-role message (Flue renders it as a
 // tag), which a server that takes a system message only at the start
@@ -50,12 +50,16 @@ export const hashOf = (text: string): string => createHash("sha256").update(text
 export interface Told {
   summary: string | null;
   grants: string | null;
+  /** The datasets told last; absent in a conversation from before they were. */
+  datasets?: string | null;
 }
 
 /** The facts of one turn, and what the conversation has been told after it. */
 export function factsOf(o: {
   told: Told;
   summary: string | null;
+  /** The datasets as the facts carry them (src/one/datasets.ts); null where this person's facts carry none. */
+  datasets?: string | null;
   grants: string;
   hint: string;
   document: number | null;
@@ -71,6 +75,13 @@ export function factsOf(o: {
   } else if (told.summary === null) {
     parts.push("The registry's summary could not be read for this person.");
     told.summary = "none";
+  }
+  if (o.datasets) {
+    const h = hashOf(o.datasets);
+    if (told.datasets !== h) {
+      parts.push(o.datasets);
+      told.datasets = h;
+    }
   }
   const g = hashOf(o.grants);
   if (told.grants !== g) {

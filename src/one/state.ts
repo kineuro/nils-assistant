@@ -49,6 +49,8 @@ export interface TurnState {
   asked: boolean;
   /** The question the turn drafted was offered as the conversation's new version. */
   offered: boolean;
+  /** The datasets the person's words name, among those the turn's facts read: their counts answer how much each holds. */
+  datasets: string[];
 }
 
 export interface Rehearsal {
@@ -100,6 +102,7 @@ export function newTurn(conversation: string, message: string, now = Date.now())
     stopped: null,
     asked: false,
     offered: false,
+    datasets: [],
   };
   turns.set(conversation, t);
   return t;

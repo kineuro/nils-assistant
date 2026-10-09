@@ -3,13 +3,14 @@
 // studies/2026-10-09-one-chat/decision.md): the only voice of the chat. A
 // static head (who it is, its rules, its tools) and the skill catalog stay
 // the same for every conversation, so a runtime's prefix cache serves them;
-// what is true now (the registry summary, what this person may do, a hint
-// from the words) is appended as one message when a turn starts. Tools and
-// skills are mounted from the person's grants when the conversation starts
-// and kept for its life. The guards are code: a turn cap, a token cap, the
-// repeat detector, one read-only sub-agent at a time, the checks of the
-// active skill and the plain-words check before the turn settles. Writes are
-// proposals; the person approves them on a card and the host applies them.
+// what is true now (the registry summary, the datasets, what this person may
+// do, a hint from the words) is appended as one message when a turn starts.
+// Tools and skills are mounted from the person's grants when the
+// conversation starts and kept for its life. The guards are code: a turn
+// cap, a token cap, the repeat detector, one read-only sub-agent at a time,
+// the checks of the active skill and the plain-words check before the turn
+// settles. Writes are proposals; the person approves them on a card and the
+// host applies them.
 
 import {
   defineSubagent,
@@ -36,6 +37,15 @@ import { engineAuthOff, subjectOfConversation, theLineage } from "../seam/for.ts
 import { catalogOf, prelude } from "../stations/prelude.ts";
 import { CARD_OF, theChanges } from "./changes.ts";
 import { complaintsOf, sendBack, validator } from "./checks.ts";
+import {
+  type DatasetFact,
+  datasetHint,
+  datasetsBlock,
+  datasetsNamed,
+  knownDatasets,
+  lineOf,
+  readDatasets,
+} from "./datasets.ts";
 import { factsOf, factsSummary, type Told } from "./facts.ts";
 import { type Access, grantsLine, type Mounted, mountFor } from "./mount.ts";
 import { hintLine, routeOf } from "./route.ts";
@@ -82,9 +92,9 @@ function accessOf(conversation: string): Access {
 const RULES = `You are NILS, the assistant of a neuroimaging research registry. You are the only one the person talks to: you answer them yourself, in plain words.
 
 How you work
-- Each turn brings facts from the host: what the registry holds (sent once, and again when it changes), what this person may do here, and a hint read from their words. They are true now; trust them over what you remember.
-- A question about what the registry holds (which cohorts there are and their sizes, which clinical scores, disease courses and kinds of scans it records) is answered straight from the registry summary, with no tool and no skill.
-- A question that asks for data (how many subjects, sessions or scans meet a condition, which ones, a list, a value, the people of one cohort) goes through the find-data skill and a drafted question, even when the summary seems to hold the number: the person gets the question to keep.
+- Each turn brings facts from the host: what the registry holds and the datasets its scans came from (sent once, and again when they change), what this person may do here, and a hint read from their words. They are true now; trust them over what you remember.
+- A question about what the registry holds (which cohorts and datasets there are and their sizes, which clinical scores, disease courses and kinds of scans it records) is answered straight from the facts, with no tool and no skill. A dataset is not a cohort: how many subjects, visits or scans one dataset holds is its count in the facts.
+- A question that asks for data (how many subjects, sessions or scans meet a condition, which ones, a list, a value, the subjects of one cohort) goes through the find-data skill and a drafted question, even when the summary seems to hold the number: the person gets the question to keep.
 - For anything else, first activate the one skill that fits and follow it. When the person changes task, change skill; the same chat goes on.
 - Do the work yourself with the fewest tool calls that answer. Never look up again what the facts or an earlier answer in this chat already hold.
 - Changes are proposed, never made: a new version of a question, a plan of work, an analysis, new sorting words, a merge or an identity rule goes through propose_change, and the person approves it on a card. Never say a change was made.
@@ -239,8 +249,24 @@ export function guardEveryCall(): void {
 
 // ------------------------------------------------------------------ the agent
 
-/** The turn's hint: in the sub-agent arm, finding data is the find agent's. */
-function hintFor(r: ReturnType<typeof routeOf>, m: Mounted, arm: FindArm): string {
+/** The turn's hint: words that name datasets get their counts; in the sub-agent arm, finding data is the find agent's. */
+function hintFor(
+  r: ReturnType<typeof routeOf>,
+  m: Mounted,
+  arm: FindArm,
+  named: readonly DatasetFact[] = [],
+): string {
+  if (named.length && !r.summary && (r.skill === null || r.skill === "find-data")) {
+    const find = m.skills.includes("find-data");
+    return datasetHint(
+      named,
+      !find
+        ? "This person may not look up data beyond that count."
+        : arm === "subagent"
+          ? "A condition on its scans (a kind of scan, a date) goes to the find agent with the task tool, with the dataset named."
+          : "A condition on its scans (a kind of scan, a date) goes through the find-data skill, which says what a dataset allows.",
+    );
+  }
   if (arm === "subagent" && r.skill === "find-data" && m.skills.includes("find-data"))
     return `Hint from the words (${r.because}): this looks like finding data; give it to the find agent with the task tool.`;
   return hintLine(r, m.skills);
@@ -338,7 +364,7 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
 
     const [held, setHeld] = usePersistentState<Mounted | null>("mounted", null);
     const mounted = held ?? mountFor(accessOf(id));
-    const [told, setTold] = usePersistentState<Told>("told", { summary: null, grants: null });
+    const [told, setTold] = usePersistentState<Told>("told", { summary: null, grants: null, datasets: null });
     const subject = subjectOfConversation(id);
     const d = delivered as { kind?: unknown; body?: unknown } | null;
     const message = d?.kind === "user" && typeof d.body === "string" ? d.body : turnOf(id).message;
@@ -373,22 +399,30 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
     const base = { conversation: id, subject, turn, convo, mounted, write };
     if (o.arm === "subagent" && mounted.skills.includes("find-data")) {
       const find = skills.get("find-data");
-      const document = theLineage().conversation(id)?.document ?? convo.documents.at(-1) ?? null;
-      const brief = [
-        `The person's words, as they wrote them: "${message.replace(/"/gu, "'")}"`,
-        document !== null
-          ? `The question this refines is document ${document}: read it with registry_describe, what document, and change what the words change.`
-          : "",
-        grantsLine(mounted),
-      ]
-        .filter(Boolean)
-        .join("\n");
+      // written when the task runs, after the turn's facts read the datasets
+      const briefOf = (): string => {
+        const document = theLineage().conversation(id)?.document ?? convo.documents.at(-1) ?? null;
+        const named = (knownDatasets(subject) ?? []).filter((x) => turnOf(id).datasets.includes(x.name));
+        return [
+          `The person's words, as they wrote them: "${message.replace(/"/gu, "'")}"`,
+          document !== null
+            ? `The question this refines is document ${document}: read it with registry_describe, what document, and change what the words change.`
+            : "",
+          named.length
+            ? `The words name the dataset ${named.map(lineOf).join("; and the dataset ")}. A question of the registry cannot narrow to one dataset.`
+            : "",
+          grantsLine(mounted),
+        ]
+          .filter(Boolean)
+          .join("\n");
+      };
       useSubagent(
         defineSubagent({
           name: "find",
           description:
             "Finds data in the registry: drafts the question that answers the person's words and says what it found.",
           agent: () => {
+            const brief = briefOf();
             for (const name of READ_ONLY)
               if (mounted.tools.includes(name)) mountTool(TOOLS[name], { ...base, write: SILENT });
             return `You find data in a neuroimaging registry for the assistant that talks to the person. You never talk to the person and never ask them anything; you draft the question and say what it found.\n\n${find ? bodyFor(find, message, examples, catalogOf(subject)?.functions) : ""}\n\n## The brief\n${brief}\n\nEnd with what was found in one or two plain sentences, then a last line: document: <the id of the last question you drafted>, or document: none.`;
@@ -409,24 +443,44 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
           // a station not configured here has no seam to reset
         }
       if (!held) setHeld(mounted);
-      let summary: string | null = null;
-      if (mounted.tools.includes("registry_search")) {
+      const readSummary = async (): Promise<string | null> => {
+        if (!mounted.tools.includes("registry_search")) return null;
         try {
           const text = await prelude(oneSeam("ask-help", id), subject, {
             toolCallId: "facts",
             phase: "turn",
           });
-          summary = text ? factsSummary(text) : null;
+          return text ? factsSummary(text) : null;
         } catch {
-          summary = null;
+          return null;
         }
-      }
+      };
+      // the datasets, for whoever may read what the registry keeps; a deployment without the seam has none
+      const readTheDatasets = async () => {
+        if (!mounted.tools.includes("registry_describe")) return null;
+        try {
+          const sources = oneSeam("identity-check", id);
+          return await readDatasets({
+            key: subject,
+            sources: () => sources,
+            cohorts: () => oneSeam("analysis-plan", id),
+            toolCallId: "facts",
+            phase: "turn",
+          });
+        } catch {
+          return null;
+        }
+      };
+      const [summary, datasets] = await Promise.all([readSummary(), readTheDatasets()]);
+      const named = datasets?.kind === "ok" ? datasetsNamed(message, datasets.list) : [];
+      turnOf(id).datasets = named.map((x) => x.name);
       const document = theLineage().conversation(id)?.document ?? null;
       const facts = factsOf({
         told,
         summary,
+        datasets: datasets ? datasetsBlock(datasets) : null,
         grants: grantsLine(mounted),
-        hint: hintFor(routeOf(message), mounted, o.arm),
+        hint: hintFor(routeOf(message), mounted, o.arm, named),
         document,
       });
       setTold(facts.told);
@@ -444,7 +498,10 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
           convo,
           conversation: id,
           validate: t.drafted.length ? validator(() => oneSeam("ask-help", id)) : null,
-          hinted: ((r) => (r && mounted.skills.includes(r) ? r : null))(routeOf(t.message).skill),
+          // words that name a dataset are answered from its counts, with no question drafted
+          hinted: t.datasets.length
+            ? null
+            : ((r) => (r && mounted.skills.includes(r) ? r : null))(routeOf(t.message).skill),
         });
         if (complaints.length) {
           t.nudges += 1;
