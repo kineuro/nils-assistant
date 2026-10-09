@@ -69,6 +69,22 @@ export function kvasirContext(context: TranscriptContext | Context): TranscriptC
   return wire as unknown as TranscriptContext;
 }
 
+/**
+ * The one agent's request without Flue's `task` tool (one chat, 2026-10-09). Flue always adds `task` and an
+ * "Available Agents" section saying there are none; with no sub-agent declared, both are a decoy for a small
+ * model, so the request leaves them out. Where a sub-agent is declared they stay.
+ */
+export function withoutTask(context: TranscriptContext): TranscriptContext {
+  const c = context as unknown as Context;
+  const tools = c.tools?.filter((t) => t.name !== "task");
+  const systemPrompt = c.systemPrompt?.replace(/\n*## Available Agents\n\nNone\.[^\n]*(\n|$)/u, "\n");
+  return {
+    ...c,
+    ...(systemPrompt !== undefined ? { systemPrompt } : {}),
+    ...(tools !== undefined ? { tools } : {}),
+  } as unknown as TranscriptContext;
+}
+
 /** The provider id a station's model specifier names: `kvasir-<station>/<model>`. */
 export function providerId(station: string): string {
   return `kvasir-${station}`;
@@ -94,6 +110,8 @@ export function kvasirProvider(opts: {
   key: string;
   /** The token of the person a call streams for, read as the call is made; null where nobody does. */
   person?: () => string | null;
+  /** What the request is shaped to after its transcript is collapsed (the one agent leaves out the decoy `task`). */
+  shape?: (context: TranscriptContext) => TranscriptContext;
 }): Provider<"pi-messages"> {
   const id = providerId(opts.station);
   const models: Model<"pi-messages">[] = opts.catalog.models.map((m) => ({
@@ -109,6 +127,10 @@ export function kvasirProvider(opts: {
     maxTokens: m.maxTokens,
   }));
   const headers = (options: unknown) => withHeaders(options, opts.purpose, opts.person?.() ?? null);
+  const wire = (context: TranscriptContext | Context) => {
+    const collapsed = kvasirContext(context);
+    return opts.shape ? opts.shape(collapsed) : collapsed;
+  };
   return createProvider<"pi-messages">({
     id,
     name: `Kvasir for ${opts.station}`,
@@ -119,9 +141,9 @@ export function kvasirProvider(opts: {
     },
     models,
     api: {
-      stream: (model, context, options) => stream(model as never, kvasirContext(context), headers(options)),
+      stream: (model, context, options) => stream(model as never, wire(context), headers(options)),
       streamSimple: (model, context, options) =>
-        streamSimple(model as never, kvasirContext(context), headers(options)),
+        streamSimple(model as never, wire(context), headers(options)),
     },
   });
 }

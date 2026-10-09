@@ -121,7 +121,7 @@ const said = (x: { count: number | null; fewer_than_five: boolean }): number | s
 export const failedOf = (r: Reading): number => r.units.failed + r.units.unreported;
 
 /** The reading as the model reads it: counts, reasons and checks, and the units and values only at detail quasi. */
-function spoken(n: RunNote): Record<string, unknown> {
+export function spoken(n: RunNote): Record<string, unknown> {
   const r = n.reading;
   const perScan = r.detail !== "plain";
   return {

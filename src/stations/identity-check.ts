@@ -270,7 +270,7 @@ export function candidateFor(probed: Probed[], rule: Record<string, unknown>): P
 }
 
 /** A dataset as the sources door lists it, kept to what the station may read: no path, no value. */
-function datasetView(src: Record<string, unknown>): Record<string, unknown> {
+export function datasetView(src: Record<string, unknown>): Record<string, unknown> {
   const trees = (src.trees ?? {}) as {
     originals?: Record<string, unknown> | null;
     anon?: Record<string, unknown>;
@@ -289,7 +289,7 @@ function datasetView(src: Record<string, unknown>): Record<string, unknown> {
 }
 
 /** A probe's candidates as the model reads them: the diagnostics' counts without their samples. */
-function candidatesView(result: unknown): JsonValue {
+export function candidatesView(result: unknown): JsonValue {
   const doc = result as { candidates?: unknown } | null;
   if (!Array.isArray(doc?.candidates)) return (result ?? null) as JsonValue;
   return {

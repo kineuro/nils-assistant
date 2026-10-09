@@ -66,9 +66,16 @@ export function admitHandle(
  */
 const LINKAGE_READS = /^\/api\/linkage\/(types|held)(\?.*)?$/u;
 
-export function admitPath(path: string, method = "GET"): { ok: true } | { ok: false; why: string } {
+export function admitPath(
+  path: string,
+  method = "GET",
+  /** One chat: the seam a person's approved change runs through may make the merge they approved. */
+  person = false,
+): { ok: true } | { ok: false; why: string } {
   if (/\/api\/linkage|\/api\/ask\/values\b|\/api\/custody/u.test(path)) {
     if (method.toUpperCase() === "GET" && LINKAGE_READS.test(path)) return { ok: true };
+    if (person && method.toUpperCase() === "POST" && /^\/api\/linkage\/merge$/u.test(path))
+      return { ok: true };
     return { ok: false, why: "a linkage path is never dialled from a station" };
   }
   return { ok: true };
