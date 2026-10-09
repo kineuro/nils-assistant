@@ -384,7 +384,7 @@ conversations:
     turns:
       - say: Check how dataset ds-same tells its people apart. Is anything held back?
         expect:
-          skill: check-identity
+          skill: check-identities
           says: [{match: "\\bmap\\b"}]
 
   - id: identity-merge
@@ -394,7 +394,7 @@ conversations:
     turns:
       - say: "In dataset ds-merge two of the subjects may be one person: the same birth date, sex and visits."
         expect:
-          skill: check-identity
+          skill: check-identities
           proposal: {kind: identity_merge, match: {subjects: {has: [BENM01, BENM02]}}}
 
   # --- a person without query:see: one plain refusal, nothing looked up

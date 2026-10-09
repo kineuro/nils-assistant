@@ -76,7 +76,7 @@ framework_tools: [activate_skill, read_skill_resource, task]
 not_steps: [plan_update, ask_user, propose_change]
 
 # The skills (decision.md, "Skills from today's stations").
-skills: [find-data, plan-work, plan-analysis, read-run, tune-sorting-words, check-identity]
+skills: [find-data, plan-work, plan-analysis, read-run, tune-sorting-words, check-identities]
 
 # The find arm as a read-only sub-agent: the `task` tool with this agent
 # stands for the find-data skill when the host serves ONE_CHAT_FIND=subagent.
@@ -94,6 +94,9 @@ executes: [apply_change, run_job, jobs_run, confirm_plan, adopt_overlay, merge_s
 # under `proposes` is a write as well.
 writes: [jobs, pipeline-runs, erase, ingest, digest, classify, fingerprint, pseudonymize, linkage/merge]
 proposes: [draft, documents, overlays, plans, proposals, review]
+# Operations dialled by POST that write nothing: the ask's checks and previews, a rehearsal of sorting
+# words, an identity probe (a job that reads a sample), an analysis's pre-flight.
+reads: [validate, describe, diagnose, preview, options, apply, diff, run, classify/try, ingest/probe, "pipelines/{name}/preflight"]
 
 # Ledger phases that record a person's approval (the Confirm card, an
 # accepted proposal); a write is allowed only after one in its conversation.

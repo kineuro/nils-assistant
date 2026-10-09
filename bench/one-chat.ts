@@ -136,9 +136,13 @@ export async function oneTurn(
   }
   const seconds = Math.round((Date.now() - started) / 100) / 10;
   const events = fromChunks(chunks, a.submissionId);
-  const ledger = ((
-    (await call(e, `${e.assistant}/ledger/${encodeURIComponent(conversation)}`)).body as Rec | null
-  )?.rows ?? []) as LedgerRow[];
+  // the host answers its ledger newest first; the grader reads it in the order it was written
+  const ledger = (
+    (((await call(e, `${e.assistant}/ledger/${encodeURIComponent(conversation)}`)).body as Rec | null)
+      ?.rows ?? []) as LedgerRow[]
+  )
+    .slice()
+    .reverse();
   const plans: Record<string, unknown> = {};
   for (const id of planIdsIn(events)) {
     const p = await call(e, `${e.assistant}/plans/${encodeURIComponent(id)}`);

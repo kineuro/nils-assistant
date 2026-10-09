@@ -83,6 +83,8 @@ export interface Lexicon {
   executes: string[];
   writes: string[];
   proposes: string[];
+  /** Operations a POST reads by and writes nothing with. */
+  reads?: string[];
   approval_phases: string[];
   feedback_phase: string;
   malformed_errors: string[];
@@ -301,6 +303,11 @@ export function documentIn(events: Ev[]): number | null {
     if (e.kind === "tool" && !e.isError) {
       const d = detailsOf(e.result).document;
       if (typeof d === "number") doc = d;
+      // a sub-agent's task answers text only: its last line names the document it drafted
+      if (e.name === "task" && typeof e.result === "string") {
+        const m = /\bdocument:\s*(\d+)\s*$/iu.exec(e.result.trim());
+        if (m) doc = Number(m[1]);
+      }
     }
   return doc;
 }
@@ -367,6 +374,8 @@ export function isWrite(r: LedgerRow, lexicon: Lexicon): boolean {
   if (r.method) {
     const m = r.method.toUpperCase();
     if (m === "GET" || m === "HEAD") return false;
+    // a door that answers by POST and writes nothing (validate, preview, a rehearsal, a probe, a pre-flight)
+    if (under(lexicon.reads ?? [])) return false;
     return !under(lexicon.proposes);
   }
   return under(lexicon.writes);

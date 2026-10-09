@@ -25,7 +25,7 @@ A host may relay the runtime events (`observe()`, v3) instead; `fromRuntime` in 
 
 Names the bench relies on (`bench/corpus/one-chat-lexicon.yml`):
 
-- **Skills** are activated with Flue's `activate_skill` (`input.name`): `find-data`, `plan-work`, `plan-analysis`, `read-run`, `tune-sorting-words`, `check-identity`.
+- **Skills** are activated with Flue's `activate_skill` (`input.name`): `find-data`, `plan-work`, `plan-analysis`, `read-run`, `tune-sorting-words`, `check-identities`.
 - **Tools**: `registry_summary`, `registry_search`, `registry_describe`, `query_draft`, `query_run_readonly`, `query_read_rows`, `jobs_read`, `run_read`, `plan_update`, `ask_user`, `propose_change`. A call to any other name is counted malformed.
 - **A document** a turn leaves is the last `details.document` (a number) among its tool results, from `query_draft` or a `propose_change` of a query version.
 - **A proposal** is a `propose_change` call: its input with its result's `details` over it. `details.kind` is one of `query_version`, `job_plan`, `analysis_plan`, `overlay`, `identity_merge`, `identity_rule`. A job plan names its plan by `details.plan_id`; the bench reads it with `GET /plans/:id` (the steps a scheduler runs as `steps`, the acts a person accepts as `proposals`, by rung, as `bench/cases.ts` reads plans today). An analysis plan carries `pipeline`, `cohorts` or `selection`, and `sessions`; an overlay carries `list`; an identity merge carries `subjects`.
