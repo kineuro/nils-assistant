@@ -91,7 +91,7 @@ const SKILL_WORDS: Record<SkillId, string> = {
   "plan-analysis": "plan an analysis of images for them to run",
   "read-run": "read how an analysis run went",
   "tune-sorting-words": "teach the sorting new words",
-  "check-identities": "check how a dataset tells people apart",
+  "check-identities": "check how a dataset tells its subjects apart",
 };
 
 const DETAIL_WORDS: Record<Detail, string> = {

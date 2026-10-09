@@ -49,7 +49,7 @@ export interface TurnState {
   asked: boolean;
   /** The question the turn drafted was offered as the conversation's new version. */
   offered: boolean;
-  /** The datasets the person's words name, among those the turn's facts read: their counts answer how much each holds. */
+  /** The datasets the turn is about: those its words name, or those named before that a follow-up keeps. */
   datasets: string[];
 }
 
@@ -83,6 +83,8 @@ export interface ConversationState {
   held: Map<string, HeldShape[]>;
   /** The documents this conversation drafted, newest last. */
   documents: number[];
+  /** The datasets the person named last: a follow-up that names none keeps them. */
+  datasets: string[];
 }
 
 const turns = new Map<string, TurnState>();
@@ -125,6 +127,7 @@ export function conversationOf(id: string): ConversationState {
       types: null,
       held: new Map(),
       documents: [],
+      datasets: [],
     };
     conversations.set(id, c);
   }

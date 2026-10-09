@@ -5,7 +5,7 @@
 // tools follow the person's grants; the repeat detector warns and stops; an
 // answer in engine words is sent back once; a question card ends the turn;
 // an analysis is proposed, never run; a dataset the words name is answered
-// from its own counts, never said not to be there.
+// from its own counts, never said not to be there, and a follow-up keeps it.
 
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -223,6 +223,9 @@ describe("the one agent", () => {
       /- study-big \(identified\): 120 subjects, 340 visits, 5210 scans \(4900 sure, 310 need a look\); feeds no cohort/u,
     );
     expect(first).toMatch(/they name the dataset study-big/u);
+    expect(first).toMatch(
+      /Anything narrower [^.]* is a question that names the dataset: activate the find-data skill/u,
+    );
     expect(first).not.toMatch(/this looks like the find-data skill/u);
     expect(turnOf("oc-dataset").datasets).toEqual(["study-big"]);
     // the answer that said there was no such dataset went back once, and the count stands
@@ -234,6 +237,38 @@ describe("the one agent", () => {
         .rows("oc-dataset")
         .map((r) => r.operation),
     ).toEqual(expect.arrayContaining(["sources", "cohorts"]));
+  }, 60_000);
+
+  it("keeps the dataset named before in a follow-up, which drafts a question that names it", async () => {
+    play([
+      { text: "study-big holds 5210 scans from 120 subjects over 340 visits." },
+      { tool: "activate_skill", args: { name: "find-data" } },
+      { tool: "query_draft", args: { text: "ast_version: 1\nname: 3D scans in study-big\n" } },
+      { text: "24 of them are 3D." },
+    ]);
+    const h = init(Nils, { id: "oc-dataset-follow" });
+    await h.read(await h.dispatch("How many scans are in study-big?"));
+    // the count in all is the facts': no question drafted, nothing sent back
+    expect(calls).toBe(1);
+    expect(turnOf("oc-dataset-follow").drafted).toEqual([]);
+    const reply = await h.read(await h.dispatch("How many of them are 3D?"));
+    expect(reply.text).toMatch(/24 of them are 3D/u);
+    const second = appended(seen[1]);
+    expect(second).toMatch(
+      /earlier in this conversation the person named the dataset study-big \(identified\)/u,
+    );
+    expect(second).toMatch(
+      /keep it: activate the find-data skill and draft the question with the dataset named/u,
+    );
+    // the datasets were told on the first turn and have not changed since
+    expect(second.match(/## The datasets/gu)).toHaveLength(1);
+    expect(turnOf("oc-dataset-follow").datasets).toEqual(["study-big"]);
+    expect(turnOf("oc-dataset-follow").drafted).toEqual([812]);
+    // words that turn to a cohort leave the dataset
+    play([{ text: "Cohort B has 24 subjects." }]);
+    await h.read(await h.dispatch("How many subjects are in cohort B?"));
+    expect(turnOf("oc-dataset-follow").datasets).toEqual([]);
+    expect(appended(seen[0])).toMatch(/this looks like the find-data skill/u);
   }, 60_000);
 
   it("mounts from the person's grants: no data tools for a person without query:see", async () => {

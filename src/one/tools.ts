@@ -250,6 +250,9 @@ export function searchCatalog(
     if (hit(c.name)) out.push(`cohort ${c.name} (${c.members ?? "?"} members)`);
   // a dataset is where scans came from, never a cohort: its line carries its counts
   for (const d of datasets) if (hit(d.name)) out.push(`dataset ${lineOf(d)}`);
+  // a name the ask's catalog lists whose counts the facts do not hold
+  for (const n of cat?.datasets ?? [])
+    if (hit(n) && !datasets.some((d) => d.name === n)) out.push(`dataset ${n}`);
   for (const d of cat?.derived ?? []) if (hit(d.name)) out.push(`derived ${d.name} (${d.grain})`);
   for (const d of cat?.diseases ?? [])
     for (const c of d.courses ?? []) if (hit(c) || hit(d.name)) out.push(`course ${c} of ${d.name}`);
@@ -431,7 +434,7 @@ const registryDescribe: OneTool = {
             output: data(
               {
                 datasets: newestFirst(facts).map(lineOf),
-                note: "a question of the registry cannot narrow to one dataset; a dataset's counts are these",
+                note: "a dataset's counts in all are these; a question names a dataset with the field dataset",
               },
               "ask for one dataset by name",
             ),
@@ -458,7 +461,7 @@ const registryDescribe: OneTool = {
                         feeds: fact.feeds,
                       }
                     : {}),
-                  note: "a question of the registry cannot narrow to one dataset",
+                  note: "a question names it with the field dataset",
                 },
                 "",
               ),

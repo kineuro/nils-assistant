@@ -1,6 +1,6 @@
 ---
 name: check-identities
-description: Check how a dataset tells its people apart (the identifier its rule reads, identifiers held back, two subjects that are one person) and propose a rule or a merge. Use for questions about a dataset's identities.
+description: Check how a dataset tells its subjects apart (the identifier its rule reads, identifiers held back, two subjects that are one person) and propose a rule or a merge. Use for questions about a dataset's identities.
 ---
 # Checking identities
 

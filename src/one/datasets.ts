@@ -5,19 +5,21 @@
 // sure, how many need a look) and the cohort it feeds. A person asked how
 // many T1 scans with contrast a dataset holds and was told there was no
 // such dataset: the facts carried the cohorts and nothing of the datasets.
-// A dataset is not a cohort, and the ask language has no field that
-// narrows a question to one, so a dataset's own counts answer how much it
-// holds, and words that name one get its line in the turn's hint. Written
-// without angle brackets or ampersands, as the facts are, and in the
-// registry's words: subjects, visits, scans.
+// A dataset is not a cohort. Its own counts answer how much it holds in
+// all; anything narrower is a question that names it with the ask's
+// `dataset` field (the find-data skill). Words that name a dataset get its
+// line in the turn's hint, and a follow-up keeps the dataset named before.
+// Where the engine gives no counts, the names the ask's catalog lists stand
+// in. Written without angle brackets or ampersands, as the facts are, and in
+// the registry's words: subjects, visits, scans.
 
 import type { Answer, Seam } from "../seam/client.ts";
 
 /** One dataset as the facts carry it. */
 export interface DatasetFact {
   name: string;
-  /** What its structure says: identified, anonymised, both or unknown. */
-  state: string;
+  /** What its structure says: identified, anonymised, both or unknown; null for a name alone. */
+  state: string | null;
   subjects: number | null;
   visits: number | null;
   scans: number | null;
@@ -27,8 +29,8 @@ export interface DatasetFact {
   look: number | null;
   /** Scans no sort has judged yet. */
   unsorted: number | null;
-  /** The cohorts it feeds, by name. */
-  feeds: string[];
+  /** The cohorts it feeds, by name; null for a name alone. */
+  feeds: string[] | null;
   /** Its newest digest or change, for the order of the list; 0 when unknown. */
   at: number;
 }
@@ -129,6 +131,29 @@ export function datasetsOf(sources: unknown, cohorts: unknown = null): DatasetFa
   return out;
 }
 
+/** Datasets known by their names alone, as the ask's catalog lists them: no state, counts or cohorts. */
+export function namesOnly(names: unknown): DatasetFact[] {
+  return (Array.isArray(names) ? names : []).flatMap((n) => {
+    const name = word(n);
+    return name
+      ? [
+          {
+            name: clean(name),
+            state: null,
+            subjects: null,
+            visits: null,
+            scans: null,
+            sure: null,
+            look: null,
+            unsorted: null,
+            feeds: null,
+            at: 0,
+          },
+        ]
+      : [];
+  });
+}
+
 /** The newest first; datasets of the same moment by name. */
 export function newestFirst(list: readonly DatasetFact[]): DatasetFact[] {
   return [...list].sort((a, b) => b.at - a.at || a.name.localeCompare(b.name));
@@ -140,7 +165,7 @@ const many = (n: number, one: string): string => `${n} ${one}${n === 1 ? "" : "s
 export function lineOf(d: DatasetFact): string {
   const counted = [d.subjects, d.visits, d.scans].some((n) => n !== null);
   let counts: string;
-  if (!counted) counts = "its counts are not given";
+  if (!counted) counts = "its counts are not at hand";
   else if (!d.subjects && !d.visits && !d.scans) counts = "no scans yet";
   else {
     const sizes = [
@@ -158,18 +183,36 @@ export function lineOf(d: DatasetFact): string {
     counts = `${sizes.join(", ")}${sure.length ? ` (${sure.join(", ")})` : ""}`;
   }
   const feeds =
-    d.feeds.length === 0
-      ? "feeds no cohort"
-      : `feeds the cohort${d.feeds.length > 1 ? "s" : ""} ${d.feeds.join(" and ")}`;
-  return `${d.name} (${d.state}): ${counts}; ${feeds}`;
+    d.feeds === null
+      ? ""
+      : d.feeds.length === 0
+        ? "; feeds no cohort"
+        : `; feeds the cohort${d.feeds.length > 1 ? "s" : ""} ${d.feeds.join(" and ")}`;
+  return `${d.name}${d.state ? ` (${d.state})` : ""}: ${counts}${feeds}`;
 }
 
 const HEAD = "## The datasets (where the scans came from)";
 const INTRO =
-  "A dataset is not a cohort, and a question of the registry cannot narrow to one dataset: how many subjects, visits or scans a dataset holds is its count here. State: identified, anonymised, both (identified, with an anonymised copy) or unknown. Newest first:";
+  "A dataset is not a cohort. How many subjects, visits or scans a dataset holds in all is its count here; anything narrower is a question that names the dataset. State: identified, anonymised, both (identified, with an anonymised copy) or unknown. Newest first:";
 
-/** The datasets as the turn's facts carry them: the newest `shown` in full, the rest counted. */
-export function datasetsBlock(read: DatasetsRead, shown = DATASETS_SHOWN): string {
+/**
+ * The datasets as the turn's facts carry them: the newest `shown` in full, the rest counted. Where the sources door
+ * gave nothing, the names the ask's catalog lists (`names`) stand in: a question can still name a dataset.
+ */
+export function datasetsBlock(
+  read: DatasetsRead,
+  names: readonly DatasetFact[] = [],
+  shown = DATASETS_SHOWN,
+): string {
+  if (read.kind !== "ok" && names.length) {
+    const why = read.kind === "closed" ? "are not open to this person" : "could not be read this turn";
+    const rest = names.length - shown;
+    const listed = `${names
+      .slice(0, shown)
+      .map((d) => d.name)
+      .join(", ")}${rest > 0 ? `, and ${rest} more` : ""}`;
+    return `${HEAD}\nTheir counts ${why}, but a question can name one. By name: ${listed}. Never say a dataset is not there.`;
+  }
   if (read.kind === "closed")
     return `${HEAD}\nThe datasets are not open to this person. Never say a dataset is not there: say their account cannot see the datasets here, and that an admin can give it.`;
   if (read.kind === "unread")
@@ -197,10 +240,40 @@ export function datasetsNamed(message: string, list: readonly DatasetFact[]): Da
   );
 }
 
-/** The hint of a turn whose words name datasets: their lines, how a count is answered, and where a condition goes. */
-export function datasetHint(named: readonly DatasetFact[], condition: string): string {
+/** The hint of a turn whose words name datasets: their lines, how a count in all is answered, and where anything narrower goes. */
+export function datasetHint(named: readonly DatasetFact[], narrower: string): string {
   const which = named.map(lineOf).join("; and the dataset ");
-  return `Hint from the words: they name the dataset ${which}. How many subjects, visits or scans it holds is that count: answer with it, draft nothing, and never say it is not there. ${condition}`;
+  return `Hint from the words: they name the dataset ${which}. How many subjects, visits or scans it holds in all is that count: answer with it, with no question drafted, and never say it is not there. ${narrower}`;
+}
+
+/** The hint of a turn that names no dataset after one that did: words that go on about it keep it. */
+export function carriedHint(carried: readonly DatasetFact[], then: string): string {
+  const which = carried.map(lineOf).join("; and the dataset ");
+  return `Hint from the words: earlier in this conversation the person named the dataset ${which}. Words that go on about it (them, those, these scans, how many of them) keep it: ${then} Words about something else leave it.`;
+}
+
+/** Whether the words turn to a cohort, which ends a dataset named before: they say cohort, or name one. */
+export function leavesDatasets(message: string, cohorts: readonly string[]): boolean {
+  if (/\bcohorts?\b/iu.test(message)) return true;
+  const text = message.toLowerCase();
+  return cohorts.some(
+    (c) =>
+      c.length >= 2 &&
+      new RegExp(`(?<![\\p{L}\\p{N}_-])${literal(c.toLowerCase())}(?![\\p{L}\\p{N}_-])`, "u").test(text),
+  );
+}
+
+/** Whether an answer gives one of the datasets' own counts in all: a count from the facts, which needs no question. */
+export function citesCount(answer: string, datasets: readonly DatasetFact[]): boolean {
+  const own = new Set(
+    datasets
+      .flatMap((d) => [d.subjects, d.visits, d.scans])
+      .filter((n): n is number => typeof n === "number" && n > 0),
+  );
+  if (own.size === 0) return false;
+  for (const m of answer.matchAll(/\d{1,3}(?:[,\u00a0\u202f ]\d{3})+(?!\d)|\d+/gu))
+    if (own.has(Number(m[0].replace(/\D/gu, "")))) return true;
+  return false;
 }
 
 // an apostrophe as a model writes it, straight or curly

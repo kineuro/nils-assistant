@@ -4,15 +4,19 @@
 // dataset: its facts listed the cohorts and nothing of the datasets. Each
 // dataset now comes with its state, its subjects, visits and scans and the
 // cohort it feeds, the newest thirty listed and the rest counted; words that
-// name one get its line in the hint; the registry's search finds it; and an
-// answer that says a named dataset is not there goes back once.
+// name one get its line in the hint, and a follow-up keeps it; the
+// registry's search finds it; a question names it with the ask's `dataset`
+// field; and an answer that says a named dataset is not there goes back once.
 
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
+import { SETS } from "../src/host/grants.ts";
 import { complaintsOf } from "../src/one/checks.ts";
 import {
+  carriedHint,
+  citesCount,
   type DatasetFact,
   datasetHint,
   datasetsBlock,
@@ -20,11 +24,16 @@ import {
   datasetsOf,
   forgetDatasets,
   knownDatasets,
+  leavesDatasets,
+  lineOf,
+  namesOnly,
   readDatasets,
   saysNotThere,
 } from "../src/one/datasets.ts";
 import { factsOf } from "../src/one/facts.ts";
+import { grantsLine, mountFor } from "../src/one/mount.ts";
 import { hintLine, routeOf } from "../src/one/route.ts";
+import { loadSkills } from "../src/one/skills.ts";
 import { conversationOf, newTurn } from "../src/one/state.ts";
 import { searchCatalog } from "../src/one/tools.ts";
 import { Seam, type Station } from "../src/seam/client.ts";
@@ -118,7 +127,9 @@ describe("the datasets the facts carry", () => {
   it("writes them newest first in the registry's words, with nothing a tag would escape", () => {
     const block = datasetsBlock({ kind: "ok", list: datasetsOf(SOURCES, COHORTS) });
     expect(block).toMatch(/^## The datasets \(where the scans came from\)/u);
-    expect(block).toMatch(/a question of the registry cannot narrow to one dataset/u);
+    expect(block).toMatch(
+      /in all is its count here; anything narrower is a question that names the dataset/u,
+    );
     const lines = block.split("\n").filter((l) => l.startsWith("- "));
     expect(lines).toEqual([
       "- study-big (identified): 120 subjects, 340 visits, 5210 scans (4900 sure, 310 need a look); feeds the cohort both-sites",
@@ -171,6 +182,24 @@ describe("the datasets the facts carry", () => {
     expect(datasetsBlock({ kind: "ok", list: [] })).toMatch(/holds no dataset yet/u);
   });
 
+  it("names the datasets the ask's catalog lists when their counts are not open, since a question can name one", () => {
+    const names = namesOnly(["study-big", "ms-a", "", 3]);
+    expect(names.map(lineOf)).toEqual([
+      "study-big: its counts are not at hand",
+      "ms-a: its counts are not at hand",
+    ]);
+    const closed = datasetsBlock({ kind: "closed" }, names);
+    expect(closed).toMatch(/Their counts are not open to this person, but a question can name one/u);
+    expect(closed).toMatch(/By name: study-big, ms-a\./u);
+    expect(closed).not.toMatch(/admin/u);
+    expect(datasetsBlock({ kind: "unread" }, names)).toMatch(
+      /could not be read this turn, but a question can name one/u,
+    );
+    expect(datasetsNamed("How many T1 scans are in study-big?", names).map((d) => d.name)).toEqual([
+      "study-big",
+    ]);
+  });
+
   it("sends the datasets once, and again when they change", () => {
     const first = factsOf({
       told: { summary: null, grants: null },
@@ -213,14 +242,46 @@ describe("words that name a dataset", () => {
     expect(named("compare study and ms-a")).toEqual(["ms-a", "study"]);
   });
 
-  it("get the dataset's line in the hint, in place of drafting a question", () => {
+  it("get the dataset's line in the hint: its count in all from the facts, anything narrower a question", () => {
     const [big] = datasetsNamed("How many scans are in study-big?", list);
-    const hint = datasetHint([big], "A condition on its scans goes through the find-data skill.");
+    const hint = datasetHint([big], "Anything narrower is a question that names the dataset.");
     expect(hint).toMatch(
       /they name the dataset study-big \(identified\): 120 subjects, 340 visits, 5210 scans/u,
     );
-    expect(hint).toMatch(/answer with it, draft nothing, and never say it is not there/u);
+    expect(hint).toMatch(
+      /in all is that count: answer with it, with no question drafted, and never say it is not there/u,
+    );
+    expect(hint).toMatch(/Anything narrower is a question that names the dataset\.$/u);
     expect(hint).not.toMatch(/[<>&]/u);
+  });
+
+  it("are kept by a follow-up that names none, until the words turn to a cohort", () => {
+    const [big] = datasetsNamed("How many scans are in study-big?", list);
+    const hint = carriedHint(
+      [big],
+      "activate the find-data skill and draft the question with the dataset named.",
+    );
+    expect(hint).toMatch(
+      /earlier in this conversation the person named the dataset study-big \(identified\)/u,
+    );
+    expect(hint).toMatch(
+      /keep it: activate the find-data skill and draft the question with the dataset named\./u,
+    );
+    expect(hint).not.toMatch(/[<>&]/u);
+    const cohorts = ["ms-cohort-a", "nmosd"];
+    expect(leavesDatasets("How many of them are 3D?", cohorts)).toBe(false);
+    expect(leavesDatasets("Only those from 2020.", cohorts)).toBe(false);
+    expect(leavesDatasets("How many subjects are in cohort B?", cohorts)).toBe(true);
+    expect(leavesDatasets("And in nmosd?", cohorts)).toBe(true);
+  });
+
+  it("tell a count in all, which needs no question, from any other number", () => {
+    const [big] = datasetsNamed("study-big", list);
+    expect(citesCount("study-big holds 5,210 scans from 120 subjects.", [big])).toBe(true);
+    expect(citesCount("study-big holds 5210 scans.", [big])).toBe(true);
+    expect(citesCount("There are 37 T1 scans with contrast in study-big.", [big])).toBe(false);
+    expect(citesCount("study-big holds 5210 scans.", [])).toBe(false);
+    expect(citesCount("It holds 0 scans.", [{ ...big, subjects: 0, visits: 0, scans: 0 }])).toBe(false);
   });
 
   it("route a question of which datasets there are to the facts, and a count in a dataset to finding data", () => {
@@ -243,6 +304,34 @@ describe("words that name a dataset", () => {
       "cohort ms-cohort-a (24 members)",
       "dataset ms-a (both): 24 subjects, 80 visits, 900 scans (899 sure, 1 needs a look); feeds the cohorts both-sites and ms-cohort-a",
     ]);
+    // a name the ask's catalog lists whose counts the facts do not hold
+    expect(searchCatalog({ datasets: ["study-big", "ds-new"] }, "ds-new study-big", list)).toEqual([
+      "dataset study-big (identified): 120 subjects, 340 visits, 5210 scans (4900 sure, 310 need a look); feeds the cohort both-sites",
+      "dataset ds-new",
+    ]);
+  });
+});
+
+describe("the words the agent reads about datasets", () => {
+  it("teach a question that names a dataset with the ask's dataset field", () => {
+    const find = loadSkills(["./stations"], ["find-data"]).get("find-data");
+    if (!find) throw new Error("no find-data");
+    const para = find.body.split("\n\n").find((x) => x.startsWith("A **dataset**")) ?? "";
+    expect(para).toMatch(/\["=", \{\}, \["field", \{\}, "dataset"\], "study-big"\]/u);
+    expect(para).toMatch(/\["=", \{\}, \["axis", \{\}, "post_contrast"\], "given"\]/u);
+    expect(para).toMatch(/`=`, `in` and `has` ask whether one is among them/u);
+    expect(para).toMatch(/A follow-up that names no other dataset .* keeps the clause/u);
+    expect(para).not.toMatch(/cannot narrow|over that cohort/u);
+  });
+
+  it("say subjects, never people", () => {
+    expect(grantsLine(mountFor(SETS.admin))).toMatch(/check how a dataset tells its subjects apart/u);
+    const skills = loadSkills(["./stations"], ["find-data", "check-identities"]);
+    for (const [id, sk] of skills) {
+      expect(sk.description, id).not.toMatch(/\bpeople\b/iu);
+      expect(sk.body, id).not.toMatch(/\bpeople\b/iu);
+    }
+    expect(grantsLine(mountFor(SETS.admin))).not.toMatch(/\bpeople\b/iu);
   });
 });
 
@@ -271,10 +360,10 @@ describe("an answer about a named dataset", () => {
     }
   });
 
-  it("settles when it answers from the dataset's counts, or says a question cannot narrow to one", async () => {
+  it("settles when it answers from the dataset's counts, or from a question that names it", async () => {
     const fine = [
       "study-big holds 5210 scans from 120 subjects over 340 visits; 4900 are sure and 310 need a look.",
-      "A question cannot narrow to one dataset yet, and study-big feeds no cohort: it holds 5210 scans in all.",
+      "study-big has no T1 scans with contrast; it holds 5210 scans in all.",
       "There is no dataset filter in a question yet; study-big holds 5210 scans.",
       "study-big is a dataset, not a cohort: it holds 5210 scans.",
     ];

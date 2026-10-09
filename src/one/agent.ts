@@ -38,19 +38,23 @@ import { catalogOf, prelude } from "../stations/prelude.ts";
 import { CARD_OF, theChanges } from "./changes.ts";
 import { complaintsOf, sendBack, validator } from "./checks.ts";
 import {
+  carriedHint,
+  citesCount,
   type DatasetFact,
   datasetHint,
   datasetsBlock,
   datasetsNamed,
   knownDatasets,
+  leavesDatasets,
   lineOf,
+  namesOnly,
   readDatasets,
 } from "./datasets.ts";
 import { factsOf, factsSummary, type Told } from "./facts.ts";
 import { type Access, grantsLine, type Mounted, mountFor } from "./mount.ts";
 import { hintLine, routeOf } from "./route.ts";
 import { bodyFor, findExamples, loadSkills, skillOf } from "./skills.ts";
-import { conversationOf, newTurn, turnOf } from "./state.ts";
+import { answerOf, conversationOf, newTurn, turnOf } from "./state.ts";
 import {
   type OneTool,
   oneSeam,
@@ -249,25 +253,35 @@ export function guardEveryCall(): void {
 
 // ------------------------------------------------------------------ the agent
 
-/** The turn's hint: words that name datasets get their counts; in the sub-agent arm, finding data is the find agent's. */
+/**
+ * The turn's hint: words that name datasets get their counts, and a follow-up the dataset named before; in the
+ * sub-agent arm, finding data is the find agent's.
+ */
 function hintFor(
   r: ReturnType<typeof routeOf>,
   m: Mounted,
   arm: FindArm,
   named: readonly DatasetFact[] = [],
+  carried: readonly DatasetFact[] = [],
 ): string {
-  if (named.length && !r.summary && (r.skill === null || r.skill === "find-data")) {
-    const find = m.skills.includes("find-data");
+  const find = m.skills.includes("find-data");
+  if (named.length && !r.summary && (r.skill === null || r.skill === "find-data"))
     return datasetHint(
       named,
       !find
         ? "This person may not look up data beyond that count."
         : arm === "subagent"
-          ? "A condition on its scans (a kind of scan, a date) goes to the find agent with the task tool, with the dataset named."
-          : "A condition on its scans (a kind of scan, a date) goes through the find-data skill, which says what a dataset allows.",
+          ? "Anything narrower (a kind of scan, a date, a score) goes to the find agent with the task tool, with the dataset named."
+          : "Anything narrower (a kind of scan, a date, a score) is a question that names the dataset: activate the find-data skill and draft it.",
     );
-  }
-  if (arm === "subagent" && r.skill === "find-data" && m.skills.includes("find-data"))
+  if (carried.length && find)
+    return carriedHint(
+      carried,
+      arm === "subagent"
+        ? "give it to the find agent with the task tool, with the dataset named."
+        : "activate the find-data skill and draft the question with the dataset named, or change the question drafted before.",
+    );
+  if (arm === "subagent" && r.skill === "find-data" && find)
     return `Hint from the words (${r.because}): this looks like finding data; give it to the find agent with the task tool.`;
   return hintLine(r, m.skills);
 }
@@ -402,14 +416,18 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
       // written when the task runs, after the turn's facts read the datasets
       const briefOf = (): string => {
         const document = theLineage().conversation(id)?.document ?? convo.documents.at(-1) ?? null;
-        const named = (knownDatasets(subject) ?? []).filter((x) => turnOf(id).datasets.includes(x.name));
+        const known = knownDatasets(subject) ?? [];
+        const about = turnOf(id).datasets.map((n) => {
+          const d = known.find((x) => x.name === n);
+          return d ? lineOf(d) : n;
+        });
         return [
           `The person's words, as they wrote them: "${message.replace(/"/gu, "'")}"`,
           document !== null
             ? `The question this refines is document ${document}: read it with registry_describe, what document, and change what the words change.`
             : "",
-          named.length
-            ? `The words name the dataset ${named.map(lineOf).join("; and the dataset ")}. A question of the registry cannot narrow to one dataset.`
+          about.length
+            ? `The question is about the dataset ${about.join("; and the dataset ")}: name it with the field dataset.`
             : "",
           grantsLine(mounted),
         ]
@@ -472,15 +490,31 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
         }
       };
       const [summary, datasets] = await Promise.all([readSummary(), readTheDatasets()]);
-      const named = datasets?.kind === "ok" ? datasetsNamed(message, datasets.list) : [];
-      turnOf(id).datasets = named.map((x) => x.name);
+      // where the sources door gave nothing, the names the ask's catalog lists stand in
+      const names = namesOnly(catalogOf(subject)?.datasets);
+      const list = datasets?.kind === "ok" ? datasets.list : names;
+      const route = routeOf(message);
+      const named = datasetsNamed(message, list);
+      // a follow-up that names no dataset keeps the one named before; words that turn to a cohort leave it
+      let carried: DatasetFact[] = [];
+      if (named.length) convo.datasets = named.map((x) => x.name);
+      else if (
+        leavesDatasets(
+          message,
+          (catalogOf(subject)?.cohorts ?? []).map((c) => c.name),
+        )
+      )
+        convo.datasets = [];
+      else if (!route.summary && (route.skill === null || route.skill === "find-data"))
+        carried = list.filter((x) => convo.datasets.includes(x.name));
+      turnOf(id).datasets = [...named, ...carried].map((x) => x.name);
       const document = theLineage().conversation(id)?.document ?? null;
       const facts = factsOf({
         told,
         summary,
-        datasets: datasets ? datasetsBlock(datasets) : null,
+        datasets: datasets ? datasetsBlock(datasets, names) : null,
         grants: grantsLine(mounted),
-        hint: hintFor(routeOf(message), mounted, o.arm, named),
+        hint: hintFor(route, mounted, o.arm, named, carried),
         document,
       });
       setTold(facts.told);
@@ -498,8 +532,11 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
           convo,
           conversation: id,
           validate: t.drafted.length ? validator(() => oneSeam("ask-help", id)) : null,
-          // words that name a dataset are answered from its counts, with no question drafted
-          hinted: t.datasets.length
+          // a dataset's own count in all is the facts' and needs no question; any other number does
+          hinted: citesCount(
+            answerOf(t),
+            (knownDatasets(subject) ?? []).filter((x) => t.datasets.includes(x.name)),
+          )
             ? null
             : ((r) => (r && mounted.skills.includes(r) ? r : null))(routeOf(t.message).skill),
         });
