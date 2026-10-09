@@ -34,6 +34,8 @@
 #              the person's own, held back and sent one at a time while it
 #              does not (as bench/chains.ts counts them)
 #   document   none: the turn leaves no document
+#   query      matchers on the question the turn left, read as the engine
+#              stores it (its ask, as JSON): a clause it must carry
 #   proposal   false: nothing proposed; else the proposal's kind and fields
 #   says       matchers on the answer text
 #   sentences  at most this many sentences in the answer
@@ -326,10 +328,12 @@ conversations:
           says: [{match: "\\bno\\b[^.]*\\bALS\\b|\\bALS\\b[^.]*\\b(no|not|none|isn't|doesn't)\\b|\\bthere is no\\b"}]
 
   # --- a dataset by its name: where scans came from, not a cohort. Its own
-  #     counts answer how much it holds, and a question cannot narrow to one
-  #     dataset; the chat once said a dataset was not there (2026-10-09). The
-  #     seeded datasets are laid down and pseudonymised, not digested, so
-  #     ds-clean may hold no scans yet: the answer is graded on naming it.
+  #     counts answer how much it holds in all; anything narrower is a
+  #     question that names it with the ask's dataset field. The chat once
+  #     said a dataset was not there (2026-10-09). The seeded datasets are
+  #     laid down and pseudonymised, not digested, so ds-clean may hold no
+  #     scans yet: the answers are graded on naming it, the question on its
+  #     clause.
   - id: summary-dataset
     kind: summary
     registry: seeded
@@ -345,8 +349,9 @@ conversations:
             - {not: {match: "\\bno (such )?(cohort or )?datasets? (called|named|by that name|like)\\b|\\bthere(.s| is) no (such )?(cohort or )?dataset\\b|\\b(isn.t|is not|not) a dataset\\b|\\b(couldn.t|could not|can.t|cannot) find (a|any|the) (cohort or )?dataset\\b"}}
       - say: How many T1 scans with contrast are in ds-clean?
         expect:
-          skill: any
+          skill: find-data
           proposal: false
+          query: [{match: "\\[\"field\",\\{\\},\"dataset\"\\]"}, {match: "\"ds-clean\""}]
           says:
             - {match: "\\bds-clean\\b"}
             - {not: {match: "\\bno (such )?(cohort or )?datasets? (called|named|by that name|like)\\b|\\bthere(.s| is) no (such )?(cohort or )?dataset\\b|\\b(isn.t|is not|not) a dataset\\b|\\b(couldn.t|could not|can.t|cannot) find (a|any|the) (cohort or )?dataset\\b"}}

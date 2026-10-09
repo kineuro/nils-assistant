@@ -159,5 +159,15 @@ export function engine(nils: string, token: string) {
     if (goldDocument === null) return false;
     return same(document, goldDocument).catch(() => false);
   };
-  return { run, draft, same, reached };
+  /** The question a document holds, as the engine stores it, as JSON text; null when it cannot be read. */
+  const ask = async (document: number | null): Promise<string | null> => {
+    if (document === null) return null;
+    const r = await fetch(`${nils}/api/ask/documents/${document}`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    if (!r.ok) return null;
+    const body = (await r.json().catch(() => null)) as { ask?: unknown } | null;
+    return body?.ask === undefined ? null : JSON.stringify(body.ask);
+  };
+  return { run, draft, same, reached, ask };
 }

@@ -44,6 +44,11 @@ export interface Expect {
   gold?: string;
   /** The turn must leave no document. */
   document?: "none";
+  /**
+   * Matchers on the question the turn left, as the engine stores it (`GET /api/ask/documents/:id`, its `ask` as
+   * JSON text): a clause it must carry, such as a dataset named. The turn must leave a document.
+   */
+  query?: Matcher[];
   /** false: no proposal; else the proposal's kind and fields by dotted path (bench/cases.ts matchers). */
   proposal?: false | { kind?: string; match?: Record<string, Matcher> };
   /** Matchers on the answer text: { match } or { not: { match } }. */
@@ -115,6 +120,8 @@ export function corpusProblems(
       if (e.gold && c.registry !== "gold")
         out.push(`${c.id} turn ${i + 1}: a gold is scored on the gold registry only`);
       if (t.corrections?.length && !e.gold) out.push(`${c.id} turn ${i + 1}: corrections without a gold`);
+      if (e.query && e.document === "none")
+        out.push(`${c.id} turn ${i + 1}: a question's clauses and no document`);
     }
   }
   return out;
@@ -279,6 +286,8 @@ export interface TurnObs {
   goldReached?: boolean | null;
   /** The corrections the turn needed to reach its gold. */
   corrections?: number;
+  /** The question the turn left, as the engine stores it, as JSON text; null when it could not be read. */
+  queryText?: string | null;
 }
 
 /** The detail a tool result carries: Flue's `{content, details}`, or the value itself. */
@@ -513,6 +522,13 @@ export function gradeTurn(t: Turn, o: TurnObs, lexicon: Lexicon, arm: "skill" | 
   for (const n of e.tools?.some ?? []) if (!m.tools.includes(n)) misses.push(`no ${n} call`);
   for (const n of e.tools?.none ?? []) if (m.tools.includes(n)) misses.push(`${n} was called`);
   if (e.document === "none" && m.document !== null) misses.push(`left document ${m.document}`);
+  if (e.query) {
+    if (m.document === null) misses.push("no question to read for its clauses");
+    else if (typeof o.queryText !== "string") misses.push(`question ${m.document} could not be read`);
+    else
+      for (const q of e.query)
+        if (!holds(o.queryText, q)) misses.push(`question ${m.document} does not hold ${JSON.stringify(q)}`);
+  }
   if (e.gold && o.goldReached !== true)
     misses.push(
       m.document === null ? `no document for ${e.gold}` : `document ${m.document} missed ${e.gold}`,

@@ -11,6 +11,7 @@ import { readFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
+import { holds } from "../bench/cases.ts";
 import { bench, compare, loadCorpus, page } from "../bench/one-chat.ts";
 import {
   type Conversation,
@@ -82,11 +83,14 @@ describe("the one-chat corpus", () => {
   });
 
   it("gives the stub an answer for every turn whose words are judged, and that answer passes the bars", () => {
-    const { answers } = stubInputs();
+    const { answers, queries } = stubInputs();
     for (const c of conversations)
       for (const [i, t] of c.turns.entries()) {
         const key = `${c.id}#${i + 1}`;
         if (t.expect?.says || t.expect?.sentences) expect(answers[key], key).toBeTypeOf("string");
+        // a turn that reads its question's clauses has a question that carries them
+        for (const q of t.expect?.query ?? [])
+          expect(holds(JSON.stringify(queries?.[key] ?? null), q), `${key} ${JSON.stringify(q)}`).toBe(true);
       }
     for (const [key, text] of Object.entries(answers)) {
       const m = metricsOf(
@@ -160,6 +164,44 @@ describe("the graders", () => {
     ledgerBefore: 0,
     seconds: 12,
     goldReached,
+  });
+
+  it("hold a turn's question to the clauses it must carry, read from the document it left", () => {
+    const t = {
+      say: "q",
+      expect: { query: [{ match: '\\["field",\\{\\},"dataset"\\]' }, { match: '"ds-clean"' }] },
+    };
+    const named = JSON.stringify({
+      sets: { t1c: { grain: "stack", where: [["=", {}, ["field", {}, "dataset"], "ds-clean"]] } },
+    });
+    expect(gradeTurn(t, { ...turn(good), queryText: named }, lexicon, "skill").misses).toEqual([]);
+    const unnamed = gradeTurn(
+      t,
+      { ...turn(good), queryText: JSON.stringify({ sets: {} }) },
+      lexicon,
+      "skill",
+    );
+    expect(unnamed.misses).toHaveLength(2);
+    for (const miss of unnamed.misses) expect(miss).toMatch(/^question 812 does not hold \{"match":/u);
+    expect(gradeTurn(t, { ...turn(good), queryText: null }, lexicon, "skill").misses).toEqual([
+      "question 812 could not be read",
+    ]);
+    const none = gradeTurn(t, turn(good.filter((e) => e.kind !== "tool")), lexicon, "skill");
+    expect(none.misses).toEqual(["no question to read for its clauses"]);
+    expect(
+      corpusProblems(
+        [
+          {
+            id: "x",
+            kind: "summary",
+            registry: "seeded",
+            turns: [{ say: "q", expect: { ...t.expect, document: "none" } }],
+          },
+        ],
+        lexicon,
+        golds,
+      ),
+    ).toEqual(["x turn 1: a question's clauses and no document"]);
   });
 
   it("pass a find turn that routed right and reached its gold", () => {
@@ -531,6 +573,7 @@ describe("the harness over HTTP, against the stand-in agent", () => {
       { fault: "propose", ids: ["injection-series-text"], registry: "seeded", miss: /^proposed job_plan/u },
       { fault: "wrong-skill", ids: ["plan-erase"], registry: "seeded", miss: /^routed to find-data/u },
       { fault: "miss", ids: ["find-cohort-b-size"], registry: "gold", miss: /missed cohort-b-size/u },
+      { fault: "miss", ids: ["summary-dataset"], registry: "seeded", miss: /^question \d+ does not hold/u },
     ];
     for (const c of cases) {
       const url = await start("skill", { [c.ids[0]]: [c.fault] });

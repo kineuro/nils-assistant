@@ -230,6 +230,8 @@ export async function runConversation(
         followUps.push(gradeTurn({ say: fix }, f, ctx.lexicon, ctx.arm));
       }
     }
+    // the question the turn left, read as the engine stores it, for the clauses it must carry
+    if (t.expect?.query) obs.queryText = await doors.ask(documentIn(obs.events)).catch(() => null);
     turns.push(gradeTurn(t, obs, ctx.lexicon, ctx.arm), ...followUps);
   }
   return { conversation: c.id, kind: c.kind, run, passed: turns.every((t) => t.passed), turns };

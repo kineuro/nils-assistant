@@ -12,8 +12,8 @@
 // conversation. Faults make it misbehave in the ways the graders must
 // catch: a door phrase, an engine word, a step after the answer, a write
 // with no approval, a proposal where none belongs, the wrong skill, a run
-// that fails only the third time, a document that misses its gold, a
-// malformed or refused call.
+// that fails only the third time, a document that misses its gold or the
+// clauses its question must carry, a malformed or refused call.
 //
 // It knows which conversation and turn a message belongs to from the
 // conversation id the bench gives (`oc-<id>-r<run>-<stamp>`) and the turns
@@ -68,6 +68,8 @@ export interface StubOptions {
   goldTexts: Record<string, string>;
   /** The oracle's answers, by `<conversation>#<turn>`, 1-based. */
   answers: Record<string, string>;
+  /** The questions the oracle drafts where a turn's `query` reads one, as the engine stores them, by the same key. */
+  queries?: Record<string, unknown>;
   arm: "skill" | "subagent";
   /** Faults by conversation id, or `*` for every conversation. */
   faults?: Record<string, Fault[]>;
@@ -118,6 +120,8 @@ export function stub(o: StubOptions): Server {
   const turnsSeen = new Map<string, { turn: number; corrections: number }>();
   const plans = new Map<string, Rec>();
   const documents = new Map<number, string | null>();
+  /** The question each drafted document holds, for the stored-question door. */
+  const asks = new Map<number, unknown>();
   let nextDocument = 500;
   let nextPlan = 1;
   let nextSubmission = 1;
@@ -193,6 +197,12 @@ export function stub(o: StubOptions): Server {
       const wrong = has("miss") || (has("miss-until-corrected") && !isCorrection);
       const id = nextDocument++;
       documents.set(id, wrong ? `${right}-not` : right);
+      tool("query_draft", { question: message }, { content: [], details: { document: id } });
+    }
+    if (!e.gold && e.query) {
+      const id = nextDocument++;
+      // a miss stores a question without the clauses the turn must carry
+      asks.set(id, has("miss") ? { sets: {} } : (o.queries?.[`${c?.id}#${seen.turn}`] ?? null));
       tool("query_draft", { question: message }, { content: [], details: { document: id } });
     }
     if (!isCorrection && e.proposal && typeof e.proposal === "object") {
@@ -336,6 +346,13 @@ export function stub(o: StubOptions): Server {
           rows: [],
         });
       }
+      const stored = /^\/api\/ask\/documents\/(\d+)$/u.exec(path);
+      if (stored && req.method === "GET") {
+        const id = Number(stored[1]);
+        return asks.has(id)
+          ? send(res, 200, { document: id, ask: asks.get(id) })
+          : send(res, 404, { error: `no document ${id}` });
+      }
       if (req.method === "GET" && path === "/api/batches") return send(res, 200, { batches: BATCHES });
       if (req.method === "GET" && path === "/api/ask/documents")
         return send(res, 200, { documents: DOCUMENTS });
@@ -359,10 +376,11 @@ export function stubInputs(dir = join(process.cwd(), "bench")): Omit<StubOptions
   const goldTexts: Record<string, string> = {};
   for (const f of readdirSync(join(dir, "gold")).filter((f) => f.endsWith(".ask.yml")))
     goldTexts[f] = readFileSync(join(dir, "gold", f), "utf8");
-  const answers = (
-    parse(readFileSync(join(dir, "one-chat-stub.yml"), "utf8")) as { answers: Record<string, string> }
-  ).answers;
-  return { conversations, lexicon, golds, goldTexts, answers };
+  const oracle = parse(readFileSync(join(dir, "one-chat-stub.yml"), "utf8")) as {
+    answers: Record<string, string>;
+    queries?: Record<string, unknown>;
+  };
+  return { conversations, lexicon, golds, goldTexts, answers: oracle.answers, queries: oracle.queries ?? {} };
 }
 
 /** A digest of the stub's answers, so a test can tell the oracle's text changed. */
