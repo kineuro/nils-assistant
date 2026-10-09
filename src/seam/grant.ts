@@ -53,6 +53,8 @@ export function operationOf(method: string, path: string): string {
   // a pipeline is named by its id, its name or name@version (record 49)
   if (/^pipelines\/[^/]+\/preflight$/u.test(named)) return "pipelines/{name}/preflight";
   if (/^pipelines\/[^/]+$/u.test(named)) return "pipelines/{name}";
+  // a dataset is named by its name (Wave 7a, the Data page)
+  if (/^datasets\/[^/]+\/summary$/u.test(named)) return "datasets/{name}/summary";
   return method.toUpperCase() === "GET" && named === "capabilities" ? "capabilities" : named;
 }
 

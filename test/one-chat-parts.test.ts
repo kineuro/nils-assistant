@@ -2,7 +2,8 @@
 // One chat (2026-10-09), the parts of the one agent that need no model:
 // what a person's grants mount, the routing hint, the turn's facts, plain
 // words, the skills on disk, the decoy task tool left out, the checks
-// before a turn settles, and a proposed change decided and applied.
+// before a turn settles, the jobs as jobs_read lists them, and a proposed
+// change decided and applied.
 
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -18,7 +19,7 @@ import { grantsLine, mountFor, SKILL_ORDER, TOOL_ORDER } from "../src/one/mount.
 import { hintLine, routeOf } from "../src/one/route.ts";
 import { bodyFor, findExamples, loadSkills, parseSkill } from "../src/one/skills.ts";
 import { conversationOf, newTurn } from "../src/one/state.ts";
-import { searchCatalog, TOOLS } from "../src/one/tools.ts";
+import { isWorker, jobsOf, searchCatalog, TOOLS } from "../src/one/tools.ts";
 import { plainly, unplainWords } from "../src/one/words.ts";
 import { withoutTask } from "../src/providers/kvasir.ts";
 import { GrantKeeper } from "../src/seam/grant.ts";
@@ -74,11 +75,27 @@ describe("the routing hint", () => {
       false,
     ],
     ["Check how dataset ds-same tells its people apart. Is anything held back?", "check-identities", false],
+    // the registry's jobs: no skill, and never a question of the data (2026-10-09)
+    ["What is the last job and how did it go?", null, false],
+    ["Which jobs are running now?", null, false],
+    ["Did the digest job of study-a finish?", null, false],
+    ["Queue a classify job for tonight.", "plan-work", false],
   ];
   it.each(cases)("%s", (words, skill, summary) => {
     const r = routeOf(words);
     expect(r.skill).toBe(skill);
     expect(r.summary).toBe(summary);
+  });
+
+  it("points a question about the jobs at the jobs, never at finding data", () => {
+    const r = routeOf("What is the last job and how did it go?");
+    expect(r.jobs).toBe(true);
+    const hint = hintLine(r, ["find-data"], ["registry_summary", "jobs_read"]);
+    expect(hint).toMatch(/the registry's jobs are asked about/u);
+    expect(hint).toMatch(/jobs_read/u);
+    expect(hint).not.toMatch(/find-data/u);
+    expect(hintLine(r, ["find-data"], ["registry_summary"])).toMatch(/may not read the jobs here/u);
+    expect(routeOf("How many subjects are in cohort B?").jobs).toBeFalsy();
   });
 
   it("says a skill the person may not use is to be refused, not suggested", () => {
@@ -247,6 +264,92 @@ describe("the checks before a turn settles", () => {
     t.texts.push("I will digest the inbox.");
     const c = { turn: t, convo: conversationOf("chk-4"), conversation: "chk-4", validate: null };
     expect((await complaintsOf(c)).join(" ")).toMatch(/kind job_plan/u);
+  });
+});
+
+describe("the jobs, as jobs_read gives them", () => {
+  const job = (id: number, kind: string, state: string, more: Record<string, unknown> = {}) => ({
+    id,
+    kind,
+    name: `${kind} ${id}`,
+    state,
+    pid: 7,
+    host: "lab",
+    started_at: `2026-10-09 10:${String(id % 60).padStart(2, "0")}:00`,
+    heartbeat_at: null,
+    finished_at: ["done", "failed", "cancelled"].includes(state) ? "2026-10-09 11:00:00" : null,
+    progress: { done: 1, total: 2 },
+    error: null,
+    args: { queued: [kind], argv: ["nils", kind] },
+    result: { judged: 3 },
+    chain: { before: null, after: null },
+    ...more,
+  });
+
+  it("leaves out the queue's own rows, whatever its lane", () => {
+    for (const k of ["worker", "pipeline-worker", "picture-worker", "pyramid-worker"])
+      expect(isWorker(k), k).toBe(true);
+    for (const k of ["pipeline", "pyramid", "digest", "classify", "workers-report"])
+      expect(isWorker(k), k).toBe(false);
+  });
+
+  it("gives the newest ten of every state, newest first, and any older one still open, each in a few fields", () => {
+    const recent = {
+      count: 14,
+      jobs: [
+        job(200, "worker", "running"),
+        job(199, "picture-worker", "running"),
+        ...Array.from({ length: 12 }, (_, i) =>
+          job(
+            150 - i,
+            i === 1 ? "digest" : "classify",
+            i === 1 ? "failed" : "done",
+            i === 1 ? { error: `no tree here ${"y".repeat(400)}` } : {},
+          ),
+        ),
+      ],
+    };
+    const open = { count: 2, jobs: [job(150, "classify", "done"), job(40, "pipeline", "running")] };
+    const out = jobsOf(recent, open);
+    expect(out.jobs.map((j) => j.id)).toEqual([150, 149, 148, 147, 146, 145, 144, 143, 142, 141, 40]);
+    expect(out.jobs[0]).toEqual({
+      id: 150,
+      kind: "classify",
+      name: "classify 150",
+      state: "done",
+      started_at: "2026-10-09 10:30:00",
+      finished_at: "2026-10-09 11:00:00",
+    });
+    expect(out.jobs[1].error).toMatch(/^no tree here y+…$/u);
+    expect(String(out.jobs[1].error).length).toBe(201);
+    expect(out.jobs.at(-1)).toEqual({
+      id: 40,
+      kind: "pipeline",
+      name: "pipeline 40",
+      state: "running",
+      started_at: "2026-10-09 10:40:00",
+    });
+    expect(out.note).toBe("the newest 10; read an older one by its id");
+    // a long queue behind them is listed by its newest ten
+    const queue = { jobs: Array.from({ length: 15 }, (_, i) => job(100 - i, "pipeline", "queued")) };
+    const long = jobsOf(recent, queue);
+    expect(long.jobs.filter((j) => j.state === "queued").map((j) => j.id)).toEqual([
+      100, 99, 98, 97, 96, 95, 94, 93, 92, 91,
+    ]);
+    expect(long.jobs).toHaveLength(20);
+    // an engine's own words for a job that did not fail are left out, as are its command line and result
+    expect(
+      JSON.stringify(jobsOf({ jobs: [job(9, "digest", "cancelled", { error: "cancelled by anna" })] })),
+    ).not.toMatch(/error|args|result|progress|argv/u);
+  });
+
+  it("says when there is no job at all, and reads an answer of another shape as none", () => {
+    expect(jobsOf({ count: 1, jobs: [job(3, "worker", "running")] }, { count: 0, jobs: [] })).toEqual({
+      jobs: [],
+      note: "the registry has no job yet",
+    });
+    expect(jobsOf(null, "x").jobs).toEqual([]);
+    expect(jobsOf([job(5, "digest", "done")]).jobs.map((j) => j.id)).toEqual([5]);
   });
 });
 

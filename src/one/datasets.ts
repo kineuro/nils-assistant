@@ -193,7 +193,7 @@ export function lineOf(d: DatasetFact): string {
 
 const HEAD = "## The datasets (where the scans came from)";
 const INTRO =
-  "A dataset is not a cohort. How many subjects, visits or scans a dataset holds in all is its count here; anything narrower is a question that names the dataset. State: identified, anonymised, both (identified, with an anonymised copy) or unknown. Newest first:";
+  "A dataset is not a cohort. How many subjects, visits or scans a dataset holds in all is its count here; anything narrower is a question that names the dataset. Body part and post-contrast are steps run on a dataset, not sorting: where one has not run, the dataset has no answer for it yet; the hint says which steps have run on a dataset the words name. State: identified, anonymised, both (identified, with an anonymised copy) or unknown. Newest first:";
 
 /**
  * The datasets as the turn's facts carry them: the newest `shown` in full, the rest counted. Where the sources door
@@ -240,16 +240,27 @@ export function datasetsNamed(message: string, list: readonly DatasetFact[]): Da
   );
 }
 
-/** The hint of a turn whose words name datasets: their lines, how a count in all is answered, and where anything narrower goes. */
-export function datasetHint(named: readonly DatasetFact[], narrower: string): string {
+/** What a hint says last: which steps have run on each dataset it names (src/one/steps.ts), where they were read. */
+const after = (steps: readonly string[]): string => steps.map((s) => ` ${s}`).join("");
+
+/** The hint of a turn whose words name datasets: their lines, how a count in all is answered, where anything narrower goes, and their steps. */
+export function datasetHint(
+  named: readonly DatasetFact[],
+  narrower: string,
+  steps: readonly string[] = [],
+): string {
   const which = named.map(lineOf).join("; and the dataset ");
-  return `Hint from the words: they name the dataset ${which}. How many subjects, visits or scans it holds in all is that count: answer with it, with no question drafted, and never say it is not there. ${narrower}`;
+  return `Hint from the words: they name the dataset ${which}. How many subjects, visits or scans it holds in all is that count: answer with it, with no question drafted, and never say it is not there. ${narrower}${after(steps)}`;
 }
 
 /** The hint of a turn that names no dataset after one that did: words that go on about it keep it. */
-export function carriedHint(carried: readonly DatasetFact[], then: string): string {
+export function carriedHint(
+  carried: readonly DatasetFact[],
+  then: string,
+  steps: readonly string[] = [],
+): string {
   const which = carried.map(lineOf).join("; and the dataset ");
-  return `Hint from the words: earlier in this conversation the person named the dataset ${which}. Words that go on about it (them, those, these scans, how many of them) keep it: ${then} Words about something else leave it.`;
+  return `Hint from the words: earlier in this conversation the person named the dataset ${which}. Words that go on about it (them, those, these scans, how many of them) keep it: ${then} Words about something else leave it.${after(steps)}`;
 }
 
 /** Whether the words turn to a cohort, which ends a dataset named before: they say cohort, or name one. */

@@ -67,6 +67,7 @@ import {
 } from "./datasets.ts";
 import type { Mounted, ToolName } from "./mount.ts";
 import { type ConversationState, conversationOf, type Probe, type TurnState } from "./state.ts";
+import { readSteps, STEPS_TOOL_WAIT_MS, stepsLine, stepsWithin, unknownSentence } from "./steps.ts";
 import { plainly } from "./words.ts";
 
 export type Out = { output: JsonValue; terminate?: boolean };
@@ -128,9 +129,14 @@ type SeamId = (typeof SEAMS)[number];
  * The one agent's seam for the work of one station: the station's own operations, ceiling and content class,
  * under the name `nils.<station>`, with each cap four times the station's (at least twelve). A station's caps
  * bound one run of one task; a turn of the one agent may carry several steps of one skill, and its own guards
- * (the turn cap, the repeat detector) bound the turn.
+ * (the turn cap, the repeat detector) bound the turn. The one agent reads a few doors no station does, each on
+ * the seam whose work it is closest to (`BEYOND`).
  */
 const derived = new Map<string, Station>();
+/** The doors the one agent reads beyond a station's own: a dataset's steps (its summary) beside the datasets. */
+const BEYOND: Partial<Record<SeamId, Station["grant"]>> = {
+  "identity-check": { "datasets/{name}/summary": { calls: 12 } },
+};
 export function oneSeam(id: SeamId, conversation: string): Seam {
   let st = derived.get(id);
   if (!st) {
@@ -142,7 +148,7 @@ export function oneSeam(id: SeamId, conversation: string): Seam {
         { ...cap, ...(cap.calls !== undefined ? { calls: Math.max(12, cap.calls * 4) } : {}) },
       ]),
     );
-    st = { ...base, id: `nils.${id}`, grant, purpose: undefined };
+    st = { ...base, id: `nils.${id}`, grant: { ...grant, ...BEYOND[id] }, purpose: undefined };
     derived.set(id, st);
   }
   return seamWith(st, conversation);
@@ -364,7 +370,7 @@ function noteSignals(c: ConversationState, body: unknown): void {
 const registryDescribe: OneTool = {
   name: "registry_describe",
   description:
-    "Read one kind of thing the registry keeps, by `what`: document (a stored question by `id`, with its parent), documents (the stored questions), batches (the newest batches), cohorts (with their subjects and sessions counted), pipelines (the analyses with their parameters, measures and checks) or pipeline (one by `name`), datasets (each with its state, its subjects, visits and scans, and the cohort it feeds) or dataset (by `name`: those counts, what arrives, its identity rule, what is held), identifier_types, held (the identifiers a dataset holds as shapes, by `name`), signals (the sorting's signals over a `scope` such as batch:12), word_lists (the sorting's word lists, `axis` to narrow), review (the open review items, or one by `id`).",
+    "Read one kind of thing the registry keeps, by `what`: document (a stored question by `id`, with its parent), documents (the stored questions), batches (the newest batches), cohorts (with their subjects and sessions counted), pipelines (the analyses with their parameters, measures and checks) or pipeline (one by `name`), datasets (each with its state, its subjects, visits and scans, and the cohort it feeds) or dataset (by `name`: those counts, which of its steps have run, what arrives, its identity rule, what is held), identifier_types, held (the identifiers a dataset holds as shapes, by `name`), signals (the sorting's signals over a `scope` such as batch:12), word_lists (the sorting's word lists, `axis` to narrow), review (the open review items, or one by `id`).",
   input: v.object({
     what: v.picklist(DESCRIBE),
     id: v.optional(v.number()),
@@ -442,34 +448,48 @@ const registryDescribe: OneTool = {
         const one = datasetName(name);
         const found = list.find((s) => String(s?.name ?? s?.place ?? "") === one);
         const fact = facts.find((f) => f.name === one);
-        return found
-          ? {
-              output: data(
-                {
-                  ...datasetView(found),
-                  ...(fact
-                    ? {
-                        state: fact.state,
-                        counts: {
-                          subjects: fact.subjects,
-                          visits: fact.visits,
-                          scans: fact.scans,
-                          sure: fact.sure,
-                          need_a_look: fact.look,
-                          not_sorted_yet: fact.unsorted,
-                        },
-                        feeds: fact.feeds,
-                      }
-                    : {}),
-                  note: "a question names it with the field dataset",
-                },
-                "",
-              ),
-            }
-          : refuse(
-              `no dataset named ${name}`,
-              `Name one of ${names.join(", ") || "none"}, or say there is none.`,
-            );
+        if (!one || !found)
+          return refuse(
+            `no dataset named ${name}`,
+            `Name one of ${names.join(", ") || "none"}, or say there is none.`,
+          );
+        // which steps have run on it, as the turn's facts read them: once a turn
+        const steps = await stepsWithin(
+          readSteps({
+            turn: ctx.turn,
+            dataset: one,
+            seam: () => seam(ctx, "identity-check"),
+            toolCallId: ctx.toolCallId,
+            phase: PHASE,
+          }),
+          STEPS_TOOL_WAIT_MS,
+        );
+        const unknown = steps ? unknownSentence(one, steps) : null;
+        return {
+          output: data(
+            {
+              ...datasetView(found),
+              ...(fact
+                ? {
+                    state: fact.state,
+                    counts: {
+                      subjects: fact.subjects,
+                      visits: fact.visits,
+                      scans: fact.scans,
+                      sure: fact.sure,
+                      need_a_look: fact.look,
+                      not_sorted_yet: fact.unsorted,
+                    },
+                    feeds: fact.feeds,
+                  }
+                : {}),
+              ...(steps ? { steps: stepsLine(steps) } : {}),
+              ...(unknown ? { not_known: unknown } : {}),
+              note: "a question names it with the field dataset",
+            },
+            "",
+          ),
+        };
       }
       case "identifier_types": {
         const a = await get(ctx, "identity-check", "/api/linkage/types");
@@ -993,20 +1013,91 @@ const queryReadRows: OneTool = {
 
 // ------------------------------------------------------------------ jobs and runs
 
+/** How many of the newest jobs jobs_read lists, and of the older ones still open. */
+export const JOBS_SHOWN = 10;
+/** How many rows of the jobs door it reads to find them: the queue's own rows are among the newest. */
+const JOBS_READ = 40;
+/** How much of a failed job's error it keeps. */
+const ERROR_CHARS = 200;
+const OPEN = new Set(["queued", "running", "cancelling"]);
+
+/** A row of the queue's own, one per lane while its worker lives (the engine's `is_worker`): no person queued it. */
+export const isWorker = (kind: string): boolean => kind === "worker" || kind.endsWith("-worker");
+
+/** One job as jobs_read lists it: which job, what it was, how it went and when, and why where it failed. */
+export interface JobLine {
+  id: number;
+  kind: string;
+  name?: string;
+  state: string;
+  started_at?: string;
+  finished_at?: string;
+  error?: string;
+}
+
+/**
+ * The jobs of the jobs door's two answers (`GET /api/jobs?all=1`, every state with the queue's own rows among
+ * them, and `GET /api/jobs`, the open ones), newest first: the newest `shown` of every state and any older one
+ * still open, the queue's own rows left out, each with only what says which job it was and how it went.
+ */
+export function jobsOf(
+  recent: unknown,
+  open: unknown = null,
+  shown = JOBS_SHOWN,
+): { jobs: JobLine[]; note?: string } {
+  const rows = (body: unknown): Record<string, unknown>[] => {
+    const list = Array.isArray(body) ? body : (body as { jobs?: unknown } | null)?.jobs;
+    return (Array.isArray(list) ? list : []).filter(
+      (j): j is Record<string, unknown> =>
+        !!j && typeof j === "object" && num(j.id) !== null && !isWorker(String(j.kind ?? "")),
+    );
+  };
+  const newest = (list: Record<string, unknown>[]) => [...list].sort((a, b) => Number(b.id) - Number(a.id));
+  const all = newest(rows(recent));
+  const kept = all.slice(0, shown);
+  // an older job still open, as many again at most: a long queue is counted by its newest
+  const older = newest(rows(open)).filter(
+    (j) => OPEN.has(String(j.state)) && !kept.some((k) => k.id === j.id),
+  );
+  kept.push(...older.slice(0, shown));
+  const jobs = newest(kept).map((j): JobLine => {
+    const line: JobLine = { id: Number(j.id), kind: String(j.kind ?? ""), state: String(j.state ?? "") };
+    const name = str(j.name);
+    if (name) line.name = name;
+    for (const k of ["started_at", "finished_at"] as const) {
+      const at = str(j[k]);
+      if (at) line[k] = at;
+    }
+    const error = str(j.error);
+    if (line.state === "failed" && error)
+      line.error = error.length > ERROR_CHARS ? `${error.slice(0, ERROR_CHARS)}…` : error;
+    return line;
+  });
+  if (jobs.length === 0) return { jobs, note: "the registry has no job yet" };
+  return all.length > shown || older.length > shown
+    ? { jobs, note: `the newest ${shown}; read an older one by its id` }
+    : { jobs };
+}
+
 const jobsRead: OneTool = {
   name: "jobs_read",
   description:
-    "The registry's jobs, read only: what is running, queued or done; or one job by `job`, with its result once done (an identity probe's shapes, for one).",
+    "The registry's jobs, read only. Without `job`: the newest ten, newest first, and up to ten older ones still queued or running, each with its id, kind, name, state (queued, running, cancelling, done, failed or cancelled), when it started and finished, and a short error where it failed. With `job` (an id): that one job whole, with its result once done (an identity probe's shapes, for one).",
   input: v.object({ job: v.optional(v.number()) }),
   salient: ["job"],
   step: "Reading the jobs",
   async run(args, ctx) {
     const job = num(args.job);
     if (job === null) {
-      const a = await get(ctx, "operator", "/api/jobs");
-      return a.kind === "ok"
-        ? { output: data(a.body, "ask for one job by its id") }
-        : notOk(a, "Say the jobs could not be read.");
+      // every state, with the queue's own rows among them; and the open ones, an old one still going among them
+      const [recent, open] = await Promise.all([
+        get(ctx, "operator", `/api/jobs?all=1&limit=${JOBS_READ}`),
+        get(ctx, "operator", `/api/jobs?limit=${JOBS_READ}`),
+      ]);
+      if (recent.kind !== "ok") return notOk(recent, "Say the jobs could not be read.");
+      return {
+        output: data(jobsOf(recent.body, open.kind === "ok" ? open.body : null), "ask for one job by its id"),
+      };
     }
     const a = await readJob(ctx, job, ctx.toolCallId);
     if (a.kind !== "ok") return notOk(a, "Check the job's id.");

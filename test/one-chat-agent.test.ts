@@ -6,6 +6,10 @@
 // answer in engine words is sent back once; a question card ends the turn;
 // an analysis is proposed, never run; a dataset the words name is answered
 // from its own counts, never said not to be there, and a follow-up keeps it.
+// What is true now (2026-10-09): the jobs are read in every state, newest
+// first, the queue's own rows left out, and a question about them is no
+// question of the data; a dataset the words name comes with which of its
+// steps have run, read once a turn, and nothing where the engine has none.
 
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -42,9 +46,120 @@ const CATALOG = {
   ],
 };
 
+/**
+ * The job table as the engine keeps it: one old analysis run still going, a run of jobs after it (one failed), and
+ * the queue's own rows, one per lane, newest of all. The jobs door lists the open jobs without the queue's rows,
+ * and with `all` the newest of every state, the queue's rows among them.
+ */
+const KINDS = ["pseudonymize", "digest", "fingerprint", "classify"];
+const JOBS = [
+  {
+    id: 57,
+    kind: "pipeline",
+    name: "synthseg over nmosd",
+    state: "running",
+    started_at: "2026-10-08 22:00:00",
+  },
+  ...Array.from({ length: 44 }, (_, i) => ({
+    id: 60 + i,
+    kind: 60 + i === 102 ? "digest" : KINDS[i % 4],
+    name: `study-a-2026-10-${String(1 + (i % 9)).padStart(2, "0")}`,
+    state: 60 + i === 102 ? "failed" : "done",
+    started_at: `2026-10-09 ${String(8 + Math.floor(i / 6)).padStart(2, "0")}:0${i % 6}:00`,
+    finished_at: `2026-10-09 ${String(8 + Math.floor(i / 6)).padStart(2, "0")}:0${i % 6}:40`,
+    ...(60 + i === 102
+      ? { error: `the folder study-a/derivatives/dcm-anon is gone; ${"x".repeat(900)}` }
+      : {}),
+  })),
+  {
+    id: 110,
+    kind: "pipeline-worker",
+    name: "pipelines",
+    state: "running",
+    started_at: "2026-10-09 19:00:00",
+  },
+  { id: 111, kind: "picture-worker", name: "queue", state: "running", started_at: "2026-10-09 19:00:00" },
+  { id: 112, kind: "worker", name: "queue", state: "running", started_at: "2026-10-09 19:00:00" },
+].map((j) => ({
+  pid: 4242,
+  host: "lab",
+  heartbeat_at: "2026-10-09 19:20:00",
+  finished_at: null,
+  progress: null,
+  error: null,
+  args: { queued: [j.kind, "--pack", "mri"], principal: "anna@n" },
+  result: j.kind === "classify" ? { judged: 1003, previews: 1003 } : null,
+  chain: { before: null, after: null },
+  ...j,
+}));
+const OPEN = ["queued", "running", "cancelling"];
+
+/** A dataset's summary as the Data page's door answers it: sorted but for twelve scans, body part served and not run, no model for post-contrast. */
+const SUMMARY = {
+  dataset: "study-a",
+  dataset_id: 4,
+  detail: "sensitive",
+  state: "anonymised",
+  subjects: 63,
+  sessions: 63,
+  studies: 63,
+  scans: 1003,
+  sure: 990,
+  need_a_look: 1,
+  unsorted: 12,
+  kinds: [
+    { kind: "T2w", scans: 400 },
+    { kind: "T1w", scans: 271 },
+  ],
+  body_regions: [],
+  steps: [
+    { step: "found", state: "done", job: null, files: 9000, tree: "anon" },
+    { step: "read", state: "done", job: 101, files: 9000, refused: 0, reads: 1 },
+    { step: "sorted", state: "waiting", job: 103, scans: 991, of: 1003, look: 1, passes: 0, unsorted: 12 },
+    {
+      step: "body_part",
+      state: "waiting",
+      job: null,
+      run: null,
+      served: true,
+      answered: 0,
+      look: 0,
+      of: 1003,
+    },
+    {
+      step: "post_contrast",
+      state: "off",
+      job: null,
+      run: null,
+      served: false,
+      answered: 0,
+      look: 0,
+      of: 1003,
+    },
+    { step: "main_scans", state: "done", job: 103, picked: 120, borders: 3 },
+    { step: "pictures", state: "done", job: 103, made: 1003, of: 1003, in_sort: true },
+    { step: "views", state: "waiting", job: null, made: 0, of: 1003 },
+  ],
+};
+
 const engine = await stubEngine((c) => {
   const p = c.path.split("?")[0];
   if (p === "/api/capabilities") return { body: { auth: "off", policy: [] } };
+  if (p === "/api/jobs") {
+    const q = new URL(c.path, "http://stub").searchParams;
+    const all = q.get("all") === "1";
+    const rows = [...JOBS]
+      .sort((a, b) => b.id - a.id)
+      .filter((j) => all || (OPEN.includes(j.state) && !j.kind.endsWith("worker")))
+      .slice(0, Number(q.get("limit") ?? 50));
+    return { body: { count: rows.length, jobs: rows } };
+  }
+  if (/^\/api\/jobs\/\d+$/u.test(p)) {
+    const j = JOBS.find((x) => `/api/jobs/${x.id}` === p);
+    return j ? { body: j } : { status: 404, body: { error: "no such job" } };
+  }
+  // the summary door answers for study-a; for study-b it is missing, as on an engine before the Data page
+  if (p === "/api/datasets/study-a/summary") return { body: SUMMARY };
   if (p === "/api/ask/catalog") return { body: CATALOG };
   if (p === "/api/ask/guide") return { body: { grounding: ["a session is one subject on one day"] } };
   if (p === "/api/ask/draft")
@@ -70,13 +185,25 @@ const engine = await stubEngine((c) => {
   if (p === "/api/sources")
     return {
       body: {
-        count: 1,
+        count: 3,
         sources: [
           {
             name: "study-big",
             dataset: { kind: "dataset", state: "identified", cohort: null },
             digests: { count: 1, last: { name: "today", finished_at: "2026-10-09 09:00:00" } },
             totals: { subjects: 120, sessions: 340, stacks: 5210, to_sort: 310, sure: 4900, unsorted: 0 },
+          },
+          {
+            name: "study-a",
+            dataset: { kind: "dataset", state: "anonymised", cohort: null },
+            digests: { count: 1, last: { name: "study-a-2026-10-09", finished_at: "2026-10-09 08:00:00" } },
+            totals: { subjects: 63, sessions: 63, stacks: 1003, to_sort: 1, sure: 990, unsorted: 12 },
+          },
+          {
+            name: "study-b",
+            dataset: { kind: "dataset", state: "identified", cohort: null },
+            digests: { count: 1, last: { name: "study-b-2026-10-01", finished_at: "2026-10-01 08:00:00" } },
+            totals: { subjects: 4, sessions: 8, stacks: 40, to_sort: 0, sure: 40, unsorted: 0 },
           },
         ],
       },
@@ -387,5 +514,134 @@ describe("the one agent", () => {
     expect(c.payload.command).toEqual(["run", "synthseg@2", "--handle", "55", "--param", "robust=true"]);
     expect(engine.seen.some((x) => x.method === "POST" && x.path === "/api/jobs")).toBe(false);
     expect(recorded("oc-analysis")).toMatch(/"change":"job_plan"/u);
+  }, 60_000);
+});
+
+/** The results of the tools the turn called so far, as the model read them. */
+const toolResults = (c: Context): string => JSON.stringify(c.messages.filter((m) => m.role === "toolResult"));
+/** What the last tool call gave, as the model read it in its next request. */
+function lastResult(c: Context): Record<string, unknown> {
+  const m = c.messages.filter((x) => x.role === "toolResult").at(-1) as { content?: { text?: string }[] };
+  return JSON.parse(m?.content?.[0]?.text ?? "{}") as Record<string, unknown>;
+}
+/** The jobs one jobs_read call gave. */
+const jobsGiven = (c: Context): Record<string, unknown>[] =>
+  (lastResult(c).registry_data as { jobs?: Record<string, unknown>[] } | undefined)?.jobs ?? [];
+
+describe("the one agent tells what is true now (2026-10-09)", () => {
+  it("reads the newest jobs of every state, the queue's own rows left out, and answers what the last job did", async () => {
+    // asked what the last job was, the chat read the open jobs alone and said there were none
+    play([
+      { tool: "jobs_read", args: {} },
+      { text: "The last job was job 103, a classify of study-a; it finished done at 15:01." },
+    ]);
+    const h = init(Nils, { id: "oc-jobs" });
+    const reply = await h.read(await h.dispatch("What is the last job and how did it go?"));
+    // the door is asked for every state, and for the open ones
+    const asked = engine.seen.filter((x) => x.path.startsWith("/api/jobs?")).map((x) => x.path);
+    expect(asked).toEqual(expect.arrayContaining(["/api/jobs?all=1&limit=40", "/api/jobs?limit=40"]));
+    // the newest ten, newest first, and the old run still going; no row of the queue's own
+    const jobs = jobsGiven(seen[1]);
+    expect(jobs.map((j) => j.id)).toEqual([103, 102, 101, 100, 99, 98, 97, 96, 95, 94, 57]);
+    expect(jobs.every((j) => !String(j.kind).endsWith("worker"))).toBe(true);
+    expect(jobs[0]).toEqual({
+      id: 103,
+      kind: "classify",
+      name: "study-a-2026-10-08",
+      state: "done",
+      started_at: "2026-10-09 15:01:00",
+      finished_at: "2026-10-09 15:01:40",
+    });
+    // a failed job says why, shortly; one still going has no end yet
+    expect(jobs[1]).toMatchObject({ id: 102, state: "failed" });
+    expect(String(jobs[1].error)).toMatch(/^the folder study-a\/derivatives\/dcm-anon is gone/u);
+    expect(String(jobs[1].error).length).toBeLessThanOrEqual(201);
+    expect(jobs[10]).toEqual({
+      id: 57,
+      kind: "pipeline",
+      name: "synthseg over nmosd",
+      state: "running",
+      started_at: "2026-10-08 22:00:00",
+    });
+    // small: no command lines, results or progress, about five hundred tokens in all
+    const given = JSON.stringify(lastResult(seen[1]));
+    expect(given).not.toMatch(/"args"|"result"|"progress"|"pid"|"host"/u);
+    expect(given.length).toBeLessThan(2000);
+    // the words are about the jobs, not a question of the data: the answer stands, never sent back to draft one
+    const first = appended(seen[0]);
+    expect(first).not.toMatch(/find-data skill/u);
+    expect(first).toMatch(/the registry's jobs are asked about[^"]*jobs_read/u);
+    expect(calls).toBe(2);
+    expect(reply.text).toMatch(/job 103/u);
+  }, 60_000);
+
+  it("still reads one job whole by its id", async () => {
+    play([{ tool: "jobs_read", args: { job: 102 } }, { text: "Job 102 failed: the folder was gone." }]);
+    const h = init(Nils, { id: "oc-job-one" });
+    await h.read(await h.dispatch("Why did job 102 fail?"));
+    expect(engine.seen.some((x) => x.path === "/api/jobs/102")).toBe(true);
+    const out = lastResult(seen[1]);
+    expect(out).toMatchObject({ job: 102, state: "failed" });
+    expect(String(out.error)).toMatch(/^the folder study-a\/derivatives\/dcm-anon is gone/u);
+    // the whole job, as the door gave it
+    expect(out.registry_data).toMatchObject({
+      id: 102,
+      kind: "digest",
+      args: { queued: ["digest", "--pack", "mri"] },
+    });
+  }, 60_000);
+
+  it("says which steps have run on a dataset the words name, and that post-contrast has not run there", async () => {
+    // asked for the T1 scans with contrast where post-contrast had not run, the chat counted the scans
+    // whose header weighting reads T1 and called them contrast-enhanced
+    play([
+      {
+        text: "Post-contrast has not run on study-a yet, so whether its scans were given contrast is not known.",
+      },
+    ]);
+    const h = init(Nils, { id: "oc-steps" });
+    await h.read(await h.dispatch("How many T1 scans with contrast are in study-a?"));
+    const first = appended(seen[0]);
+    expect(first).toMatch(/they name the dataset study-a \(anonymised\): 63 subjects/u);
+    expect(first).toMatch(
+      /The steps of study-a: sorted 991 of 1003 scans; body part not run; post-contrast not run; main scans picked; pictures made\./u,
+    );
+    expect(first).toMatch(
+      /Body part and post-contrast have not run on study-a: which body part a scan shows and whether a scan was given contrast are not known there yet; never count another field in their place\./u,
+    );
+    // read once, through the seam that reads the datasets
+    expect(engine.seen.filter((x) => x.path === "/api/datasets/study-a/summary")).toHaveLength(1);
+    expect(
+      theLedger()
+        .rows("oc-steps")
+        .map((r) => r.operation),
+    ).toContain("datasets/{name}/summary");
+  }, 60_000);
+
+  it("leaves the steps out, and says nothing of it, where the engine has no summary of the dataset", async () => {
+    play([{ text: "study-b holds 40 scans from 4 subjects over 8 visits." }]);
+    const h = init(Nils, { id: "oc-steps-none" });
+    await h.read(await h.dispatch("How many scans are in study-b?"));
+    const first = appended(seen[0]);
+    expect(engine.seen.some((x) => x.path === "/api/datasets/study-b/summary")).toBe(true);
+    expect(first).toMatch(/they name the dataset study-b \(identified\): 4 subjects, 8 visits, 40 scans/u);
+    expect(first).not.toMatch(/steps of study-b|run on study-b|summary|no door|404/u);
+    expect(calls).toBe(1);
+  }, 60_000);
+
+  it("reads a dataset's steps once a turn: its description in the same turn has them from there", async () => {
+    play([
+      { tool: "registry_describe", args: { what: "dataset", name: "study-a" } },
+      { text: "study-a is sorted but for twelve scans; body part and post-contrast have not run on it." },
+    ]);
+    const before = engine.seen.filter((x) => x.path === "/api/datasets/study-a/summary").length;
+    const h = init(Nils, { id: "oc-steps-describe" });
+    await h.read(await h.dispatch("What has been done to study-a so far?"));
+    const out = toolResults(seen[1]);
+    expect(out).toMatch(
+      /\\"steps\\":\\"sorted 991 of 1003 scans; body part not run; post-contrast not run; main scans picked; pictures made\\"/u,
+    );
+    expect(out).toMatch(/whether a scan was given contrast are not known there yet/u);
+    expect(engine.seen.filter((x) => x.path === "/api/datasets/study-a/summary").length).toBe(before + 1);
   }, 60_000);
 });

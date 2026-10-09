@@ -55,6 +55,7 @@ import { type Access, grantsLine, type Mounted, mountFor } from "./mount.ts";
 import { hintLine, routeOf } from "./route.ts";
 import { bodyFor, findExamples, loadSkills, skillOf } from "./skills.ts";
 import { answerOf, conversationOf, newTurn, turnOf } from "./state.ts";
+import { readSteps, STEPS_READ, STEPS_WAIT_MS, stepsRead, stepsText, stepsWithin } from "./steps.ts";
 import {
   type OneTool,
   oneSeam,
@@ -253,37 +254,53 @@ export function guardEveryCall(): void {
 
 // ------------------------------------------------------------------ the agent
 
+/** The datasets a turn's hint is about: those the words name in a question of the data, or those a follow-up keeps. */
+type About = { kind: "named" | "carried"; list: readonly DatasetFact[] } | null;
+function aboutOf(
+  r: ReturnType<typeof routeOf>,
+  m: Mounted,
+  named: readonly DatasetFact[],
+  carried: readonly DatasetFact[],
+): About {
+  if (r.summary || r.jobs) return null;
+  if (named.length && (r.skill === null || r.skill === "find-data")) return { kind: "named", list: named };
+  if (carried.length && m.skills.includes("find-data")) return { kind: "carried", list: carried };
+  return null;
+}
+
 /**
- * The turn's hint: words that name datasets get their counts, and a follow-up the dataset named before; in the
- * sub-agent arm, finding data is the find agent's.
+ * The turn's hint: words that name datasets get their counts and their steps, and a follow-up the dataset named
+ * before; in the sub-agent arm, finding data is the find agent's.
  */
 function hintFor(
   r: ReturnType<typeof routeOf>,
   m: Mounted,
   arm: FindArm,
-  named: readonly DatasetFact[] = [],
-  carried: readonly DatasetFact[] = [],
+  about: About = null,
+  steps: readonly string[] = [],
 ): string {
   const find = m.skills.includes("find-data");
-  if (named.length && !r.summary && (r.skill === null || r.skill === "find-data"))
+  if (about?.kind === "named")
     return datasetHint(
-      named,
+      about.list,
       !find
         ? "This person may not look up data beyond that count."
         : arm === "subagent"
           ? "Anything narrower (a kind of scan, a date, a score) goes to the find agent with the task tool, with the dataset named."
           : "Anything narrower (a kind of scan, a date, a score) is a question that names the dataset: activate the find-data skill and draft it.",
+      steps,
     );
-  if (carried.length && find)
+  if (about?.kind === "carried")
     return carriedHint(
-      carried,
+      about.list,
       arm === "subagent"
         ? "give it to the find agent with the task tool, with the dataset named."
         : "activate the find-data skill and draft the question with the dataset named, or change the question drafted before.",
+      steps,
     );
   if (arm === "subagent" && r.skill === "find-data" && find)
     return `Hint from the words (${r.because}): this looks like finding data; give it to the find agent with the task tool.`;
-  return hintLine(r, m.skills);
+  return hintLine(r, m.skills, m.tools);
 }
 
 export interface OneOptions {
@@ -417,9 +434,15 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
       const briefOf = (): string => {
         const document = theLineage().conversation(id)?.document ?? convo.documents.at(-1) ?? null;
         const known = knownDatasets(subject) ?? [];
-        const about = turnOf(id).datasets.map((n) => {
+        const t = turnOf(id);
+        const about = t.datasets.map((n) => {
           const d = known.find((x) => x.name === n);
           return d ? lineOf(d) : n;
+        });
+        // which steps have run on them, as the turn's facts read them
+        const steps = t.datasets.flatMap((n) => {
+          const s = stepsRead(t, n);
+          return s ? [` ${stepsText(n, s)}`] : [];
         });
         return [
           `The person's words, as they wrote them: "${message.replace(/"/gu, "'")}"`,
@@ -427,7 +450,7 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
             ? `The question this refines is document ${document}: read it with registry_describe, what document, and change what the words change.`
             : "",
           about.length
-            ? `The question is about the dataset ${about.join("; and the dataset ")}: name it with the field dataset.`
+            ? `The question is about the dataset ${about.join("; and the dataset ")}: name it with the field dataset.${steps.join("")}`
             : "",
           grantsLine(mounted),
         ]
@@ -505,16 +528,40 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
         )
       )
         convo.datasets = [];
-      else if (!route.summary && (route.skill === null || route.skill === "find-data"))
+      else if (!route.summary && !route.jobs && (route.skill === null || route.skill === "find-data"))
         carried = list.filter((x) => convo.datasets.includes(x.name));
-      turnOf(id).datasets = [...named, ...carried].map((x) => x.name);
+      const current = turnOf(id);
+      current.datasets = [...named, ...carried].map((x) => x.name);
+      // the datasets the hint is about get their steps, read once a turn; the ones too slow are left out
+      const about = aboutOf(route, mounted, named, carried);
+      const steps = mounted.tools.includes("registry_describe")
+        ? await Promise.all(
+            (about?.list ?? []).slice(0, STEPS_READ).map(async (x) => {
+              const read = readSteps({
+                turn: current,
+                dataset: x.name,
+                seam: () => oneSeam("identity-check", id),
+                toolCallId: "facts",
+                phase: "turn",
+              });
+              const s = await stepsWithin(read, STEPS_WAIT_MS);
+              return s ? stepsText(x.name, s) : null;
+            }),
+          )
+        : [];
       const document = theLineage().conversation(id)?.document ?? null;
       const facts = factsOf({
         told,
         summary,
         datasets: datasets ? datasetsBlock(datasets, names) : null,
         grants: grantsLine(mounted),
-        hint: hintFor(route, mounted, o.arm, named, carried),
+        hint: hintFor(
+          route,
+          mounted,
+          o.arm,
+          about,
+          steps.filter((s): s is string => s !== null),
+        ),
         document,
       });
       setTold(facts.told);

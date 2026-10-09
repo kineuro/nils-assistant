@@ -17,6 +17,8 @@ export interface Route {
   skill: SkillId | null;
   /** Whether the registry summary alone answers the words. */
   summary: boolean;
+  /** Whether the words ask about the registry's jobs, which jobs_read answers with no skill. */
+  jobs?: boolean;
   /** The words that decided, for the hint's line. */
   because: string;
 }
@@ -52,6 +54,9 @@ const RULES: { skill: SkillId; re: RegExp; because: string }[] = [
 const SUMMARY =
   /^\s*(which|what)\s+(cohorts|datasets|clinical scores|scores|disease courses|courses|kinds of scans|scan kinds|kinds of scan|event kinds|diseases)\b|^\s*how many (cohorts|datasets)\b|\bwhat (clinical )?scores (are|does)\b/iu;
 
+// what the registry's jobs did or do: "what is the last job" is no question of the data (2026-10-09)
+const JOBS = /\bjobs?\b|\bwhat(?:'s|\s+is)\s+(?:running|queued)\b|\bin the queue\b/iu;
+
 const FIND =
   /\b(how many|which|list|show|count|give me|who|what is the|what are the|latest|mean|average|subjects?|sessions?|stacks?|scans?|series|edss|sdmt|cohort)\b/iu;
 
@@ -60,12 +65,18 @@ export function routeOf(message: string): Route {
   const text = message.trim();
   if (SUMMARY.test(text)) return { skill: null, summary: true, because: "the registry summary answers it" };
   for (const r of RULES) if (r.re.test(text)) return { skill: r.skill, summary: false, because: r.because };
+  if (JOBS.test(text))
+    return { skill: null, summary: false, jobs: true, because: "the registry's jobs are asked about" };
   if (FIND.test(text)) return { skill: "find-data", summary: false, because: "a question about the data" };
   return { skill: null, summary: false, because: "no skill's words" };
 }
 
-/** The hint as the turn's facts carry it: one line the model may overrule. */
-export function hintLine(r: Route, mounted: readonly string[]): string {
+/** The hint as the turn's facts carry it: one line the model may overrule. `tools` are the tools mounted. */
+export function hintLine(r: Route, mounted: readonly string[], tools: readonly string[] = []): string {
+  if (r.jobs)
+    return tools.includes("jobs_read")
+      ? `Hint from the words (${r.because}): jobs_read answers this, the newest first; no skill is needed.`
+      : `Hint from the words (${r.because}): this person may not read the jobs here; say so in one sentence.`;
   if (r.summary)
     return "Hint from the words: the facts above (the registry summary and the datasets) answer this; no skill is needed.";
   if (r.skill === "find-data" && mounted.includes(r.skill))
