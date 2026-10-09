@@ -3,7 +3,8 @@
 // sub-agent named `find`, reached through Flue's task tool, with a brief the
 // host builds (the person's words as they wrote them, the grants line) and
 // only the read tools. Its draft counts as the turn's, so the question is
-// still offered as the conversation's new version.
+// still offered as the conversation's new version. A dataset the words name
+// comes into the brief with which of its steps have run.
 
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -34,6 +35,31 @@ const engine = await stubEngine((c) => {
   if (p === "/api/ask/draft") return { body: { document: 812, diagnosis: [] } };
   if (p === "/api/ask/preview") return { body: { level: "count", columns: ["n"], rows: [[24]] } };
   if (p === "/api/ask/validate") return { body: { valid: true } };
+  if (p === "/api/sources")
+    return {
+      body: {
+        sources: [
+          {
+            name: "study-a",
+            dataset: { kind: "dataset", state: "anonymised", cohort: null },
+            totals: { subjects: 63, sessions: 63, stacks: 1003, to_sort: 0, sure: 1003, unsorted: 0 },
+          },
+        ],
+      },
+    };
+  if (p === "/api/datasets/study-a/summary")
+    return {
+      body: {
+        dataset: "study-a",
+        steps: [
+          { step: "sorted", state: "done", scans: 1003, of: 1003, unsorted: 0 },
+          { step: "body_part", state: "waiting", served: true, answered: 0, of: 1003 },
+          { step: "post_contrast", state: "off", served: false, answered: 0, of: 1003 },
+          { step: "main_scans", state: "done", picked: 63 },
+          { step: "pictures", state: "done", made: 1003, of: 1003 },
+        ],
+      },
+    };
   return null;
 });
 process.env.NILS_URL = engine.url;
@@ -103,5 +129,16 @@ describe("finding data as a read-only sub-agent", () => {
         .of("oc-sub")
         .map((c) => c.kind),
     ).toEqual(["query_version"]);
+  }, 60_000);
+
+  it("tells the find agent which steps have run on the dataset the words name", async () => {
+    child.length = 0;
+    parent.length = 0;
+    const h = init(Nils, { id: "oc-sub-steps" });
+    await h.read(await h.dispatch("How many T1 scans with contrast are in study-a?"));
+    const brief = getCurrentSystemPrompt(child[0].messages as never) ?? "";
+    expect(brief).toMatch(
+      /The question is about the dataset study-a \(anonymised\): 63 subjects[^\n]*: name it with the field dataset\. The steps of study-a: sorted; body part not run; post-contrast not run; main scans picked; pictures made\. Body part and post-contrast have not run on study-a: [^\n]*never count another field in their place\./u,
+    );
   }, 60_000);
 });

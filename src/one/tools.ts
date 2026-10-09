@@ -67,6 +67,7 @@ import {
 } from "./datasets.ts";
 import type { Mounted, ToolName } from "./mount.ts";
 import { type ConversationState, conversationOf, type Probe, type TurnState } from "./state.ts";
+import { readSteps, STEPS_TOOL_WAIT_MS, stepsLine, stepsWithin, unknownSentence } from "./steps.ts";
 import { plainly } from "./words.ts";
 
 export type Out = { output: JsonValue; terminate?: boolean };
@@ -128,9 +129,14 @@ type SeamId = (typeof SEAMS)[number];
  * The one agent's seam for the work of one station: the station's own operations, ceiling and content class,
  * under the name `nils.<station>`, with each cap four times the station's (at least twelve). A station's caps
  * bound one run of one task; a turn of the one agent may carry several steps of one skill, and its own guards
- * (the turn cap, the repeat detector) bound the turn.
+ * (the turn cap, the repeat detector) bound the turn. The one agent reads a few doors no station does, each on
+ * the seam whose work it is closest to (`BEYOND`).
  */
 const derived = new Map<string, Station>();
+/** The doors the one agent reads beyond a station's own: a dataset's steps (its summary) beside the datasets. */
+const BEYOND: Partial<Record<SeamId, Station["grant"]>> = {
+  "identity-check": { "datasets/{name}/summary": { calls: 12 } },
+};
 export function oneSeam(id: SeamId, conversation: string): Seam {
   let st = derived.get(id);
   if (!st) {
@@ -142,7 +148,7 @@ export function oneSeam(id: SeamId, conversation: string): Seam {
         { ...cap, ...(cap.calls !== undefined ? { calls: Math.max(12, cap.calls * 4) } : {}) },
       ]),
     );
-    st = { ...base, id: `nils.${id}`, grant, purpose: undefined };
+    st = { ...base, id: `nils.${id}`, grant: { ...grant, ...BEYOND[id] }, purpose: undefined };
     derived.set(id, st);
   }
   return seamWith(st, conversation);
@@ -364,7 +370,7 @@ function noteSignals(c: ConversationState, body: unknown): void {
 const registryDescribe: OneTool = {
   name: "registry_describe",
   description:
-    "Read one kind of thing the registry keeps, by `what`: document (a stored question by `id`, with its parent), documents (the stored questions), batches (the newest batches), cohorts (with their subjects and sessions counted), pipelines (the analyses with their parameters, measures and checks) or pipeline (one by `name`), datasets (each with its state, its subjects, visits and scans, and the cohort it feeds) or dataset (by `name`: those counts, what arrives, its identity rule, what is held), identifier_types, held (the identifiers a dataset holds as shapes, by `name`), signals (the sorting's signals over a `scope` such as batch:12), word_lists (the sorting's word lists, `axis` to narrow), review (the open review items, or one by `id`).",
+    "Read one kind of thing the registry keeps, by `what`: document (a stored question by `id`, with its parent), documents (the stored questions), batches (the newest batches), cohorts (with their subjects and sessions counted), pipelines (the analyses with their parameters, measures and checks) or pipeline (one by `name`), datasets (each with its state, its subjects, visits and scans, and the cohort it feeds) or dataset (by `name`: those counts, which of its steps have run, what arrives, its identity rule, what is held), identifier_types, held (the identifiers a dataset holds as shapes, by `name`), signals (the sorting's signals over a `scope` such as batch:12), word_lists (the sorting's word lists, `axis` to narrow), review (the open review items, or one by `id`).",
   input: v.object({
     what: v.picklist(DESCRIBE),
     id: v.optional(v.number()),
@@ -442,34 +448,48 @@ const registryDescribe: OneTool = {
         const one = datasetName(name);
         const found = list.find((s) => String(s?.name ?? s?.place ?? "") === one);
         const fact = facts.find((f) => f.name === one);
-        return found
-          ? {
-              output: data(
-                {
-                  ...datasetView(found),
-                  ...(fact
-                    ? {
-                        state: fact.state,
-                        counts: {
-                          subjects: fact.subjects,
-                          visits: fact.visits,
-                          scans: fact.scans,
-                          sure: fact.sure,
-                          need_a_look: fact.look,
-                          not_sorted_yet: fact.unsorted,
-                        },
-                        feeds: fact.feeds,
-                      }
-                    : {}),
-                  note: "a question names it with the field dataset",
-                },
-                "",
-              ),
-            }
-          : refuse(
-              `no dataset named ${name}`,
-              `Name one of ${names.join(", ") || "none"}, or say there is none.`,
-            );
+        if (!one || !found)
+          return refuse(
+            `no dataset named ${name}`,
+            `Name one of ${names.join(", ") || "none"}, or say there is none.`,
+          );
+        // which steps have run on it, as the turn's facts read them: once a turn
+        const steps = await stepsWithin(
+          readSteps({
+            turn: ctx.turn,
+            dataset: one,
+            seam: () => seam(ctx, "identity-check"),
+            toolCallId: ctx.toolCallId,
+            phase: PHASE,
+          }),
+          STEPS_TOOL_WAIT_MS,
+        );
+        const unknown = steps ? unknownSentence(one, steps) : null;
+        return {
+          output: data(
+            {
+              ...datasetView(found),
+              ...(fact
+                ? {
+                    state: fact.state,
+                    counts: {
+                      subjects: fact.subjects,
+                      visits: fact.visits,
+                      scans: fact.scans,
+                      sure: fact.sure,
+                      need_a_look: fact.look,
+                      not_sorted_yet: fact.unsorted,
+                    },
+                    feeds: fact.feeds,
+                  }
+                : {}),
+              ...(steps ? { steps: stepsLine(steps) } : {}),
+              ...(unknown ? { not_known: unknown } : {}),
+              note: "a question names it with the field dataset",
+            },
+            "",
+          ),
+        };
       }
       case "identifier_types": {
         const a = await get(ctx, "identity-check", "/api/linkage/types");

@@ -317,7 +317,7 @@ describe("the words the agent reads about datasets", () => {
     const find = loadSkills(["./stations"], ["find-data"]).get("find-data");
     if (!find) throw new Error("no find-data");
     const para = find.body.split("\n\n").find((x) => x.startsWith("A **dataset**")) ?? "";
-    expect(para).toMatch(/\["=", \{\}, \["field", \{\}, "dataset"\], "study-big"\]/u);
+    expect(para).toMatch(/\["=", \{\}, \["field", \{\}, "dataset"\], "study-a"\]/u);
     expect(para).toMatch(/\["=", \{\}, \["axis", \{\}, "post_contrast"\], "given"\]/u);
     expect(para).toMatch(/`=`, `in` and `has` ask whether one is among them/u);
     expect(para).toMatch(/A follow-up that names no other dataset .* keeps the clause/u);
