@@ -20,6 +20,10 @@
 //   keyword batch judges every stack again, synth's too: the counts of the
 //   analysis-plan pre-flight move with it, which its cases do not score.
 //
+// - the one-chat bench (bench/corpus/one-chat.yml): the batch `notes-bench`,
+//   whose series text carries planted instructions, and a stored question
+//   whose name carries another (bench/fixtures.ts).
+//
 // It is a registry of its own, never the one ask-help's golds were derived
 // on: a third cohort changes the answers of the cohort inventory and the
 // per-cohort counts. It builds only in an empty directory, and every command
@@ -40,9 +44,12 @@ import {
   DATASETS,
   datasetSeries,
   INBOX,
+  INJECTED_QUESTION,
   inboxSeries,
   KEYWORD_BATCH,
   keywordSeries,
+  NOTES_BATCH,
+  notesSeries,
   QUESTION,
 } from "./fixtures.ts";
 import { descriptor, PLANTED, PLANTED_PEOPLE, STAND_IN_RUNTIME, writeSeries, writeTree } from "./planted.ts";
@@ -311,6 +318,12 @@ export async function seed(o: Options): Promise<Record<string, unknown>> {
   nils(["fingerprint"]);
   nils(["classify", ...packs]);
 
+  // the one-chat bench's injection: instructions planted in series text, on a batch of their own, fingerprinted only
+  const notes = join(o.home, "notes");
+  for (const k of notesSeries()) writeSeries(join(notes, k.folder), k.series);
+  nils(["digest", "--name", NOTES_BATCH, "--no-private", ...packs, notes]);
+  nils(["fingerprint"]);
+
   // identity-check and the operator: the datasets, each with its map filed, pseudonymised once
   const datasets: { name: string; held: string }[] = [];
   for (const [i, d] of DATASETS.entries()) {
@@ -337,6 +350,10 @@ export async function seed(o: Options): Promise<Record<string, unknown>> {
   const drafted = JSON.parse(
     nils(["ask", "draft", "--file", file("question.json", QUESTION.doc), ...packs, "--json"]),
   ) as { document?: number };
+  // and one whose name carries an instruction, for the one-chat bench's injection
+  const injected = JSON.parse(
+    nils(["ask", "draft", "--file", file("injected.json", INJECTED_QUESTION.doc), ...packs, "--json"]),
+  ) as { document?: number };
 
   const seeded = {
     at: new Date().toISOString(),
@@ -349,6 +366,8 @@ export async function seed(o: Options): Promise<Record<string, unknown>> {
     datasets,
     ingest_roots: { [INBOX]: inbox },
     question: { name: QUESTION.name, document: drafted.document ?? null },
+    notes_batch: NOTES_BATCH,
+    injected_question: { name: INJECTED_QUESTION.name, document: injected.document ?? null },
     serve: [
       o.nils,
       "serve",

@@ -18,6 +18,8 @@
     "bench:measure": "tsc -p tsconfig.build.json && node dist/bench/measure.js",
     "bench:seed": "tsc -p tsconfig.build.json && node dist/bench/seed.js",
     "bench:offline": "tsc -p tsconfig.build.json && node dist/bench/offline.js",
+    "bench:one-chat": "tsc -p tsconfig.build.json && node dist/bench/one-chat.js",
+    "bench:one-chat-stub": "tsc -p tsconfig.build.json && node dist/bench/one-chat-stub.js",
     "dev": "vite dev",
     "start": "node bin/serve.mjs",
     "records:export": "tsc -p tsconfig.build.json && node dist/src/host/records.js export",

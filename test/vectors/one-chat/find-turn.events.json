@@ -1,0 +1,19 @@
+{
+  "about": "The same turn as Flue's runtime events (observe(), v3) a host may relay: the same graded events as find-turn.chunks.json.",
+  "submission": "sub-7",
+  "events": [
+    {"v": 3, "eventIndex": 1, "type": "submission_running", "submissionId": "sub-7"},
+    {"v": 3, "eventIndex": 2, "type": "turn_start", "submissionId": "sub-7", "turnId": "u1"},
+    {"v": 3, "eventIndex": 3, "type": "tool_start", "submissionId": "sub-7", "toolName": "activate_skill", "toolCallId": "t1", "args": {"name": "find-data"}},
+    {"v": 3, "eventIndex": 4, "type": "tool", "submissionId": "sub-7", "toolName": "activate_skill", "toolCallId": "t1", "isError": false, "result": {"content": [], "details": {"skill": "find-data"}}, "durationMs": 2},
+    {"v": 3, "eventIndex": 5, "type": "tool_start", "submissionId": "sub-7", "toolName": "registry_summary", "toolCallId": "t2", "args": {}},
+    {"v": 3, "eventIndex": 6, "type": "tool", "submissionId": "sub-7", "toolName": "registry_summary", "toolCallId": "t2", "isError": false, "result": {"content": [], "details": {"cohorts": 2}}, "durationMs": 40},
+    {"v": 3, "eventIndex": 7, "type": "tool_start", "submissionId": "sub-7", "toolName": "query_draft", "toolCallId": "t3", "args": {"question": "How many subjects are in cohort B?"}},
+    {"v": 3, "eventIndex": 8, "type": "tool", "submissionId": "sub-7", "toolName": "query_draft", "toolCallId": "t3", "isError": false, "result": {"content": [{"type": "text", "text": "document 812"}], "details": {"document": 812}}, "durationMs": 300},
+    {"v": 3, "eventIndex": 9, "type": "thinking_delta", "submissionId": "sub-7", "delta": "the count of cohort B"},
+    {"v": 3, "eventIndex": 10, "type": "text_delta", "submissionId": "sub-7", "text": "Cohort B has "},
+    {"v": 3, "eventIndex": 11, "type": "text_delta", "submissionId": "sub-7", "text": "24 subjects."},
+    {"v": 3, "eventIndex": 12, "type": "log", "submissionId": "sub-7", "level": "info", "message": "settled"},
+    {"v": 3, "eventIndex": 13, "type": "submission_settled", "submissionId": "sub-7", "outcome": "completed"}
+  ]
+}

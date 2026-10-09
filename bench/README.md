@@ -53,6 +53,12 @@ A second invocation of the same day and model adds its stations to the same resu
 npm run bench:offline -- --engine http://127.0.0.1:<engine port> [--stations identity-check] [--out <file>]
 ```
 
+## The one chat (Wave 7a, slice C3)
+
+`bench/one-chat.ts` measures the one agent, `nils`, that replaces the stations' gears: thirty-eight multi-turn conversations in `corpus/one-chat.yml`, built from the chains, the authored shapes and the stations' cases, each run three times in a fresh conversation, graded on outcomes by `one-chat-grade.ts`: the right skill, the gold reached, no write without an approval, door phrases, engine words and steps after the answer at 0 (`corpus/one-chat-lexicon.yml`), refused and malformed calls and the seconds beside. It reports pass@1 and pass^3 per kind, and the two find arms (a skill, or a read-only sub-agent) side by side. The interface it drives is `ONE-CHAT.md`; until the agent exists, `one-chat-stub.ts` stands in for it and the test suite runs the harness against that.
+
+`chains.ts` now scores each turn on its final verdict: a station that hands the work on settles first with no document, and the document comes in the delegate's verdict and the woken parent's (`turns.ts`).
+
 ## The baseline, 2026-09-09
 
 The prototype's frozen gate passed 17.9 percent one shot on the best model of its day, against the live archive. On the rebased corpus (eighteen shapes with a gold answer, registry epoch 2, pack mri 0.1.1), one shot with the engine's guide, the worked examples and a catalog slice in the prompt, temperature 0:

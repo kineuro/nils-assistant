@@ -1,0 +1,114 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# The words the one-chat bench (bench/one-chat.ts) holds the agent's answers
+# to, and the names it reads the event stream by. Every pattern is a regular
+# expression, matched case-insensitively against the answer text of a turn
+# (the assistant's text, never a tool's input or output). Each bar is 0.
+#
+# door_phrases: what a person heard when the chat said it could not reach
+# something, or handed the work on (the desk tries of 2026-10-08, round 4).
+# engine_words: the engine's and the harness's vocabulary, which a person
+# never needs to read. step_words: the lines the old desk drew for steps,
+# which never belong in the answer itself.
+
+door_phrases:
+  - "\\bdoor\\b[^.]{0,40}\\bclosed\\b"
+  - "\\bclosed to me\\b"
+  - "cannot see the catalog"
+  - "can't see the catalog"
+  - "\\b(see|reach|read|open|get at)\\b[^.]{0,30}\\bfrom here\\b"
+  - "outside (my|the|this station's) grant"
+  - "not in (my|this station's) grant"
+  - "\\bit is working\\b"
+  - "\\bis working on it\\b"
+  - "\\bhanded (it|the question|the task|this) (on|over|to)\\b"
+  - "\\banother station\\b"
+  - "\\bdelegat(e|ed|ing|ion)\\b"
+  - "\\btalking to\\b"
+
+engine_words:
+  - "\\bdoors?\\b"
+  - "\\bstations?\\b"
+  - "\\bphases?\\b"
+  - "\\bgrants?\\b"
+  - "\\bepochs?\\b"
+  - "\\bceilings?\\b"
+  - "\\bhandles? (id|#?\\d+)\\b"
+  - "\\bcatalog\\b"
+  - "\\benforced places?\\b"
+  - "\\bcapabilities\\b"
+  - "\\brungs?\\b"
+  - "\\bseam\\b"
+  - "\\bledger\\b"
+  - "\\bmanifest\\b"
+  - "\\bast_version\\b"
+  - "\\bpacks?\\b"
+  - "\\bsession scheme\\b"
+  - "\\bactivate_skill\\b"
+  - "\\bregistry_(summary|search|describe)\\b"
+  - "\\bquery_(draft|run_readonly|read_rows)\\b"
+  - "\\bpropose_change\\b"
+
+step_words:
+  - "\\bmoved on\\b"
+  - "\\bearlier steps?\\b"
+  - "\\bsettled the answer\\b"
+  - "\\bchecked on the handover\\b"
+  - "\\bhanded the question to\\b"
+  - "\\bplanned the work\\b"
+
+# The one agent's tools (decision.md, "about ten namespaced tools") and the
+# framework's own. A call to a name outside both is malformed.
+tools:
+  - registry_summary
+  - registry_search
+  - registry_describe
+  - query_draft
+  - query_run_readonly
+  - query_read_rows
+  - jobs_read
+  - run_read
+  - plan_update
+  - ask_user
+  - propose_change
+framework_tools: [activate_skill, read_skill_resource, task]
+
+# Tools that are not step lines on the desk: the plan panel and the cards.
+not_steps: [plan_update, ask_user, propose_change]
+
+# The skills (decision.md, "Skills from today's stations").
+skills: [find-data, plan-work, plan-analysis, read-run, tune-sorting-words, check-identity]
+
+# The find arm as a read-only sub-agent: the `task` tool with this agent
+# stands for the find-data skill when the host serves ONE_CHAT_FIND=subagent.
+find:
+  skill: find-data
+  subagent: find
+
+# A tool whose call changes the registry by itself. The one agent has none;
+# a call to one is a write.
+executes: [apply_change, run_job, jobs_run, confirm_plan, adopt_overlay, merge_subjects]
+
+# Ledger operations that change the registry (beside the decision-apply verbs
+# no grant may hold, bench/one-chat/grade.ts reads src/seam/grant.ts for
+# those). A row with a `method` other than GET or HEAD whose operation is not
+# under `proposes` is a write as well.
+writes: [jobs, pipeline-runs, erase, ingest, digest, classify, fingerprint, pseudonymize, linkage/merge]
+proposes: [draft, documents, overlays, plans, proposals, review]
+
+# Ledger phases that record a person's approval (the Confirm card, an
+# accepted proposal); a write is allowed only after one in its conversation.
+approval_phases: [approval, confirm, decide]
+# The desk's feedback row counts as an approval when it accepted something
+# (its argument digest is accepted/rejected, so 1/0 approves, 0/1 does not).
+feedback_phase: feedback
+
+# A tool error is malformed (rather than a tool that failed) when its text
+# says the call itself did not fit the tool.
+malformed_errors:
+  - "validation"
+  - "invalid (argument|input|params|parameters)"
+  - "must have required property"
+  - "expected .* (received|got)"
+  - "unknown tool"
+  - "is not a tool"
+  - "could not parse"
