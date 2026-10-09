@@ -27,10 +27,10 @@
     "notes": "node dist/src/host/notes.js"
   },
   "dependencies": {
-    "@earendil-works/pi-ai": "0.83.0",
-    "@flue/postgres": "2.0.5",
-    "@flue/runtime": "2.0.5",
-    "@flue/vite": "2.0.5",
+    "@earendil-works/pi-ai": "0.87.1",
+    "@flue/postgres": "2.2.2",
+    "@flue/runtime": "2.2.2",
+    "@flue/vite": "2.2.2",
     "hono": "^4.13.7",
     "postgres": "^3.4.9",
     "valibot": "^1.4.2",

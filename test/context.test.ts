@@ -6,7 +6,13 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type AssistantMessageEvent, type Context, createProvider, type Model } from "@earendil-works/pi-ai";
+import {
+  type AssistantMessageEvent,
+  type Context,
+  createProvider,
+  getCurrentSystemPrompt,
+  type Model,
+} from "@earendil-works/pi-ai";
 import { init, observe, useModel } from "@flue/runtime";
 import { sqlite, start } from "@flue/runtime/node";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -156,7 +162,7 @@ function fullProvider() {
     timestamp: Date.now(),
   });
   const stream = (_m: Model<"openai-completions">, context: Context) => {
-    const summarizing = (context.systemPrompt ?? "").includes("summarization");
+    const summarizing = getCurrentSystemPrompt(context.messages).includes("summarization");
     const message = summarizing
       ? reply("Goal: count the cohorts. Progress: counted.", 500)
       : reply("done", 30_000);

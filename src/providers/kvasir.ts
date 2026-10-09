@@ -14,7 +14,15 @@
 // Kvasir holds the models an admin adds, so the catalog is read again while
 // the host runs.
 
-import { createProvider, type Model, type Provider } from "@earendil-works/pi-ai";
+import {
+  type Context,
+  createProvider,
+  getCurrentSystemPrompt,
+  getCurrentTools,
+  type Model,
+  type Provider,
+  type TranscriptContext,
+} from "@earendil-works/pi-ai";
 import { stream, streamSimple } from "@earendil-works/pi-ai/api/pi-messages";
 
 export interface Catalog {
@@ -38,6 +46,27 @@ export async function readCatalog(url: string, key: string, dial: typeof fetch =
   });
   if (!r.ok) throw new Error(`Kvasir answered ${r.status} to /v1/config`);
   return (await r.json()) as Catalog;
+}
+
+/**
+ * A context as Kvasir reads it: the prompt and the tools as `systemPrompt` and `tools`, and no system message in the
+ * transcript. Since pi 0.86 a provider is handed the transcript with its system messages (the leading one holds the
+ * prompt and the tools; a later one changes them), and pi-messages sends it as it is; a Kvasir on an earlier pi reads
+ * only `systemPrompt` and `tools` and drops system messages, so the model would get neither. The transcript is
+ * collapsed here as pi collapses it for any model that takes no system message mid-conversation: the replayed prompt
+ * and the current tools lead, and later system messages leave the history.
+ */
+export function kvasirContext(context: TranscriptContext | Context): TranscriptContext {
+  const messages = context.messages;
+  if (!messages.some((m) => m.role === "system")) return context as TranscriptContext;
+  const systemPrompt = getCurrentSystemPrompt(messages);
+  const tools = getCurrentTools(messages);
+  const wire: Context = {
+    ...(systemPrompt ? { systemPrompt } : {}),
+    ...(tools.length > 0 ? { tools } : {}),
+    messages: messages.filter((m) => m.role !== "system"),
+  };
+  return wire as unknown as TranscriptContext;
 }
 
 /** The provider id a station's model specifier names: `kvasir-<station>/<model>`. */
@@ -90,8 +119,9 @@ export function kvasirProvider(opts: {
     },
     models,
     api: {
-      stream: (model, context, options) => stream(model as never, context, headers(options)),
-      streamSimple: (model, context, options) => streamSimple(model as never, context, headers(options)),
+      stream: (model, context, options) => stream(model as never, kvasirContext(context), headers(options)),
+      streamSimple: (model, context, options) =>
+        streamSimple(model as never, kvasirContext(context), headers(options)),
     },
   });
 }

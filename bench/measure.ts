@@ -157,7 +157,11 @@ function child(script: string, env: Record<string, string>): Promise<number> {
  */
 function written(dir: string, f: string, kind: RegExp): string {
   if (existsSync(join(dir, f))) return f;
-  const all = existsSync(dir) ? readdirSync(dir).filter((x) => kind.test(x)).sort() : [];
+  const all = existsSync(dir)
+    ? readdirSync(dir)
+        .filter((x) => kind.test(x))
+        .sort()
+    : [];
   return all.at(-1) ?? f;
 }
 
