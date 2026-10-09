@@ -144,6 +144,24 @@ export function forgetSeam(station: string, conversation: string): void {
   seams.delete(`${station}/${conversation}`);
 }
 
+/** The seam of one conversation for a station the caller describes rather than registers (the one agent's own seams). */
+export function seamWith(st: Station, conversation: string): Seam {
+  const key = `${st.id}/${conversation}`;
+  let s = seams.get(key);
+  if (!s) {
+    s = new Seam({
+      engine: config().engine,
+      station: st,
+      conversation,
+      token: () => tokens.get(conversation),
+      authOff: () => engineAuthOff,
+      ledger: theLedger(),
+    });
+    seams.set(key, s);
+  }
+  return s;
+}
+
 /** The seam of one conversation of one station; the grant's counts live for the conversation. */
 export function seamFor(station: string, conversation: string): Seam {
   const key = `${station}/${conversation}`;

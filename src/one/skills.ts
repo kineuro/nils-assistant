@@ -67,17 +67,41 @@ export function findExamples(stationDirs: string[]): ReturnType<typeof cookbook>
   return [];
 }
 
-/** A skill's body for this turn: finding data with the examples closest to the person's words. */
-export function bodyFor(s: SkillText, message: string, examples: ReturnType<typeof cookbook>): string {
-  if (s.id !== "find-data" || examples.length === 0) return s.body;
-  const near = renderCookbook(
-    closest(message, examples, 3),
-    "Worked examples closest to the person's words, the closest first: start from it",
-  );
-  return `${s.body}\n\n${near}`;
+/** The language's functions by family, as the registry lists them, for the find-data skill. */
+export function functionsText(functions: Record<string, string[]> | undefined | null): string {
+  const rows = Object.entries(functions ?? {});
+  if (rows.length === 0) return "";
+  return `## The language's functions, by family (the first item of a clause)\n${rows.map(([f, names]) => `- ${f}: ${names.join(", ")}`).join("\n")}`;
+}
+
+/** A skill's body for this turn: finding data with the language's functions and the examples closest to the person's words. */
+export function bodyFor(
+  s: SkillText,
+  message: string,
+  examples: ReturnType<typeof cookbook>,
+  functions?: Record<string, string[]> | null,
+): string {
+  if (s.id !== "find-data") return s.body;
+  const fns = functionsText(functions);
+  const near = examples.length
+    ? renderCookbook(
+        closest(message, examples, 3),
+        "Worked examples closest to the person's words, the closest first: start from it",
+      )
+    : "";
+  return [s.body, fns, near].filter(Boolean).join("\n\n");
 }
 
 /** The skill as Flue mounts it; the description stays the same on every render, so the catalog never changes. */
-export function skillOf(s: SkillText, message: string, examples: ReturnType<typeof cookbook>) {
-  return defineSkill({ name: s.id, description: s.description, instructions: bodyFor(s, message, examples) });
+export function skillOf(
+  s: SkillText,
+  message: string,
+  examples: ReturnType<typeof cookbook>,
+  functions?: Record<string, string[]> | null,
+) {
+  return defineSkill({
+    name: s.id,
+    description: s.description,
+    instructions: bodyFor(s, message, examples, functions),
+  });
 }

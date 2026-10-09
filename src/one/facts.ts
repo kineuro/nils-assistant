@@ -15,8 +15,19 @@ import { createHash } from "node:crypto";
 
 /** The registry summary as the facts carry it: the prelude's text in plain words, with nothing a tag would escape. */
 export function factsSummary(prelude: string): string {
-  return prelude
-    .split("\n")
+  // the language's functions are the find-data skill's to teach, written as they are; a tag would escape them
+  const lines: string[] = [];
+  let skipping = false;
+  for (const l of prelude.split("\n")) {
+    if (/^Functions, by family:/u.test(l)) {
+      skipping = true;
+      continue;
+    }
+    if (skipping && /^- /u.test(l)) continue;
+    skipping = false;
+    lines.push(l);
+  }
+  return lines
     .filter((l) => !/^Session schemes:/u.test(l))
     .map((l) =>
       l
@@ -24,10 +35,9 @@ export function factsSummary(prelude: string): string {
         .replace(/^## The engine's grounding/u, "## How the registry counts")
         .replace(/->/gu, "→")
         .replace(/<([a-z_ ]+)>/giu, "{$1}")
-        .replace(/>=/gu, "≥")
-        .replace(/<=/gu, "≤")
-        .replace(/>/gu, " more than ")
-        .replace(/</gu, " less than ")
+        .replace(/\s*>=\s*/gu, " at least ")
+        .replace(/\s*<=\s*/gu, " at most ")
+        .replace(/[<>]/gu, "")
         .replace(/&/gu, " and "),
     )
     .join("\n")

@@ -23,6 +23,8 @@ export interface CheckContext {
   conversation: string;
   /** The seam a document is validated through; null where none is open. */
   validate: ((document: number) => Promise<string | null>) | null;
+  /** The skill the words looked like, when the person may use it (the turn's hint). */
+  hinted?: string | null;
 }
 
 /** The skills a turn counts as active: those it activated, and those whose tools it used. */
@@ -51,6 +53,17 @@ export async function complaintsOf(c: CheckContext): Promise<string[]> {
   if (SQL.test(answer)) out.push("the answer carries SQL; say what was counted in words");
   if (PERSONAL.test(answer)) out.push("the answer carries an identifier value; leave it out");
   const active = activeSkills(c.turn);
+  // a question for data answered from memory: the person gets no question to keep, and the number is unchecked
+  if (
+    c.hinted === "find-data" &&
+    active.size === 0 &&
+    !c.turn.asked &&
+    /\d/u.test(answer) &&
+    !/\b(no|not|none|nothing|isn't|aren't|cannot|can't)\b/iu.test(answer)
+  )
+    out.push(
+      "this asks for data: activate the find-data skill and draft the question, so the number is the registry's and the person gets the question to keep",
+    );
   if (active.has("find-data") && c.turn.drafted.length && c.validate) {
     const last = c.turn.drafted.at(-1) as number;
     const why = await c.validate(last);

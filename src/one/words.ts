@@ -71,5 +71,7 @@ export function plainly(text: string): string {
     .replace(/\bepochs?\b/giu, "version")
     .replace(/\bceilings?\b/giu, "limit")
     .replace(/\bphases?\b/giu, "step")
-    .replace(/\brungs?\b/giu, "level");
+    .replace(/\brungs?\b/giu, "level")
+    .replace(/\bpack versions?\b/giu, "new version of the sorting")
+    .replace(/\bpacks?\b/giu, "sorting");
 }

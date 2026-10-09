@@ -229,6 +229,26 @@ describe("the one agent", () => {
     expect(reply.text).not.toMatch(/never reached/u);
   }, 60_000);
 
+  it("holds the framework's own tools to the same guards: a skill activated five times stops the turn", async () => {
+    play([
+      { tool: "activate_skill", args: { name: "find-data" } },
+      { tool: "activate_skill", args: { name: "find-data" } },
+      { tool: "activate_skill", args: { name: "find-data" } },
+      { tool: "activate_skill", args: { name: "find-data" } },
+      { tool: "activate_skill", args: { name: "find-data" } },
+      { tool: "activate_skill", args: { name: "find-data" } },
+      { tool: "activate_skill", args: { name: "find-data" } },
+      { text: "Nothing more." },
+    ]);
+    const h = init(Nils, { id: "oc-loop-framework" });
+    await h.read(await h.dispatch("Which scans are MPRAGE?"));
+    const log = recorded("oc-loop-framework");
+    expect(log).toMatch(/the same call came five times/u);
+    expect(turnOf("oc-loop-framework").stopped).toBe("the same call came five times");
+    // the sixth is refused before it runs, and the turn still ends
+    expect(calls).toBeLessThanOrEqual(8);
+  }, 60_000);
+
   it("sends an answer in engine words back once, and the new answer stands", async () => {
     play([{ text: "The ask-help station counted 24 subjects." }, { text: "Cohort B has 24 subjects." }]);
     const h = init(Nils, { id: "oc-plain" });

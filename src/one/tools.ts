@@ -14,9 +14,9 @@ import type { JsonValue } from "@flue/runtime";
 import * as v from "valibot";
 import type { Detail } from "../host/grants.ts";
 import { planFrom, restate } from "../host/ladder.ts";
-import type { Answer, Seam } from "../seam/client.ts";
+import type { Answer, Seam, Station } from "../seam/client.ts";
 import { shorten, toolResult } from "../seam/client.ts";
-import { seamFor, theLineage } from "../seam/for.ts";
+import { seamWith, stationList, theLineage } from "../seam/for.ts";
 import { preflightForDocument } from "../stations/analysis-plan.ts";
 import { compactPreview, unescapeEntities } from "../stations/ask-help.ts";
 import {
@@ -116,8 +116,32 @@ export const SEAMS = [
 ] as const;
 type SeamId = (typeof SEAMS)[number];
 
+/**
+ * The one agent's seam for the work of one station: the station's own operations, ceiling and content class,
+ * under the name `nils.<station>`, with each cap four times the station's (at least twelve). A station's caps
+ * bound one run of one task; a turn of the one agent may carry several steps of one skill, and its own guards
+ * (the turn cap, the repeat detector) bound the turn.
+ */
+const derived = new Map<string, Station>();
+export function oneSeam(id: SeamId, conversation: string): Seam {
+  let st = derived.get(id);
+  if (!st) {
+    const base = stationList().find((s) => s.id === id);
+    if (!base) throw new Error(`the work of ${id} is not configured here`);
+    const grant = Object.fromEntries(
+      Object.entries(base.grant).map(([op, cap]) => [
+        op,
+        { ...cap, ...(cap.calls !== undefined ? { calls: Math.max(12, cap.calls * 4) } : {}) },
+      ]),
+    );
+    st = { ...base, id: `nils.${id}`, grant, purpose: undefined };
+    derived.set(id, st);
+  }
+  return seamWith(st, conversation);
+}
+
 function seam(ctx: ToolCtx, id: SeamId): Seam {
-  return seamFor(id, ctx.conversation);
+  return oneSeam(id, ctx.conversation);
 }
 
 /** Registry content, marked as data. */
@@ -481,6 +505,15 @@ const queryDraft: OneTool = {
 
 const RUN_WHAT = ["document", "sorting_words", "identity_rules"] as const;
 
+/** The overlay's own scope, from the scope rehearsed over: a batch by its id, an origin by its manufacturer. */
+export function overlayScope(scope: string): Record<string, string> {
+  const [kind, rest] = [scope.slice(0, scope.indexOf(":")), scope.slice(scope.indexOf(":") + 1)];
+  if (kind === "batch" && rest) return { batch: rest };
+  if (kind === "origin" && rest) return { manufacturer: rest };
+  if (["manufacturer", "model", "station"].includes(kind) && rest) return { [kind]: rest };
+  return {};
+}
+
 async function rehearseWords(args: Record<string, unknown>, ctx: ToolCtx): Promise<Out> {
   const scope = str(args.scope);
   const axis = str(args.axis);
@@ -561,7 +594,7 @@ async function rehearseWords(args: Record<string, unknown>, ctx: ToolCtx): Promi
     must_not_regress: ((args.must_not_regress as string[] | undefined) ?? []).map(String),
     at: Date.now(),
   };
-  const overlay = overlayOf(prediction, {}, caseText, caseValue);
+  const overlay = overlayOf(prediction, overlayScope(scope), caseText, caseValue);
   ctx.write.progress("Rehearsing the sorting words, writing nothing");
   const a = await s.call({
     method: "POST",
@@ -1294,7 +1327,7 @@ function proposeOverlay(args: Record<string, unknown>, ctx: ToolCtx, sentence: s
   if (r.diff.verdict === "revert")
     return refuse(`the rehearsal did not hold: ${r.diff.why}`, "Say so and propose nothing.");
   const name = str(args.name) ?? `tune-${r.prediction.list}`;
-  const overlay = overlayOf(r.prediction, {}, r.case_text, r.case_value);
+  const overlay = overlayOf(r.prediction, overlayScope(r.scope), r.case_text, r.case_value);
   return propose(ctx, {
     kind: "overlay",
     sentence,

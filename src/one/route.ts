@@ -67,6 +67,8 @@ export function routeOf(message: string): Route {
 /** The hint as the turn's facts carry it: one line the model may overrule. */
 export function hintLine(r: Route, mounted: readonly string[]): string {
   if (r.summary) return "Hint from the words: the registry summary above answers this; no skill is needed.";
+  if (r.skill === "find-data" && mounted.includes(r.skill))
+    return `Hint from the words (${r.because}): this looks like the find-data skill: activate it and draft the question, even when the summary seems to hold the number. Overrule it when the words mean otherwise.`;
   if (r.skill && mounted.includes(r.skill))
     return `Hint from the words (${r.because}): this looks like the ${r.skill} skill. Overrule it when the words mean otherwise.`;
   if (r.skill)
