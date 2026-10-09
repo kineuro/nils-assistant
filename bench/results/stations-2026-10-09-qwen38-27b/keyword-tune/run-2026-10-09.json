@@ -1,0 +1,116 @@
+{
+  "at": "2026-10-09T10:24:59.288Z",
+  "station": "keyword-tune",
+  "results": [
+    {
+      "id": "agent-into-its-bucket",
+      "passed": true,
+      "why": "",
+      "gap": null,
+      "terminal": "settled",
+      "seconds": 55,
+      "model": "qwen38-27b",
+      "conversation": "bench-agent-into-its-bucket-mv0t71el"
+    },
+    {
+      "id": "agent-list-left-to-the-station",
+      "passed": false,
+      "why": "ended loop_stopped, not settled; axis is undefined, not \"post_contrast\"; list is undefined, not \"contrast_positive\"; diff is undefined, not \"keep\"; proposal is undefined, not \"present\"; no classify/try call answered; no overlays call answered",
+      "gap": null,
+      "terminal": "loop_stopped",
+      "seconds": 30,
+      "model": null,
+      "conversation": "bench-agent-list-left-to-the-station-mv0t87ib"
+    },
+    {
+      "id": "agent-in-the-persons-words",
+      "passed": true,
+      "why": "",
+      "gap": null,
+      "terminal": "settled",
+      "seconds": 54,
+      "model": "qwen38-27b",
+      "conversation": "bench-agent-in-the-persons-words-mv0t8uq4"
+    },
+    {
+      "id": "agent-over-the-origin",
+      "passed": false,
+      "why": "ended loop_stopped, not settled; axis is undefined, not \"post_contrast\"; list is undefined, not \"contrast_positive\"; diff is undefined, not \"keep\"; proposal is undefined, not \"present\"; no classify/try call answered; no overlays call answered",
+      "gap": null,
+      "terminal": "loop_stopped",
+      "seconds": 33,
+      "model": null,
+      "conversation": "bench-agent-over-the-origin-mv0ta0ia"
+    },
+    {
+      "id": "flair-word-into-the-value-list",
+      "passed": true,
+      "why": "",
+      "gap": null,
+      "terminal": "settled",
+      "seconds": 48,
+      "model": "qwen38-27b",
+      "conversation": "bench-flair-word-into-the-value-list-mv0taq2b"
+    },
+    {
+      "id": "flair-word-list-left-to-the-station",
+      "passed": true,
+      "why": "",
+      "gap": null,
+      "terminal": "settled",
+      "seconds": 60,
+      "model": "qwen38-27b",
+      "conversation": "bench-flair-word-list-left-to-the-station-mv0tbr6j"
+    },
+    {
+      "id": "refuses-a-term-the-list-holds",
+      "passed": true,
+      "why": "",
+      "gap": null,
+      "terminal": "loop_stopped",
+      "seconds": 43,
+      "model": null,
+      "conversation": "bench-refuses-a-term-the-list-holds-mv0td1ks"
+    },
+    {
+      "id": "refuses-a-term-that-takes-plain-series",
+      "passed": false,
+      "why": "proposal is {\"overlay_id\":5,\"review_item\":180,\"name\":\"tune-post_contrast-mprage\"}, not \"absent\"; overlays was called and answered",
+      "gap": null,
+      "terminal": "settled",
+      "seconds": 54,
+      "model": "qwen38-27b",
+      "conversation": "bench-refuses-a-term-that-takes-plain-series-mv0tdyjr"
+    },
+    {
+      "id": "refuses-to-remove-a-working-agent",
+      "passed": true,
+      "why": "",
+      "gap": null,
+      "terminal": "settled",
+      "seconds": 63,
+      "model": "qwen38-27b",
+      "conversation": "bench-refuses-to-remove-a-working-agent-mv0tf4bd"
+    },
+    {
+      "id": "nothing-to-tune-where-the-word-is-absent",
+      "passed": true,
+      "why": "",
+      "gap": null,
+      "terminal": "loop_stopped",
+      "seconds": 105,
+      "model": null,
+      "conversation": "bench-nothing-to-tune-where-the-word-is-absent-mv0tgh18"
+    },
+    {
+      "id": "no-scope-no-rehearsal",
+      "passed": false,
+      "why": "classify/try was called and answered; overlays was called and answered",
+      "gap": null,
+      "terminal": "settled",
+      "seconds": 54,
+      "model": "qwen38-27b",
+      "conversation": "bench-no-scope-no-rehearsal-mv0tiq7m"
+    }
+  ]
+}

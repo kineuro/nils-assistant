@@ -1,0 +1,126 @@
+{
+  "at": "2026-10-09T10:29:51.406Z",
+  "station": "analysis-plan",
+  "passed": 8,
+  "of": 12,
+  "split": {
+    "loop": {
+      "passed": 3,
+      "of": 5
+    },
+    "held_out": {
+      "passed": 5,
+      "of": 7
+    }
+  },
+  "results": [
+    {
+      "id": "hippocampus-nmosd",
+      "passed": true,
+      "why": "",
+      "terminal": "settled",
+      "seconds": 18,
+      "conversation": "bench-hippocampus-nmosd-mv0tjw06",
+      "sentence": "I set up synthseg (robust) over the nmosd cohort, all sessions, to measure the left and right hippocampal volumes per session — it works on any clinical T1w and its own quality scores are the checks. Pre-flight: 0 of 0 units ready, about 0 min, no GPU; it is blocked because no stack of the selection is picked yet, so the input release would hold no subject's images — nils pick run picks them. You start it with Run."
+    },
+    {
+      "id": "lesions-ms-a-over-time",
+      "passed": true,
+      "why": "",
+      "terminal": "settled",
+      "seconds": 18,
+      "conversation": "bench-lesions-ms-a-over-time-mv0tk9zr",
+      "sentence": "I planned samseg-lesions (lesion on) over every session of ms-cohort-a, so the white-matter lesion volume is measured at each visit and the change over time can be read from measure.samseg-lesions.lesions; the pre-flight shows 0 of 0 units ready, about 0 min, and it is not ready yet because no stack of the selection is picked, so the release of the input would hold no subject's images — nils pick run picks them. You start it with Run."
+    },
+    {
+      "id": "lesions-baseline-b",
+      "passed": false,
+      "why": "no pre-flight",
+      "terminal": "settled",
+      "seconds": 18,
+      "conversation": "bench-lesions-baseline-b-mv0tknxu",
+      "sentence": "I recorded a run of samseg-lesions (lesion on) over the first session of each subject in ms-cohort-b — 12 subjects, 47 sessions in the cohort, so 12 baseline units — which reads each T1w with its FLAIR and reports the white-matter lesion volume (measure.samseg-lesions.lesions) alongside the structure volumes; no pre-flight was taken because the ask for the cohorts left no handle to check the run over, so the engine will count the units and flag any baseline session missing a FLAIR when you start it. Press Run to start it."
+    },
+    {
+      "id": "thalamus-latest-a",
+      "passed": false,
+      "why": "no pre-flight",
+      "terminal": "settled",
+      "seconds": 30,
+      "conversation": "bench-thalamus-latest-a-mv0tl1w6",
+      "sentence": "I chose synthseg (robust) because it measures the thalamus on clinical T1w scans of any contrast or resolution and is the cheaper of the two analyses that report thalamic volume (FreeSurfer would take 5–8 hours a session and the lab's licence); it will run over the most recent session of each subject in ms-cohort-a (38 subjects, 144 sessions). No pre-flight was taken because the ask for the cohorts left no handle to check the run over, so the engine could not count the units or time them yet. You start it with Run."
+    },
+    {
+      "id": "quality-of-selection",
+      "passed": true,
+      "why": "",
+      "terminal": "settled",
+      "seconds": 18,
+      "conversation": "bench-quality-of-selection-mv0tlp3m",
+      "sentence": "I chose MRIQC (mriqc@1) because it measures each T1w's quality — SNR, CNR, CJV, smoothness and non-uniformity — and flags the poor scans against its thresholds (SNR ≥ 8, CJV ≤ 0.8), run over your saved selection ms-baseline@1. The pre-flight shows 0 of 0 units ready, about 0 min, no GPU, but it is not ready to run: no stack of the selection is picked, so the release of the input would hold no subject's images; nils pick run picks them. You start it with Run once that is done."
+    },
+    {
+      "id": "thickness-by-hand",
+      "passed": true,
+      "why": "",
+      "terminal": "settled",
+      "seconds": 18,
+      "conversation": "bench-thickness-by-hand-mv0tm31n",
+      "sentence": "I recorded freesurfer-recon-all@1 over all of ms-cohort-b's sessions — the field's reference for cortical thickness, the way you do it by hand — but the pre-flight shows 0 of 0 units ready (about 0 min, CPU, no GPU) and it is blocked: no stack of the selection is picked, so the release of the input would hold no subject's images; nils pick run picks them. You start it with Run once that is done."
+    },
+    {
+      "id": "skull-strip-first-a",
+      "passed": true,
+      "why": "",
+      "terminal": "settled",
+      "seconds": 21,
+      "conversation": "bench-skull-strip-first-a-mv0tmgzl",
+      "sentence": "I chose synthstrip, the skull-strip that gives the brain mask and the brain's volume in mm3, over ms-cohort-a's first scans (38 subjects, one session each). The pre-flight shows 0 of 0 units ready, about 0 min, no GPU, and it is blocked: no stack of the selection is picked, so the release of the input would hold no subject's images; nils pick run picks them. You start it with Run."
+    },
+    {
+      "id": "volumes-without-flair-b",
+      "passed": false,
+      "why": "no pre-flight",
+      "terminal": "settled",
+      "seconds": 21,
+      "conversation": "bench-volumes-without-flair-b-mv0tmx96",
+      "sentence": "I recorded a run of SAMSEG (samseg-lesions@1) with the lesion step off, so it reads each session's T1w alone and measures the whole-brain structure volumes — intracranial volume, cortex, white matter, ventricles, thalami, hippocampi, brain stem and CSF — over all 47 sessions of the ms-cohort-b cohort; with the lesion step off, the sessions without a FLAIR are not missing an input, and this is a quarter of the time of the lesion run. No pre-flight was taken: the ask for the cohorts left no handle to check the run over, so the engine will count the units when you press Run. You start it with Run."
+    },
+    {
+      "id": "intracranial-every-t1",
+      "passed": true,
+      "why": "",
+      "terminal": "settled",
+      "seconds": 30,
+      "conversation": "bench-intracranial-every-t1-mv0tndis",
+      "sentence": "synthseg (robust) will measure the total intracranial volume of every session in selection every-t1@2 — it is the cheap, licence-free choice for clinical T1w scans, and its own quality scores are the checks. Pre-flight: 0 of 0 units ready, about 0 min, no GPU needed, but it is not ready yet — no stack of the selection is picked, so the release of the input would hold no subject's images; nils pick run picks them. You start it with Run."
+    },
+    {
+      "id": "snr-latest-a",
+      "passed": true,
+      "why": "",
+      "terminal": "settled",
+      "seconds": 18,
+      "conversation": "bench-snr-latest-a-mv0to0qk",
+      "sentence": "MRIQC will measure the signal-to-noise (SNR, plus CNR, CJV and the other quality metrics) of the latest T1w scan of each subject in ms-cohort-a — MRIQC is the analysis that measures image quality, so it is the one that answers a signal-to-noise question. Pre-flight: mriqc@1, 0 of 0 units ready, about 0 min, no GPU needed; it is not ready yet because no stack of the selection is picked, so the release of the input would hold no subject's images — nils pick run picks them. You start it with Run."
+    },
+    {
+      "id": "ventricles-both-ms",
+      "passed": false,
+      "why": "no pre-flight",
+      "terminal": "settled",
+      "seconds": 21,
+      "conversation": "bench-ventricles-both-ms-mv0toeon",
+      "sentence": "I've recorded a run of synthseg (robust) over every session of both MS cohorts — ms-cohort-a (38 subjects, 144 sessions) and ms-cohort-b (12 subjects, 47 sessions) — to measure the ventricle volumes (left and right lateral ventricles, plus the third and fourth) in mm3; I chose synthseg because it segments the T1w on any clinical contrast and resolution and its own quality scores are the checks, and it is far faster than FreeSurfer, the other analysis that reports ventricle volumes. No pre-flight was taken because the ask for the cohorts left no handle to check the run over, so the engine will confirm the units and any missing inputs when you press Run."
+    },
+    {
+      "id": "unknown-cohort",
+      "passed": true,
+      "why": "",
+      "terminal": "loop_stopped",
+      "seconds": 60,
+      "conversation": "bench-unknown-cohort-mv0touym",
+      "sentence": null
+    }
+  ]
+}
