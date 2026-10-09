@@ -1,0 +1,201 @@
+{
+  "at": "2026-10-09T00:46:53.897Z",
+  "model": "qwen38-27b",
+  "host_models": [
+    {
+      "id": "qwen38-27b",
+      "contextWindow": 65536,
+      "maxTokens": 8192
+    }
+  ],
+  "engine": "1.0.0-alpha.79.dev.7",
+  "packs": [
+    {
+      "name": "mri",
+      "version": "1.0.1",
+      "contract": 8
+    }
+  ],
+  "stations": [
+    {
+      "station": "concierge",
+      "loop": {
+        "passed": 0,
+        "of": 4
+      },
+      "held_out": {
+        "passed": 0,
+        "of": 1
+      },
+      "detail": {
+        "corrections_needed": {
+          "chain-a": null,
+          "chain-b": null,
+          "chain-c": null
+        },
+        "authored_turns": {
+          "chain-d": "0/4",
+          "chain-e": "0/4"
+        }
+      },
+      "file": "stations-2026-10-08-qwen38-27b/concierge/chains-2026-10-08.json",
+      "why": null,
+      "state": "measured",
+      "measure": "chains that reach their gold",
+      "passed": 0,
+      "of": 5,
+      "through": {
+        "assistant": "http://127.0.0.1:17302",
+        "engine": "http://127.0.0.1:17438"
+      }
+    },
+    {
+      "station": "ask-help",
+      "loop": {
+        "passed": 35,
+        "of": 38
+      },
+      "held_out": {
+        "passed": 11,
+        "of": 16
+      },
+      "detail": {
+        "strict": 43,
+        "median_seconds": 27
+      },
+      "file": "stations-2026-10-08-qwen38-27b/ask-help/run-2026-10-09-all.json",
+      "why": null,
+      "state": "measured",
+      "measure": "the same answer as the gold",
+      "passed": 46,
+      "of": 54,
+      "through": {
+        "assistant": "http://127.0.0.1:17302",
+        "engine": "http://127.0.0.1:17438"
+      }
+    },
+    {
+      "station": "keyword-tune",
+      "loop": {
+        "passed": 7,
+        "of": 11
+      },
+      "held_out": {
+        "passed": 0,
+        "of": 0
+      },
+      "detail": {
+        "median_seconds": 34,
+        "gaps": []
+      },
+      "file": "stations-2026-10-08-qwen38-27b/keyword-tune/run-2026-10-08.json",
+      "why": null,
+      "state": "measured",
+      "measure": "cases ended as expected, every check passed",
+      "passed": 7,
+      "of": 11,
+      "through": {
+        "assistant": "http://127.0.0.1:17301",
+        "engine": "http://127.0.0.1:17437"
+      }
+    },
+    {
+      "station": "analysis-plan",
+      "loop": {
+        "passed": 3,
+        "of": 5
+      },
+      "held_out": {
+        "passed": 4,
+        "of": 7
+      },
+      "detail": {
+        "median_seconds": 21
+      },
+      "file": "stations-2026-10-08-qwen38-27b/analysis-plan/run-2026-10-08.json",
+      "why": null,
+      "state": "measured",
+      "measure": "plans with the expected pipeline, parameters and selection",
+      "passed": 7,
+      "of": 12,
+      "through": {
+        "assistant": "http://127.0.0.1:17301",
+        "engine": "http://127.0.0.1:17437"
+      }
+    },
+    {
+      "station": "run-read",
+      "loop": {
+        "passed": 0,
+        "of": 2
+      },
+      "held_out": {
+        "passed": 1,
+        "of": 1
+      },
+      "detail": {
+        "median_seconds": 15
+      },
+      "file": "stations-2026-10-08-qwen38-27b/run-read/run-2026-10-08.json",
+      "why": null,
+      "state": "measured",
+      "measure": "readings that count the planted failures and breaches",
+      "passed": 1,
+      "of": 3,
+      "through": {
+        "assistant": "http://127.0.0.1:17301",
+        "engine": "http://127.0.0.1:17437"
+      }
+    },
+    {
+      "station": "identity-check",
+      "loop": {
+        "passed": 1,
+        "of": 8
+      },
+      "held_out": {
+        "passed": 0,
+        "of": 3
+      },
+      "detail": {
+        "median_seconds": 84,
+        "gaps": []
+      },
+      "file": "stations-2026-10-08-qwen38-27b/identity-check/run-2026-10-08.json",
+      "why": null,
+      "state": "measured",
+      "measure": "cases ended as expected, every check passed",
+      "passed": 1,
+      "of": 11,
+      "through": {
+        "assistant": "http://127.0.0.1:17301",
+        "engine": "http://127.0.0.1:17437"
+      }
+    },
+    {
+      "station": "operator",
+      "loop": {
+        "passed": 0,
+        "of": 10
+      },
+      "held_out": {
+        "passed": 0,
+        "of": 3
+      },
+      "detail": {
+        "median_seconds": 45,
+        "gaps": []
+      },
+      "file": "stations-2026-10-08-qwen38-27b/operator/run-2026-10-08.json",
+      "why": null,
+      "state": "measured",
+      "measure": "cases ended as expected, every check passed",
+      "passed": 0,
+      "of": 13,
+      "through": {
+        "assistant": "http://127.0.0.1:17301",
+        "engine": "http://127.0.0.1:17437"
+      }
+    }
+  ]
+}

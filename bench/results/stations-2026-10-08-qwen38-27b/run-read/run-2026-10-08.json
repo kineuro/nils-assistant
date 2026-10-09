@@ -1,0 +1,45 @@
+{
+  "at": "2026-10-08T22:24:28.954Z",
+  "station": "run-read",
+  "passed": 1,
+  "of": 3,
+  "split": {
+    "loop": {
+      "passed": 0,
+      "of": 2
+    },
+    "held_out": {
+      "passed": 1,
+      "of": 1
+    }
+  },
+  "results": [
+    {
+      "id": "planted-synthseg",
+      "passed": false,
+      "why": "failures {\"a missing input\":2,\"no result reported\":1,\"the tool failed\":1}; campaign false",
+      "terminal": "settled",
+      "seconds": 18,
+      "conversation": "bench-planted-synthseg-mv03selv",
+      "sentence": "Run 1 of planted-synthseg ended partial: 16 of 20 units done, 3 failed (2 for a missing input — stack-878, stack-877; 1 where the tool failed — stack-879), 1 unreported (stack-880), and 4 units broke a declared check — 3 with qc_general_white_matter under 0.65 (worst 0.41: stack-881, stack-882, stack-883) and 1 with qc_general_csf under 0.65 (worst 0.52: stack-881) — so a campaign over those 4 units is proposed for a person to make."
+    },
+    {
+      "id": "samseg-both-sides",
+      "passed": false,
+      "why": "campaign false",
+      "terminal": "settled",
+      "seconds": 15,
+      "conversation": "bench-samseg-both-sides-mv03sskm",
+      "sentence": "Run 2 of planted-samseg ended done with 8 of 8 units done and none failed; two units broke a declared check: stack-897 measured an intracranial volume of 850000, under the 900000 floor, and stack-898 measured 2400000, over the 2300000 ceiling — both are failed segmentations more often than a head, so a person should look at them; no campaign is proposed, a person makes one."
+    },
+    {
+      "id": "clean-mriqc",
+      "passed": true,
+      "why": "",
+      "terminal": "settled",
+      "seconds": 9,
+      "conversation": "bench-clean-mriqc-mv03t48l",
+      "sentence": "Run 3 of planted-mriqc ended done with 6 of 6 units done; no unit failed; no unit broke a check; and no campaign is needed."
+    }
+  ]
+}

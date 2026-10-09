@@ -33,7 +33,7 @@
 // invocations make one result.
 
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { parse } from "yaml";
@@ -151,6 +151,16 @@ function child(script: string, env: Record<string, string>): Promise<number> {
   });
 }
 
+/**
+ * The file a child wrote: named by the day it finished, which is the next day when a run crosses midnight
+ * (UTC), so the latest of its kind when the measure's own day has none.
+ */
+function written(dir: string, f: string, kind: RegExp): string {
+  if (existsSync(join(dir, f))) return f;
+  const all = existsSync(dir) ? readdirSync(dir).filter((x) => kind.test(x)).sort() : [];
+  return all.at(-1) ?? f;
+}
+
 const median = (xs: number[]) => {
   const s = [...xs].sort((a, b) => a - b);
   return s.length ? s[Math.floor((s.length - 1) / 2)] : null;
@@ -174,7 +184,7 @@ async function measure(o: Options, station: StationId, dir: string, date: string
   if (station === "ask-help") {
     const measure = "the same answer as the gold";
     const code = await child("evals.js", { ...env, CORPUS: "all" });
-    const f = `run-${date}-all.json`;
+    const f = written(own, `run-${date}-all.json`, /^run-\d{4}-\d{2}-\d{2}-all\.json$/u);
     if (code !== 0 || !existsSync(join(own, f))) return broke(measure, code);
     const r = JSON.parse(readFileSync(join(own, f), "utf8")) as {
       results: { id: string; passed: boolean; selection: boolean | null; seconds: number }[];
@@ -199,7 +209,7 @@ async function measure(o: Options, station: StationId, dir: string, date: string
   if (station === "concierge") {
     const measure = "chains that reach their gold";
     const code = await child("chains.js", { ...env, STATION: "concierge", STABILITY: "none" });
-    const f = `chains-${date}.json`;
+    const f = written(own, `chains-${date}.json`, /^chains-\d{4}-\d{2}-\d{2}\.json$/u);
     if (code !== 0 || !existsSync(join(own, f))) return broke(measure, code);
     const r = JSON.parse(readFileSync(join(own, f), "utf8")) as {
       chains: {
@@ -256,7 +266,7 @@ async function measure(o: Options, station: StationId, dir: string, date: string
       STATION: station,
       ...(o.runs ? { RUNS: o.runs } : {}),
     });
-    const f = `run-${date}.json`;
+    const f = written(own, `run-${date}.json`, /^run-\d{4}-\d{2}-\d{2}\.json$/u);
     if (code !== 0 || !existsSync(join(own, f))) return broke(measure, code);
     const r = JSON.parse(readFileSync(join(own, f), "utf8")) as {
       passed: number;
