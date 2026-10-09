@@ -30,6 +30,7 @@ import {
   sentencesIn,
   summarize,
   type TurnGrade,
+  type TurnObs,
 } from "../bench/one-chat-grade.ts";
 import { type Fault, STUB_RUNS, stub, stubInputs } from "../bench/one-chat-stub.ts";
 import { finalOf, verdictsOfTurn } from "../bench/turns.ts";
@@ -61,7 +62,7 @@ describe("the one-chat corpus", () => {
       expect(golds[c.turns[0].expect?.gold ?? ""]?.content_hash, c.id).toMatch(/^[0-9a-f]{64}$/u);
     }
     for (const c of conversations.filter((c) =>
-      ["plan", "analysis", "run", "tune", "identity", "injection"].includes(c.kind),
+      ["plan", "analysis", "run", "tune", "identity", "injection", "jobs", "unknown"].includes(c.kind),
     ))
       expect(c.registry, c.id).toBe("seeded");
   });
@@ -80,6 +81,17 @@ describe("the one-chat corpus", () => {
     }
     for (const c of conversations.filter((c) => c.kind === "plan"))
       expect(c.turns[0].expect?.proposal).toMatchObject({ kind: "job_plan" });
+    // the jobs are read with no skill; a value not known yet is said so, and no count stands in for it
+    for (const c of conversations.filter((c) => c.kind === "jobs")) {
+      expect(c.turns[0].expect?.skill, c.id).toBe("none");
+      expect(c.turns[0].expect?.tools?.some, c.id).toContain("jobs_read");
+    }
+    for (const c of conversations.filter((c) => c.kind === "unknown")) {
+      expect(c.turns[0].expect?.proposal, c.id).toBe(false);
+      expect(c.turns[0].expect?.says?.some((m) => typeof m === "object" && m !== null && "not" in m)).toBe(
+        true,
+      );
+    }
   });
 
   it("gives the stub an answer for every turn whose words are judged, and that answer passes the bars", () => {
@@ -358,6 +370,91 @@ describe("the graders", () => {
   it("read an unsettled or failed turn as missed", () => {
     const g = gradeTurn({ say: "q" }, turn([{ kind: "text", text: "Half" }]), lexicon, "skill");
     expect(g.misses).toEqual(["the turn ended unsettled"]);
+  });
+});
+
+describe("what was true, 2026-10-09", () => {
+  const conv = (id: string) => {
+    const c = conversations.find((x) => x.id === id);
+    if (!c) throw new Error(`no conversation ${id}`);
+    return c.turns[0];
+  };
+  /** A turn that called these tools, each answered, then said `text`. */
+  const said = (text: string, tools: string[] = []): TurnObs => ({
+    events: [
+      ...tools.flatMap((name, i): Ev[] => [
+        {
+          kind: "tool_start",
+          id: `c${i}`,
+          name,
+          args: name === "activate_skill" ? { name: "find-data" } : {},
+        },
+        {
+          kind: "tool",
+          id: `c${i}`,
+          name,
+          isError: false,
+          result: { content: [], details: {} },
+          error: null,
+        },
+      ]),
+      { kind: "text", text },
+      { kind: "settled", submission: "s", outcome: "completed" },
+    ],
+    ledger: [],
+    ledgerBefore: 0,
+    seconds: 4,
+  });
+
+  it("misses the answer that said there were no jobs, and passes one that names the last job and how it went", () => {
+    const t = conv("jobs-last");
+    // the answer of 2026-10-09: the open jobs were read, and there were none
+    const then =
+      "There are no jobs in the registry right now, nothing running, queued, or finished, so there's no last job to report on.";
+    expect(gradeTurn(t, said(then, ["jobs_read"]), lexicon, "skill").passed).toBe(false);
+    expect(
+      gradeTurn(
+        t,
+        said("The last job, job 24, pseudonymised ds-merge and finished done.", ["jobs_read"]),
+        lexicon,
+        "skill",
+      ).passed,
+    ).toBe(true);
+    // the queue's own row is no job; an answer from nowhere is no answer
+    expect(
+      gradeTurn(
+        t,
+        said("The last job is the queue worker, running since 20:12; it finished done.", ["jobs_read"]),
+        lexicon,
+        "skill",
+      ).passed,
+    ).toBe(false);
+    expect(gradeTurn(t, said("The last job finished done."), lexicon, "skill").misses).toContain(
+      "no jobs_read call",
+    );
+  });
+
+  it("misses the answer that counted the header weighting as contrast, and passes one that says post-contrast is not known yet", () => {
+    const t = conv("unknown-post-contrast");
+    // the answer of 2026-10-09, the dataset's name made up
+    const then =
+      'There are **9 T1 scans with contrast** in ds-sorted, from 2 subjects.\n\nOne note: the registry\'s "post-contrast" flag is not set on any of these scans, so I counted the T1-weighted scans whose acquisition contrast is recorded as T1 (i.e., contrast-enhanced). The question is saved so you can keep or adjust it.';
+    const found = ["activate_skill", "query_draft", "registry_search", "query_draft"];
+    expect(gradeTurn(t, said(then, found), lexicon, "skill").passed).toBe(false);
+    for (const wrong of [
+      "ds-sorted holds 6 contrast-enhanced T1 scans.",
+      "T1 scans with contrast: 6.",
+      "There are 0 T1 scans with contrast in ds-sorted.",
+    ])
+      expect(gradeTurn(t, said(wrong, found), lexicon, "skill").passed, wrong).toBe(false);
+    for (const right of [
+      "Post-contrast has not run on ds-sorted yet, so whether its scans were given contrast is not known; it holds 6 T1-weighted scans, and that step has no run button yet.",
+      "Whether any of them were given contrast is not known yet: post-contrast hasn't run on ds-sorted. It has 6 T1-weighted scans.",
+    ])
+      expect(
+        gradeTurn(t, said(right, ["activate_skill", "query_draft"]), lexicon, "skill").misses,
+        right,
+      ).toEqual([]);
   });
 });
 

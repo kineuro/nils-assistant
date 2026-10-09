@@ -89,6 +89,8 @@ export interface Series {
   birth?: string;
   sex?: "F" | "M";
   slices?: number;
+  /** AcquisitionContrast (0008,9209), the weighting the scanner records (T1, T2, PROTON_DENSITY), where a file carries it. */
+  contrast?: string;
 }
 
 /** One slice of a series: made-up values, a square in the middle of a gradient. */
@@ -112,6 +114,7 @@ function slice(s: Series, n: number): Buffer {
     text(0x0008, 0x0060, "CS", "MR"),
     text(0x0008, 0x0070, "LO", "SYNTHETIC"),
     text(0x0008, 0x103e, "LO", s.description),
+    ...(s.contrast ? [text(0x0008, 0x9209, "CS", s.contrast)] : []),
     text(0x0010, 0x0020, "LO", s.patientId),
     ...(s.birth ? [text(0x0010, 0x0030, "DA", s.birth)] : []),
     ...(s.sex ? [text(0x0010, 0x0040, "CS", s.sex)] : []),

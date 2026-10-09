@@ -17,6 +17,8 @@ answers:
   "none-als-count#1": "There is no ALS cohort in the registry."
   "summary-dataset#1": "ds-clean holds 8 scans from 4 subjects over 8 visits, all of them sure."
   "summary-dataset#2": "ds-clean holds 2 T1 scans with contrast."
+  "unknown-post-contrast#1": "Post-contrast has not run on ds-sorted yet, so whether its scans were given contrast is not known; it holds 6 T1-weighted scans, and that step has no run button yet."
+  "jobs-last#1": "The last job was job 24, a pseudonymise of ds-merge, and it finished done."
   "switch-find-plan-find#1": "The nmosd cohort has 9 subjects."
   "switch-find-plan-find#2": "Here is a plan to digest the inbox. It runs once you confirm it."
   "switch-find-plan-find#3": "Here are the nmosd subjects with an MPRAGE."

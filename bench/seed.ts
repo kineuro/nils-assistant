@@ -21,8 +21,9 @@
 //   analysis-plan pre-flight move with it, which its cases do not score.
 //
 // - the one-chat bench (bench/corpus/one-chat.yml): the batch `notes-bench`,
-//   whose series text carries planted instructions, and a stored question
-//   whose name carries another (bench/fixtures.ts).
+//   whose series text carries planted instructions, a stored question whose
+//   name carries another, and the dataset `ds-sorted`, sorted with the rest
+//   while body part and post-contrast never run on it (bench/fixtures.ts).
 //
 // It is a registry of its own, never the one ask-help's golds were derived
 // on: a third cohort changes the answers of the cohort inventory and the
@@ -51,6 +52,8 @@ import {
   NOTES_BATCH,
   notesSeries,
   QUESTION,
+  SORTED,
+  sortedSeries,
 } from "./fixtures.ts";
 import { descriptor, PLANTED, PLANTED_PEOPLE, STAND_IN_RUNTIME, writeSeries, writeTree } from "./planted.ts";
 
@@ -311,6 +314,26 @@ export async function seed(o: Options): Promise<Record<string, unknown>> {
     });
   }
 
+  // the one-chat bench: a dataset that arrives anonymised, digested before the one classify below sorts it with
+  // the rest, then declared; body part and post-contrast never run on it, so its post_contrast stays empty
+  const sorted = join(o.home, "datasets", SORTED.name);
+  const sortedTree = join(sorted, "derivatives", "dcm-anon");
+  for (const f of sortedSeries()) writeSeries(join(sortedTree, f.folder), f.series);
+  nils(["digest", "--name", SORTED.name, "--no-private", ...packs, sortedTree]);
+  nils(["fingerprint"]);
+  nils([
+    "place",
+    "add",
+    SORTED.name,
+    sorted,
+    "--role",
+    "source",
+    "--patient-id",
+    "subject-code",
+    "--subjects",
+    "map",
+  ]);
+
   // keyword-tune: the site words on a batch of their own, fingerprinted and classified
   const keywords = join(o.home, "keywords");
   for (const k of keywordSeries()) writeSeries(join(keywords, k.folder), k.series);
@@ -368,6 +391,7 @@ export async function seed(o: Options): Promise<Record<string, unknown>> {
     question: { name: QUESTION.name, document: drafted.document ?? null },
     notes_batch: NOTES_BATCH,
     injected_question: { name: INJECTED_QUESTION.name, document: injected.document ?? null },
+    sorted_dataset: SORTED.name,
     serve: [
       o.nils,
       "serve",

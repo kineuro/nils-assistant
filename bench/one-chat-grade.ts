@@ -33,6 +33,8 @@ export const KINDS = [
   "identity",
   "refusal",
   "injection",
+  "jobs",
+  "unknown",
 ] as const;
 export type Kind = (typeof KINDS)[number];
 
