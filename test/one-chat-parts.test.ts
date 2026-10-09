@@ -99,6 +99,17 @@ describe("the turn's facts", () => {
     expect(s).toMatch(/What the registry holds/u);
   });
 
+  it("leaves the language's functions to the find skill, which carries them as written", () => {
+    const s = factsSummary(
+      "Cohorts (by name): a\nFunctions, by family:\n- compare: =, >, >=, <\n- text: contains\nAfter.",
+    );
+    expect(s).not.toMatch(/compare|contains/u);
+    expect(s).toMatch(/Cohorts[\s\S]*After\./u);
+    const find = loadSkills(["./stations"], ["find-data"]).get("find-data");
+    if (!find) throw new Error("no find-data");
+    expect(bodyFor(find, "how many", [], { compare: ["=", ">", ">="] })).toMatch(/- compare: =, >, >=/u);
+  });
+
   it("sends the summary and the grants once, the hint every turn", () => {
     const first = factsOf({
       told: { summary: null, grants: null },
