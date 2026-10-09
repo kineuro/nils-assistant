@@ -15,6 +15,8 @@ answers:
   "run-clean-mriqc#1": "All units succeeded and no result needs a second look."
   "none-als-analysis#1": "There is no ALS cohort in the registry, so there is nothing to measure yet."
   "none-als-count#1": "There is no ALS cohort in the registry."
+  "summary-dataset#1": "ds-clean holds 8 scans from 4 subjects over 8 visits, all of them sure."
+  "summary-dataset#2": "A question cannot narrow to one dataset yet, and ds-clean feeds no cohort, so its T1 scans with contrast cannot be counted on their own; it holds 8 scans in all."
   "switch-find-plan-find#1": "The nmosd cohort has 9 subjects."
   "switch-find-plan-find#2": "Here is a plan to digest the inbox. It runs once you confirm it."
   "switch-find-plan-find#3": "Here are the nmosd subjects with an MPRAGE."
