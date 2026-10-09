@@ -119,10 +119,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -142,13 +139,7 @@
         "drafts": 2,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "search_conversations",
-          "nils_draft",
-          "nils_values",
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["search_conversations", "nils_draft", "nils_values", "nils_draft", "settle"]
       }
     },
     {
@@ -197,10 +188,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -220,10 +208,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -243,10 +228,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -266,10 +248,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -289,10 +268,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -312,10 +288,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -335,10 +308,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -358,10 +328,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -410,10 +377,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -433,10 +397,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -456,10 +417,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -479,9 +437,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 0,
-        "tools": [
-          "nils_draft"
-        ]
+        "tools": ["nils_draft"]
       }
     },
     {
@@ -621,10 +577,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -644,10 +597,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -667,10 +617,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -690,10 +637,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -713,10 +657,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -736,10 +677,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -759,10 +697,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -782,10 +717,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -805,10 +737,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -828,10 +757,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -851,10 +777,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -874,10 +797,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -897,10 +817,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -920,10 +837,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -943,10 +857,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -966,10 +877,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -989,10 +897,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -1012,10 +917,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -1035,10 +937,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -1058,10 +957,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -1081,10 +977,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -1104,10 +997,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -1127,10 +1017,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -1150,10 +1037,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -1173,10 +1057,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -1196,10 +1077,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -1219,10 +1097,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -1242,10 +1117,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -1265,11 +1137,7 @@
         "drafts": 2,
         "draft_refusals": 1,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "nils_draft", "settle"]
       }
     },
     {
@@ -1289,10 +1157,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -1312,10 +1177,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     }
   ]
