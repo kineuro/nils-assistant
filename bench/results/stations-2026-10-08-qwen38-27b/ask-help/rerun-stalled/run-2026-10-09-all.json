@@ -85,12 +85,7 @@
         "drafts": 3,
         "draft_refusals": 2,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "nils_draft",
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "nils_draft", "nils_draft", "settle"]
       }
     },
     {
@@ -147,10 +142,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -170,10 +162,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     },
     {
@@ -193,10 +182,7 @@
         "drafts": 1,
         "draft_refusals": 0,
         "settles": 1,
-        "tools": [
-          "nils_draft",
-          "settle"
-        ]
+        "tools": ["nils_draft", "settle"]
       }
     }
   ]

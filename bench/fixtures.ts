@@ -15,6 +15,8 @@
 //   identifiers whose birth date, sex and visits agree (record 55 K9).
 // - the operator: a source location `inbox` to digest, the datasets to
 //   bring in, and one stored question to run.
+// - the one-chat bench: a dataset sorted with the rest, on which body part
+//   and post-contrast never ran, its T1 scans' header weighting set.
 
 import type { Series } from "./planted.ts";
 
@@ -136,6 +138,25 @@ export const DATASETS: Dataset[] = [
     ],
   },
 ];
+
+/**
+ * The one-chat bench's sorted dataset (bench/corpus/one-chat.yml, kind unknown): it arrives anonymised (its files
+ * in `derivatives/dcm-anon`, PatientID the subject's code), is digested and sorted with the rest, and body part and
+ * post-contrast, steps of their own since record 56 (a model over a dataset's scans), never run on it. Its
+ * post_contrast is empty, and its T1 scans carry AcquisitionContrast T1, the weighting the scanner records, which
+ * says nothing of a contrast agent: asked for a dataset's T1 scans with contrast, the chat once counted that field
+ * (2026-10-09). The answer is that post-contrast is not known yet.
+ */
+export const SORTED: Dataset = {
+  name: "ds-sorted",
+  about: "sorted, with body part and post-contrast never run on it: post_contrast is empty",
+  people: ["BENR01", "BENR02", "BENR03"].map((code) => ({ patientId: code, folder: code, days: visits })),
+};
+
+/** The sorted dataset's series: one T1 per subject and visit, its header weighting T1. */
+export function sortedSeries(): { folder: string; series: Series }[] {
+  return datasetSeries(SORTED, 11000).map((f) => ({ ...f, series: { ...f.series, contrast: "T1" } }));
+}
 
 /** A dataset's series: one per person and day, in `<folder>/<day>`. */
 export function datasetSeries(d: Dataset, base: number): { folder: string; series: Series }[] {
