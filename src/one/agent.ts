@@ -265,7 +265,7 @@ function hintFor(
   carried: readonly DatasetFact[] = [],
 ): string {
   const find = m.skills.includes("find-data");
-  if (named.length && !r.summary && (r.skill === null || r.skill === "find-data"))
+  if (named.length && !r.summary && !r.jobs && (r.skill === null || r.skill === "find-data"))
     return datasetHint(
       named,
       !find
@@ -283,7 +283,7 @@ function hintFor(
     );
   if (arm === "subagent" && r.skill === "find-data" && find)
     return `Hint from the words (${r.because}): this looks like finding data; give it to the find agent with the task tool.`;
-  return hintLine(r, m.skills);
+  return hintLine(r, m.skills, m.tools);
 }
 
 export interface OneOptions {
@@ -505,7 +505,7 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
         )
       )
         convo.datasets = [];
-      else if (!route.summary && (route.skill === null || route.skill === "find-data"))
+      else if (!route.summary && !route.jobs && (route.skill === null || route.skill === "find-data"))
         carried = list.filter((x) => convo.datasets.includes(x.name));
       turnOf(id).datasets = [...named, ...carried].map((x) => x.name);
       const document = theLineage().conversation(id)?.document ?? null;

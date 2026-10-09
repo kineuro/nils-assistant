@@ -993,20 +993,91 @@ const queryReadRows: OneTool = {
 
 // ------------------------------------------------------------------ jobs and runs
 
+/** How many of the newest jobs jobs_read lists, and of the older ones still open. */
+export const JOBS_SHOWN = 10;
+/** How many rows of the jobs door it reads to find them: the queue's own rows are among the newest. */
+const JOBS_READ = 40;
+/** How much of a failed job's error it keeps. */
+const ERROR_CHARS = 200;
+const OPEN = new Set(["queued", "running", "cancelling"]);
+
+/** A row of the queue's own, one per lane while its worker lives (the engine's `is_worker`): no person queued it. */
+export const isWorker = (kind: string): boolean => kind === "worker" || kind.endsWith("-worker");
+
+/** One job as jobs_read lists it: which job, what it was, how it went and when, and why where it failed. */
+export interface JobLine {
+  id: number;
+  kind: string;
+  name?: string;
+  state: string;
+  started_at?: string;
+  finished_at?: string;
+  error?: string;
+}
+
+/**
+ * The jobs of the jobs door's two answers (`GET /api/jobs?all=1`, every state with the queue's own rows among
+ * them, and `GET /api/jobs`, the open ones), newest first: the newest `shown` of every state and any older one
+ * still open, the queue's own rows left out, each with only what says which job it was and how it went.
+ */
+export function jobsOf(
+  recent: unknown,
+  open: unknown = null,
+  shown = JOBS_SHOWN,
+): { jobs: JobLine[]; note?: string } {
+  const rows = (body: unknown): Record<string, unknown>[] => {
+    const list = Array.isArray(body) ? body : (body as { jobs?: unknown } | null)?.jobs;
+    return (Array.isArray(list) ? list : []).filter(
+      (j): j is Record<string, unknown> =>
+        !!j && typeof j === "object" && num(j.id) !== null && !isWorker(String(j.kind ?? "")),
+    );
+  };
+  const newest = (list: Record<string, unknown>[]) => [...list].sort((a, b) => Number(b.id) - Number(a.id));
+  const all = newest(rows(recent));
+  const kept = all.slice(0, shown);
+  // an older job still open, as many again at most: a long queue is counted by its newest
+  const older = newest(rows(open)).filter(
+    (j) => OPEN.has(String(j.state)) && !kept.some((k) => k.id === j.id),
+  );
+  kept.push(...older.slice(0, shown));
+  const jobs = newest(kept).map((j): JobLine => {
+    const line: JobLine = { id: Number(j.id), kind: String(j.kind ?? ""), state: String(j.state ?? "") };
+    const name = str(j.name);
+    if (name) line.name = name;
+    for (const k of ["started_at", "finished_at"] as const) {
+      const at = str(j[k]);
+      if (at) line[k] = at;
+    }
+    const error = str(j.error);
+    if (line.state === "failed" && error)
+      line.error = error.length > ERROR_CHARS ? `${error.slice(0, ERROR_CHARS)}…` : error;
+    return line;
+  });
+  if (jobs.length === 0) return { jobs, note: "the registry has no job yet" };
+  return all.length > shown || older.length > shown
+    ? { jobs, note: `the newest ${shown}; read an older one by its id` }
+    : { jobs };
+}
+
 const jobsRead: OneTool = {
   name: "jobs_read",
   description:
-    "The registry's jobs, read only: what is running, queued or done; or one job by `job`, with its result once done (an identity probe's shapes, for one).",
+    "The registry's jobs, read only. Without `job`: the newest ten, newest first, and up to ten older ones still queued or running, each with its id, kind, name, state (queued, running, cancelling, done, failed or cancelled), when it started and finished, and a short error where it failed. With `job` (an id): that one job whole, with its result once done (an identity probe's shapes, for one).",
   input: v.object({ job: v.optional(v.number()) }),
   salient: ["job"],
   step: "Reading the jobs",
   async run(args, ctx) {
     const job = num(args.job);
     if (job === null) {
-      const a = await get(ctx, "operator", "/api/jobs");
-      return a.kind === "ok"
-        ? { output: data(a.body, "ask for one job by its id") }
-        : notOk(a, "Say the jobs could not be read.");
+      // every state, with the queue's own rows among them; and the open ones, an old one still going among them
+      const [recent, open] = await Promise.all([
+        get(ctx, "operator", `/api/jobs?all=1&limit=${JOBS_READ}`),
+        get(ctx, "operator", `/api/jobs?limit=${JOBS_READ}`),
+      ]);
+      if (recent.kind !== "ok") return notOk(recent, "Say the jobs could not be read.");
+      return {
+        output: data(jobsOf(recent.body, open.kind === "ok" ? open.body : null), "ask for one job by its id"),
+      };
     }
     const a = await readJob(ctx, job, ctx.toolCallId);
     if (a.kind !== "ok") return notOk(a, "Check the job's id.");
