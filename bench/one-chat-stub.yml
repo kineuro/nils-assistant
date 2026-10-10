@@ -19,7 +19,7 @@ answers:
   "summary-dataset#2": "ds-clean holds 2 T1 scans its headers mark as given contrast; there may be more until post-contrast runs on it."
   "unknown-post-contrast#1": "None of the 6 T1 scans in ds-sorted is marked in its headers as given contrast, and post-contrast has not run on it yet, so whether any of them was given contrast is not known."
   "marked-post-contrast#1": "3 of the 8 T1 scans in ds-marked are marked in their headers as given contrast; post-contrast has not run on it yet, so there may be more."
-  "marked-post-contrast#2": "That cannot be counted yet: post-contrast has not run on ds-marked, so whether its other T1 scans were given contrast is not known."
+  "marked-post-contrast#2": "None of the T1 scans in ds-marked is marked in its headers as not given contrast; whether the 5 unmarked ones were given contrast is not known until post-contrast runs."
   "jobs-last#1": "The last job was job 24, a pseudonymise of ds-merge, and it finished done."
   "switch-find-plan-find#1": "The nmosd cohort has 9 subjects."
   "switch-find-plan-find#2": "Here is a plan to digest the inbox. It runs once you confirm it."

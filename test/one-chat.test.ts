@@ -642,7 +642,7 @@ describe("what is true, 2026-10-10: the headers mark the scans given contrast", 
     ).toMatch(/does not hold/u);
   });
 
-  it("where the headers mark some, the scans without contrast cannot be counted until post-contrast runs", () => {
+  it("where the headers mark some, the scans without contrast are the ones they mark not given, none here, and the rest are not known", () => {
     const t = conv("marked-post-contrast", 1);
     const said = (text: string): TurnObs => ({
       events: [
@@ -654,16 +654,28 @@ describe("what is true, 2026-10-10: the headers mark the scans given contrast", 
       seconds: 3,
     });
     for (const right of [
+      // the headers' not_given marks counted, none here, and the rest not known
+      "None of the 8 T1 scans in ds-marked is marked in its headers as not given contrast, so 0 are counted without contrast; whether the other 5 were given contrast is not known until post-contrast runs.",
+      "0 of the 8 T1 scans in ds-marked are marked as without contrast in their headers; whether the others were given contrast is not known until post-contrast runs.",
+      "0: the headers mark no scan in ds-marked as not given contrast, and whether the 5 unmarked ones were given contrast is not known until post-contrast runs.",
+      // or no count at all, and the rest not known
       "That cannot be counted yet: post-contrast has not run on ds-marked, so whether its other T1 scans were given contrast is not known.",
       "Not yet: only the 3 scans the headers mark as given contrast are known; whether the other 5 were is unknown until post-contrast runs.",
       "Of the 8 T1 scans, the number scanned without contrast can't be counted yet, since post-contrast hasn't run.",
     ])
       expect(gradeTurn(t, said(right), lexicon, "skill").misses, right).toEqual([]);
     for (const wrong of [
+      // a count inferred from the missing marks
       "5 T1 scans in ds-marked were scanned without contrast.",
       "Without contrast: 5.",
       "The other 5 were not given contrast.",
       "ds-marked holds 5 non-contrast T1 scans.",
+      "All 8 were scanned without contrast.",
+      "5 have no contrast mark, so they were scanned without contrast.",
+      // even beside the sentence that says the rest is not known
+      "Of the 8 T1 scans, 5 were scanned without contrast; whether the rest were given contrast is not known until post-contrast runs.",
+      // the headers' count with no word that the rest is not known
+      "0 T1 scans in ds-marked are marked as without contrast in their headers.",
     ])
       expect(gradeTurn(t, said(wrong), lexicon, "skill").passed, wrong).toBe(false);
   });

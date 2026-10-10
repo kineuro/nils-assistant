@@ -359,11 +359,13 @@ conversations:
   # --- a sorting value the headers answer before its step runs (record 56:
   #     body part and post-contrast are steps of their own, models run over a
   #     dataset's scans after the sorting, whose rules mark post_contrast
-  #     given where the headers say contrast was given, and on the
-  #     registries measured never not_given). Until post-contrast has run,
-  #     the scans with contrast are the ones the headers mark, a count that
-  #     may be short, and whether an unmarked scan was given contrast is not
-  #     known. The chat once counted the scans whose header weighting
+  #     from the headers: mostly given, where they say contrast was given, and
+  #     not_given only where they say it was not, as words such as "pre
+  #     contrast" do, which is rare; measured on one registry on 2026-10-10,
+  #     every mark given, none not_given). Until post-contrast has run, the
+  #     scans with contrast are the ones the headers mark given and the scans
+  #     without it the ones they mark not_given, counts that may be short,
+  #     and whether an unmarked scan was given contrast is not known. The chat once counted the scans whose header weighting
   #     (AcquisitionContrast) read T1 and called them contrast-enhanced
   #     (2026-10-09); then its facts said the sorting answered neither value,
   #     which was false (corrected 2026-10-10). The question counts
@@ -392,10 +394,14 @@ conversations:
 
   # --- the same where the headers mark some: ds-marked holds eight T1 scans,
   #     their weighting T1, and three carry a contrast agent's tag, which the
-  #     sorting reads as given (bench/seed.ts). The answer counts those three
-  #     as given contrast and says there may be more; it never counts all
-  #     eight, never none, and never calls the other five scans without
-  #     contrast, which cannot be counted until post-contrast runs.
+  #     sorting reads as given (bench/seed.ts); none is marked not_given. The
+  #     answer counts those three as given contrast and says there may be
+  #     more; it never counts all eight, never none, and never calls the
+  #     other five scans without contrast. Its follow-up asks for the scans
+  #     without contrast: those the headers mark not_given, none here, with
+  #     the word that whether the other five were given contrast is not known
+  #     until post-contrast runs; a count inferred from the missing marks
+  #     fails, whatever is said beside it.
   - id: marked-post-contrast
     kind: unknown
     registry: seeded
@@ -420,7 +426,7 @@ conversations:
           proposal: false
           says:
             - {match: "\\b(cannot|can't|can not|could not|couldn't)\\b[^.;]{0,40}\\b(be )?(counted|count|say|tell|know|answer(ed)?)\\b|(\\bnot|n't) (yet )?(known|countable|be counted)\\b|\\bunknown\\b|\\bnot yet\\b"}
-            - {not: {match: "(?<!\\bwhether\\b[^.;]*)(?![^.;]*(\\bcannot\\b|\\bcan't\\b|\\bcan not\\b|\\bnot (yet )?known\\b|n't (yet )?known\\b|\\bunknown\\b))(\\b\\d+\\b[^.;]{0,80}\\b(without|before|pre)[- ]?contrast\\b|\\b\\d+\\b[^.;]{0,30}\\b(were|was|are|is)\\s+not\\s+given\\b|\\b\\d+\\b[^.;]{0,30}\\b(weren't|wasn't|aren't|isn't)\\s+given\\b|\\b\\d+\\s+(non|un)[- ]?(contrast|enhanced)\\b)|\\b(without|before|pre)[- ]?contrast\\b[^.;]{0,20}:\\s*\\d+"}}
+            - {not: {match: "(?<!\\bwhether\\b[^.;]*)(?<!\\b(?:0|zero|none|no)\\s+of\\s+(?:the\\s+|its\\s+)?)(?:\\b(?:5|five)\\b[^.;]{0,60}(?:\\b(?:without|pre|before|non|no)[- ]?contrast\\b|\\bnot given\\b|\\b(?:weren't|wasn't|aren't|isn't) given\\b)|\\b[1-9]\\d*\\s+(?:(?:T1[- ]?(?:weighted\\s+)?)?(?:scans?|series|stacks?|images?)\\s+)?(?:(?:were|are|was|is)\\s+)?(?:(?:scanned|acquired|done|taken)\\s+)?(?:without|before|pre)[- ]?contrast\\b|\\b[1-9]\\d*\\s+(?:were|are|was|is)\\s+not\\s+given\\b|\\b[1-9]\\d*\\s+(?:non|un)[- ]?(?:contrast|enhanced)\\b)|\\b(?:without|before|pre)[- ]?contrast\\b[^.;]{0,20}:\\s*[1-9]"}}
 
   # --- what the registry's jobs did, read with no skill, the newest first. The
   #     chat once read the open jobs alone and said there were none

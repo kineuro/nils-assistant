@@ -142,13 +142,14 @@ export const DATASETS: Dataset[] = [
 ];
 
 /**
- * The one-chat bench's sorted dataset (bench/corpus/one-chat.yml, kind unknown): it arrives anonymised (its files
- * in `derivatives/dcm-anon`, PatientID the subject's code), is digested and sorted with the rest, and body part and
+ * The one-chat bench's sorted dataset (bench/corpus/one-chat.yml, kind unknown): it arrives anonymised (its files in
+ * `derivatives/dcm-anon`, PatientID the subject's code), is digested and sorted with the rest, and body part and
  * post-contrast, steps of their own since record 56 (a model over a dataset's scans), never run on it. The sorting's
- * rules mark post_contrast given where the headers say contrast was given; no header here says so, so its
- * post_contrast is empty, and whether its scans were given contrast is not known until post-contrast runs. Its T1
- * scans carry AcquisitionContrast T1, the weighting the scanner records, which says nothing of a contrast agent:
- * asked for a dataset's T1 scans with contrast, the chat once counted that field (2026-10-09).
+ * rules mark post_contrast from the headers, given where they say contrast was given and not_given where they say it
+ * was not; no header here says either, so its post_contrast is empty, and whether its scans were given contrast is
+ * not known until post-contrast runs. Its T1 scans carry AcquisitionContrast T1, the weighting the scanner records,
+ * which says nothing of a contrast agent: asked for a dataset's T1 scans with contrast, the chat once counted that
+ * field (2026-10-09).
  */
 export const SORTED: Dataset = {
   name: "ds-sorted",
@@ -165,9 +166,10 @@ export function sortedSeries(): { folder: string; series: Series }[] {
 /**
  * The one-chat bench's marked dataset, laid down as the sorted one: four subjects, two visits each, one T1 a visit,
  * and at the second visit of the first three a contrast agent recorded in the files (ContrastBolusAgent), which the
- * sorting's rules read as post_contrast given. Its eight T1 scans carry AcquisitionContrast T1, and only the agent's
- * tag sets the three apart. Until post-contrast runs on it, the scans with contrast are those three, and there may be
- * more; whether the other five were given contrast is not known.
+ * sorting's rules read as post_contrast given. Its eight T1 scans carry AcquisitionContrast T1, only the agent's tag
+ * sets the three apart, and no header marks a scan not given. Until post-contrast runs on it, the scans with
+ * contrast are those three, and there may be more; the scans the headers mark without contrast are none, and whether
+ * the other five were given contrast is not known.
  */
 export const MARKED: Dataset = {
   name: "ds-marked",
