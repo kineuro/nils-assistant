@@ -1,25 +1,28 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// The steps of a dataset in the turn's facts (one chat, 2026-10-09): which
-// of sorted, body part, post-contrast, main scans and pictures have run on
-// it, from the engine's summary of one dataset (the Data page of Wave 7a,
+// The steps of a dataset in the turn's facts (one chat, 2026-10-09): which of
+// sorted, body part, post-contrast, main scans and pictures have run on it,
+// from the engine's summary of one dataset (the Data page of Wave 7a,
 // `GET /api/datasets/{name}/summary`). Since record 56 body part and
 // post-contrast are steps of their own, models run over a dataset's scans
 // after the sorting, whose rules answer first what the headers say:
-// post_contrast `given` where they say contrast was given (and, on the
-// registries measured, never `not_given`), and the body part where they name
-// it. Until a step has run, that is all there is: a count of the scans given
-// contrast counts the headers' marks and may be short, whether an unmarked
-// scan was given contrast is not known, and the body part is known where the
-// headers name it. Asked how many T1 scans with contrast a dataset held, the
-// chat drafted the question, found none, then counted the scans whose header
-// weighting reads T1 and called them contrast-enhanced. The none came from
-// the ask, which matched `given` against the label `1` the registry stores
-// (an engine fault, fixed there), not from a step not run; these facts first
-// said the sorting answered neither value, which was wrong (2026-10-10). The
-// steps are read for the datasets a turn is about, once a turn, and a tool of
-// the same turn reads them from there. An engine without the door, a refusal
-// or a slow answer leaves them out and says nothing of it. Written without
-// angle brackets or ampersands, as the facts are.
+// post_contrast mostly `given`, where they say contrast was given, and
+// `not_given` only where they say it was not, as words such as "pre contrast"
+// do, which is rare (measured on one registry on 2026-10-10: every mark
+// `given`, none `not_given`); and the body part where they name it. Until a
+// step has run, that is all there is: a count of the scans marked either way
+// counts the headers' marks and may be short, whether an unmarked scan was
+// given contrast is not known (a scan with no mark is never counted as
+// without), and the body part is known where the headers name it. Asked how
+// many T1 scans with contrast a dataset held, the chat drafted the question,
+// found none, then counted the scans whose header weighting reads T1 and
+// called them contrast-enhanced. The none came from the ask, which matched
+// `given` against the label `1` the registry stores (an engine fault, fixed
+// there), not from a step not run; these facts first said the sorting
+// answered neither value, which was wrong (2026-10-10). The steps are read
+// for the datasets a turn is about, once a turn, and a tool of the same turn
+// reads them from there. An engine without the door, a refusal or a slow
+// answer leaves them out and says nothing of it. Written without angle
+// brackets or ampersands, as the facts are.
 
 import type { Seam } from "../seam/client.ts";
 import type { TurnState } from "./state.ts";
@@ -51,7 +54,7 @@ const OPERATIONS = {
   post_contrast: {
     name: "post-contrast",
     known:
-      "the scans the headers mark as given contrast are counted, and there may be more; whether the others were is not known yet",
+      "the scans the headers mark as given contrast or as not given are counted, and there may be more of either; whether an unmarked scan was given contrast is not known yet",
   },
 } as const;
 type Operation = keyof typeof OPERATIONS;

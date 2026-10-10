@@ -5,15 +5,17 @@
 // T1 and called them contrast-enhanced. Since record 56 body part and
 // post-contrast are steps of their own, models run over a dataset's scans
 // after the sorting, whose rules answer what the headers say: post_contrast
-// given where they say contrast was given (and, on the registries measured,
-// never not_given), and the body part where they name it. The facts say, for
-// the datasets the words are about, which of sorted, body part,
-// post-contrast, main scans and pictures have run, read once a turn from the
-// engine's summary of the dataset, and until a step has run, what the headers
-// answer and what is not known yet; an engine without the summary leaves them
-// out; and the find skill counts the scans the headers mark as given
-// contrast, says there may be more, and never answers a sorting value with
-// another field in its place.
+// mostly given, where they say contrast was given, and not_given only where
+// they say it was not (rare: measured on one registry on 2026-10-10, every
+// mark given, none not_given), and the body part where they name it. The
+// facts say, for the datasets the words are about, which of sorted, body
+// part, post-contrast, main scans and pictures have run, read once a turn
+// from the engine's summary of the dataset, and until a step has run, what
+// the headers answer and what is not known yet; an engine without the summary
+// leaves them out; and the find skill counts the scans the headers mark given
+// for with contrast and not_given for without, says there may be more, never
+// takes a scan with no mark as without, and never answers a sorting value
+// with another field in its place.
 //
 // What was wrong (2026-10-10): the facts said the sorting filled neither
 // value, so that nothing was known of either until its step ran. The count
@@ -123,12 +125,12 @@ describe("a dataset's steps", () => {
   it("say what the headers answer and what is not known yet where body part or post-contrast has not run, and nothing once both have", () => {
     const both = unknownSentence("study-a", steps({})) ?? "";
     expect(both).toBe(
-      "Body part and post-contrast have not run on study-a: a scan's body part is known where the headers name it, not yet elsewhere. The scans the headers mark as given contrast are counted, and there may be more; whether the others were is not known yet. Never count another field in their place.",
+      "Body part and post-contrast have not run on study-a: a scan's body part is known where the headers name it, not yet elsewhere. The scans the headers mark as given contrast or as not given are counted, and there may be more of either; whether an unmarked scan was given contrast is not known yet. Never count another field in their place.",
     );
     // the premise of 2026-10-09, that the sorting answers neither, is gone
     expect(both).not.toMatch(/which body part a scan shows|whether a scan was given contrast are not known/u);
     expect(unknownSentence("study-a", steps({ body_part: { state: "done", done: 1003 } }))).toBe(
-      "Post-contrast has not run on study-a: the scans the headers mark as given contrast are counted, and there may be more; whether the others were is not known yet. Never count another field in its place.",
+      "Post-contrast has not run on study-a: the scans the headers mark as given contrast or as not given are counted, and there may be more of either; whether an unmarked scan was given contrast is not known yet. Never count another field in its place.",
     );
     expect(unknownSentence("study-a", steps({ post_contrast: { state: "done", done: 1003 } }))).toBe(
       "Body part has not run on study-a: a scan's body part is known where the headers name it, not yet elsewhere. Never count another field in its place.",
@@ -139,7 +141,7 @@ describe("a dataset's steps", () => {
         steps({ body_part: { state: "done" }, post_contrast: { state: "running" } }),
       ),
     ).toBe(
-      "Post-contrast has not finished on study-a: the scans the headers mark as given contrast are counted, and there may be more; whether the others were is not known yet. Never count another field in its place.",
+      "Post-contrast has not finished on study-a: the scans the headers mark as given contrast or as not given are counted, and there may be more of either; whether an unmarked scan was given contrast is not known yet. Never count another field in its place.",
     );
     expect(
       unknownSentence("study-a", steps({ body_part: { state: "queued" }, post_contrast: { state: "off" } })),
@@ -148,7 +150,7 @@ describe("a dataset's steps", () => {
       unknownSentence("study-a", steps({ body_part: { state: "done" }, post_contrast: { state: "done" } })),
     ).toBeNull();
     expect(stepsText("study-a", steps({}))).toBe(
-      "The steps of study-a: sorted 991 of 1003 scans; body part not run (from the headers only); post-contrast not run (from the headers only); main scans picked; pictures made. Body part and post-contrast have not run on study-a: a scan's body part is known where the headers name it, not yet elsewhere. The scans the headers mark as given contrast are counted, and there may be more; whether the others were is not known yet. Never count another field in their place.",
+      "The steps of study-a: sorted 991 of 1003 scans; body part not run (from the headers only); post-contrast not run (from the headers only); main scans picked; pictures made. Body part and post-contrast have not run on study-a: a scan's body part is known where the headers name it, not yet elsewhere. The scans the headers mark as given contrast or as not given are counted, and there may be more of either; whether an unmarked scan was given contrast is not known yet. Never count another field in their place.",
     );
   });
 
@@ -230,20 +232,21 @@ describe("the find skill", () => {
   if (!find) throw new Error("no find-data");
   const rule = find.body.split("\n\n").find((x) => x.startsWith("**Body part** and **post-contrast**")) ?? "";
 
-  it("counts the scans the headers mark as given contrast, says there may be more, and never answers with another field", () => {
+  it("counts the scans the headers mark given or not given, says there may be more, never takes no mark as without, and never answers with another field", () => {
     // the sorting answers both from the headers; their steps, models, answer the rest
     expect(rule).toMatch(/answered by the sorting from the headers, then by steps of their own/u);
     expect(rule).toMatch(/`body_part` and `body_region` where the headers name them/u);
-    expect(rule).toMatch(/`post_contrast` only as `given`, where they say contrast was given/u);
+    expect(rule).toMatch(/`post_contrast` where they say: mostly `given`, rarely `not_given`/u);
     expect(rule).toMatch(/The facts say which steps have run on a dataset the words name/u);
     expect(rule).toMatch(/`registry_describe` with what dataset says it of any/u);
-    // until post-contrast has run: the scans with contrast are counted and may be more; without, not counted at all
+    // until post-contrast has run: with contrast is the headers' given, without their not_given, each counted and
+    // maybe more; a scan with no mark is not known, never without
     expect(rule).toMatch(
-      /Until post-contrast runs there, \*\*the scans with contrast\*\* are those `given`: count them and say there may be more/u,
+      /Until post-contrast runs there, \*\*with contrast\*\* means `given` and \*\*without contrast\*\* `not_given`: count them and say there may be more, since whether an unmarked scan was given contrast is not known yet; never count it as without\./u,
     );
-    expect(rule).toMatch(/\*\*the scans without contrast\*\* cannot be counted yet: say so in one sentence/u);
-    // the premise of 2026-10-09 is gone: the sorting fills both where the headers say
+    // the premise of 2026-10-09 is gone: the sorting fills both where the headers say; and not_given is rare, not absent
     expect(rule).not.toMatch(/not filled by the sorting|hold an answer only where|no run button/u);
+    expect(rule).not.toMatch(/only as `given`|cannot be counted yet/u);
     // the field rule stands
     expect(rule).toMatch(/Never answer such a value with another field in its place/u);
     expect(rule).toMatch(/`acquisition_contrast` is the weighting[^.]*never a contrast agent/u);

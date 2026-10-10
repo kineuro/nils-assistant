@@ -611,7 +611,7 @@ describe("the one agent tells what is true now (2026-10-09)", () => {
       /The steps of study-a: sorted 991 of 1003 scans; body part not run \(from the headers only\); post-contrast not run \(from the headers only\); main scans picked; pictures made\./u,
     );
     expect(first).toMatch(
-      /Body part and post-contrast have not run on study-a: a scan's body part is known where the headers name it, not yet elsewhere\. The scans the headers mark as given contrast are counted, and there may be more; whether the others were is not known yet\. Never count another field in their place\./u,
+      /Body part and post-contrast have not run on study-a: a scan's body part is known where the headers name it, not yet elsewhere\. The scans the headers mark as given contrast or as not given are counted, and there may be more of either; whether an unmarked scan was given contrast is not known yet\. Never count another field in their place\./u,
     );
     expect(first).not.toMatch(/whether a scan was given contrast are not known|has no answer for it yet/u);
     // read once, through the seam that reads the datasets
@@ -649,7 +649,7 @@ describe("the one agent tells what is true now (2026-10-09)", () => {
       /\\"steps\\":\\"sorted 991 of 1003 scans; body part not run \(from the headers only\); post-contrast not run \(from the headers only\); main scans picked; pictures made\\"/u,
     );
     expect(out).toMatch(
-      /\\"known_so_far\\":\\"Body part and post-contrast have not run on study-a: a scan's body part is known where the headers name it, not yet elsewhere\. The scans the headers mark as given contrast are counted, and there may be more; whether the others were is not known yet\./u,
+      /\\"known_so_far\\":\\"Body part and post-contrast have not run on study-a: a scan's body part is known where the headers name it, not yet elsewhere\. The scans the headers mark as given contrast or as not given are counted, and there may be more of either; whether an unmarked scan was given contrast is not known yet\./u,
     );
     expect(out).not.toMatch(/not_known|whether a scan was given contrast are not known/u);
     expect(engine.seen.filter((x) => x.path === "/api/datasets/study-a/summary").length).toBe(before + 1);
