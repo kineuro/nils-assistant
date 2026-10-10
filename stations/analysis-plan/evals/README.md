@@ -8,10 +8,14 @@ Record 49 A5's bar: a question about images becomes a runnable document at the s
 
 ## Live
 
+`bench/seed.ts` builds the registry the cases name: the synthetic registry with `ms-cohort-a` and `ms-cohort-b`, the cohort `nmosd` (nine synthetic subjects), the saved selections `ms-baseline@1` (cohort A's T1 at the first session) and `every-t1@2` (version 1 the one-millimetre T1, version 2 every T1), and the starter catalog seeded. Serve it, point an assistant host whose model is the local 27B at it, and measure:
+
 ```sh
-STATION=analysis-plan ASSISTANT_URL=http://127.0.0.1:<port> NILS_URL=http://127.0.0.1:<port> npm run bench:analyses
+npm run bench:measure -- --model <name> --assistant http://127.0.0.1:<port> --engine http://127.0.0.1:<port> --stations analysis-plan
 ```
 
-It needs an engine that serves record 49's doors with the starter catalog seeded, the cohorts `ms-cohort-a`, `ms-cohort-b` and `nmosd`, the saved selections `ms-baseline@1` and `every-t1@2`, and an assistant host whose model is the local 27B. A case passes when the verdict's `run_document` names the expected pipeline, parameters and selection and carries a pre-flight; both splits of `bench/manifest/split.ts` are reported and the run file lands here as `run-<date>.json`.
+A case passes when the verdict's `run_document` names the expected pipeline, parameters and selection and carries a pre-flight; both splits of `bench/manifest/split.ts` are reported.
+
+> **Warning:** the synthetic registry has no live picks, so the pre-flight of a bids pipeline leaves every stack out ("no live pick takes it") and counts no unit ready. The plan still carries its pre-flight, which is what the case scores; the counts of `cases.yml` are the stub engine's, not this registry's.
 
 No live run has been taken yet.

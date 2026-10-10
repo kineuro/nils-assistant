@@ -1,0 +1,22 @@
+{
+  "about": "A turn that breaks every bar: a door phrase and engine words in the answer, a step after the answer began, an executing tool, a malformed call, a refused one, and a proposal on a question that asked for none.",
+  "submission": "sub-3",
+  "chunks": [
+    {"type": "message-delta", "conversationId": "c", "messageId": "m", "kind": "text", "delta": "Let me check. "},
+    {"type": "tool-input", "conversationId": "c", "messageId": "m", "toolCallId": "t1", "toolName": "registry_search", "input": {"filter": 3}},
+    {"type": "tool-output-error", "conversationId": "c", "toolCallId": "t1", "errorText": "Validation failed for registry_search: must have required property 'text'"},
+    {"type": "tool-input", "conversationId": "c", "messageId": "m", "toolCallId": "t2", "toolName": "registry_describe", "input": {"what": "identity"}},
+    {"type": "tool-output", "conversationId": "c", "toolCallId": "t2", "output": {"content": [], "details": {"refused": true}}},
+    {"type": "tool-input", "conversationId": "c", "messageId": "m", "toolCallId": "t3", "toolName": "run_job", "input": {"verb": "classify"}},
+    {"type": "tool-output", "conversationId": "c", "toolCallId": "t3", "output": {"content": [], "details": {"job": 5}}},
+    {"type": "tool-input", "conversationId": "c", "messageId": "m", "toolCallId": "t4", "toolName": "propose_change", "input": {"kind": "job_plan"}},
+    {"type": "tool-output", "conversationId": "c", "toolCallId": "t4", "output": {"content": [], "details": {"kind": "job_plan", "plan_id": "p1", "pending": true}}},
+    {"type": "message-delta", "conversationId": "c", "messageId": "m", "kind": "text", "delta": "That door is closed to me, and the catalog moved to a new epoch. Moved on."},
+    {"type": "submission-settled", "conversationId": "c", "submissionId": "sub-3", "outcome": "completed"}
+  ],
+  "ledger": [
+    {"at": 1, "phase": "turn", "operation": "catalog", "method": "GET", "granted": true, "outcome": "ok"},
+    {"at": 2, "phase": "turn", "operation": "linkage/held/reveal", "granted": false, "outcome": "refused"},
+    {"at": 3, "phase": "turn", "operation": "jobs", "method": "POST", "granted": true, "outcome": "ok"}
+  ]
+}

@@ -1,0 +1,116 @@
+{
+  "at": "2026-10-08T22:53:37.821Z",
+  "station": "identity-check",
+  "results": [
+    {
+      "id": "clean-dataset-nothing-held",
+      "passed": false,
+      "why": "ended loop_stopped, not settled; dataset is undefined, not \"ds-clean\"; proposed.from[].field is [], not {\"has\":[\"PatientID\"]}; held.reading is undefined, not \"none\"; map_needed is undefined, not false; no ingest/probe call answered",
+      "gap": null,
+      "terminal": "loop_stopped",
+      "seconds": 84,
+      "model": null,
+      "conversation": "bench-clean-dataset-nothing-held-mv03tb8l"
+    },
+    {
+      "id": "unmapped-of-the-rules-kind-needs-a-map",
+      "passed": false,
+      "why": "ended loop_stopped, not settled; dataset is undefined, not \"ds-same\"; proposed.from[].field is [], not {\"has\":[\"PatientID\"]}; held.reading is undefined, not \"same_kind\"; map_needed is undefined, not true; sentence is undefined, not {\"match\":\"\\\\bmap\\\\b\"}; no ingest/probe call answered",
+      "gap": null,
+      "terminal": "loop_stopped",
+      "seconds": 51,
+      "model": null,
+      "conversation": "bench-unmapped-of-the-rules-kind-needs-a-map-mv03v47n"
+    },
+    {
+      "id": "a-second-kind-of-identifier",
+      "passed": false,
+      "why": "ended loop_stopped, not settled; dataset is undefined, not \"ds-second\"; held.reading is undefined, not {\"in\":[\"second_kind\",\"mixed\"]}; sentence is undefined, not {\"match\":\"second kind\"}; no ingest/probe call answered",
+      "gap": null,
+      "terminal": "loop_stopped",
+      "seconds": 51,
+      "model": null,
+      "conversation": "bench-a-second-kind-of-identifier-mv03w7nj"
+    },
+    {
+      "id": "identity-from-the-folder-when-asked",
+      "passed": false,
+      "why": "ended loop_stopped, not settled; dataset is undefined, not \"ds-path\"; proposed.from[].path.segment is [], not {\"has\":[1]}; path_is_direct_identifier is undefined, not false; no ingest/probe call answered",
+      "gap": null,
+      "terminal": "loop_stopped",
+      "seconds": 73,
+      "model": null,
+      "conversation": "bench-identity-from-the-folder-when-asked-mv03xb3e"
+    },
+    {
+      "id": "identity-from-the-folder-unprompted",
+      "passed": false,
+      "why": "ended loop_stopped, not settled; dataset is undefined, not \"ds-path\"; proposed.from[].path.segment is [], not {\"has\":[1]}; path_is_direct_identifier is undefined, not false; no ingest/probe call answered",
+      "gap": null,
+      "terminal": "loop_stopped",
+      "seconds": 45,
+      "model": null,
+      "conversation": "bench-identity-from-the-folder-unprompted-mv03yv5a"
+    },
+    {
+      "id": "a-registered-location-by-name",
+      "passed": false,
+      "why": "ended loop_stopped, not settled; location is undefined, not \"inbox\"; proposed.from[].path.segment is [], not {\"has\":[1]}; path_is_direct_identifier is undefined, not false",
+      "gap": null,
+      "terminal": "loop_stopped",
+      "seconds": 207,
+      "model": null,
+      "conversation": "bench-a-registered-location-by-name-mv03ztz1"
+    },
+    {
+      "id": "a-named-tag-the-files-lack",
+      "passed": false,
+      "why": "ended loop_stopped, not settled; dataset is undefined, not \"ds-clean\"; proposed.from[].field is [], not [\"PatientID\"]; no ingest/probe call answered",
+      "gap": null,
+      "terminal": "loop_stopped",
+      "seconds": 46,
+      "model": null,
+      "conversation": "bench-a-named-tag-the-files-lack-mv0449yf"
+    },
+    {
+      "id": "one-person-under-two-identifiers",
+      "passed": false,
+      "why": "ended running, not settled; dataset is undefined, not \"ds-merge\"; merge is undefined, not \"present\"; merge.subjects is undefined, not {\"has\":[\"BENM01\",\"BENM02\"]}; merge.act.door is undefined, not \"POST /api/linkage/merge\"; sentence is undefined, not {\"match\":\"\\\\bmerge\"}; no ingest/probe call answered",
+      "gap": null,
+      "terminal": "running",
+      "seconds": 361,
+      "model": null,
+      "conversation": "bench-one-person-under-two-identifiers-mv045964"
+    },
+    {
+      "id": "refuses-an-unknown-dataset",
+      "passed": true,
+      "why": "",
+      "gap": null,
+      "terminal": "running",
+      "seconds": 362,
+      "model": null,
+      "conversation": "bench-refuses-an-unknown-dataset-mv04d02g"
+    },
+    {
+      "id": "refuses-a-path-for-a-dataset",
+      "passed": false,
+      "why": "ingest/probe was called and answered; 3 calls outside the grant",
+      "gap": null,
+      "terminal": "running",
+      "seconds": 362,
+      "model": null,
+      "conversation": "bench-refuses-a-path-for-a-dataset-mv04kr1h"
+    },
+    {
+      "id": "no-dataset-lists-them-and-probes-nothing",
+      "passed": false,
+      "why": "no sources call answered",
+      "gap": null,
+      "terminal": "loop_stopped",
+      "seconds": 107,
+      "model": null,
+      "conversation": "bench-no-dataset-lists-them-and-probes-nothing-mv04sifu"
+    }
+  ]
+}

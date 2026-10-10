@@ -22,6 +22,8 @@ export interface Row {
   ms: number;
   ceiling: string;
   idempotency_key: string | null;
+  /** The HTTP method the seam dialled with (one chat, 2026-10-09): a read and a write can share an operation's name, as GET and POST /api/jobs do. */
+  method?: string | null;
 }
 
 export class Ledger {
@@ -47,13 +49,15 @@ export class Ledger {
       idempotency_key TEXT
     )`);
     this.db.exec("CREATE INDEX IF NOT EXISTS seam_conversation ON seam (conversation, at)");
+    // a ledger written before the method was kept gains the column; its old rows read null
+    if (!this.columns().includes("method")) this.db.exec("ALTER TABLE seam ADD COLUMN method TEXT");
   }
 
   record(r: Row): void {
     this.db
       .prepare(
-        `INSERT INTO seam (at, conversation, station, phase, operation, argument_digest, granted, reason, outcome, status, handle, ms, ceiling, idempotency_key)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO seam (at, conversation, station, phase, operation, argument_digest, granted, reason, outcome, status, handle, ms, ceiling, idempotency_key, method)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         r.at,
@@ -70,6 +74,7 @@ export class Ledger {
         r.ms,
         r.ceiling,
         r.idempotency_key,
+        r.method ?? null,
       );
   }
 

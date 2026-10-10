@@ -5,6 +5,7 @@
 // model Kvasir lists or names its own where Kvasir lists none, and the catalog is
 // taken again only when it changes.
 
+import { normalizeContext } from "@earendil-works/pi-ai";
 import { describe, expect, it } from "vitest";
 import { chosenModel, setModels } from "../src/host/models.ts";
 import { kvasirTitles } from "../src/host/titles.ts";
@@ -93,7 +94,9 @@ describe("a model call for a person", () => {
       },
     });
     const model = provider.getModels()[0];
-    const context = { messages: [{ role: "user" as const, content: "How many subjects?", timestamp: 1 }] };
+    const context = normalizeContext({
+      messages: [{ role: "user" as const, content: "How many subjects?", timestamp: 1 }],
+    });
     const options = { apiKey: "the-app-key", fetch: dial } as never;
     await drain(streamFor("c-anna", () => provider.streamSimple(model as never, context, options)));
     await drain(streamFor("c-anna", () => provider.stream(model as never, context, options)));

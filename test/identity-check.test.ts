@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // identity-check (Wave 4c D7, record 26): the manifest, the path question, that a value never passes as a
 // shape, a probe over a dataset's originals by name, the identifier types and the held shapes read through
-// the seam, and the held reading against the rule's shapes.
+// the seam, the held reading against the rule's shapes, and the merge of two subjects the probe found alike
+// (record 55 K9).
 
 import { afterAll, describe, expect, it } from "vitest";
 import { FORBIDDEN, GrantKeeper } from "../src/seam/grant.ts";
 import { admitPath } from "../src/seam/redactor.ts";
 import {
+  alikeOf,
   candidateFor,
   carriesValue,
   datasetName,
@@ -15,10 +17,11 @@ import {
   heldVerdict,
   identityCheckChecks,
   identityCheckTools,
+  mergeOf,
   probesOf,
   proposedOf,
-  rootOf,
   ruleComplaint,
+  shapeCounts,
   shapesOf,
   typeNames,
   typesOf,
@@ -169,9 +172,10 @@ describe("identity-check", () => {
       "path_answered",
       "type_named",
       "held_read",
+      "merge_named",
     ]);
     const props = m.result.properties as Record<string, unknown>;
-    for (const k of ["dataset", "new_type", "held", "map_needed"]) expect(props).toHaveProperty(k);
+    for (const k of ["dataset", "new_type", "held", "map_needed", "merge"]) expect(props).toHaveProperty(k);
   });
 
   it("a station may dial the two linkage reads that answer names and shapes, and no other linkage door", () => {
@@ -210,12 +214,11 @@ describe("identity-check", () => {
     expect(ruleComplaint({ id_type: "subject", from: [{ segment: 1 }] })).toMatch(/one of the two/u);
   });
 
-  it("a dataset is one name and its originals are the probe's root, never a path", () => {
+  it("a dataset is one name, never a path", () => {
     expect(datasetName("scanner-a")).toBe("scanner-a");
     expect(datasetName("@scanner-a")).toBe("scanner-a");
     expect(datasetName("scanner-a/2026")).toBeNull();
     expect(datasetName("")).toBeNull();
-    expect(rootOf("scanner-a")).toBe("@scanner-a/originals");
     expect(typeNames({ types: [{ name: "patient-id" }, "study-id", { name: "Bad Name" }] })).toEqual([
       "patient-id",
       "study-id",
@@ -241,6 +244,24 @@ describe("identity-check", () => {
       map_needed: true,
     });
     expect(heldReading(held(["AA9999"]), null)).toEqual({ reading: "unknown", map_needed: false });
+    // with the probe's counts: a shape read only on the files held under it, beside the rule's own shape on
+    // files that are not held, is a second kind (a study number in a few files' PatientID)
+    const heldN = (shape: string, files: number) => [{ shape, files, first_seen: null, batch: null }];
+    expect(heldReading(heldN("9999-999", 12), { AA9999: 96, "9999-999": 12 })).toEqual({
+      reading: "second_kind",
+      map_needed: false,
+    });
+    // a shape the mapped identifiers share is the rule's kind, a map releases it
+    expect(heldReading(heldN("AA9999", 24), { AA9999: 120 })).toEqual({
+      reading: "same_kind",
+      map_needed: true,
+    });
+    // a shape the rule read on no other is its own, though every file of it is held (a sample, nothing mapped yet)
+    expect(heldReading(heldN("AA9999", 500), { AA9999: 200 })).toEqual({
+      reading: "same_kind",
+      map_needed: true,
+    });
+    expect(shapeCounts(PROBE_RESULT.candidates[0])).toEqual({ AA9999: 110, "99999999-9999": 10 });
     expect(shapesOf(PROBE_RESULT.candidates[0])).toEqual(["AA9999", "99999999-9999"]);
     expect(shapesOf(undefined)).toEqual([]);
     const probed = [
@@ -299,6 +320,11 @@ describe("identity-check", () => {
       originals: { files: 120 },
     });
     expect(JSON.stringify(ds.output)).not.toContain("/never");
+    // without a name, the datasets by name
+    expect((await tool("nils_dataset").run({}, ctx("read", 11))).output).toEqual({ datasets: ["scanner-a"] });
+    expect(
+      (await tool("nils_dataset").run({ dataset: "scanner-a/derivatives" }, ctx("read", 12))).output,
+    ).toMatchObject({ refused: true });
     expect((await tool("nils_dataset").run({ dataset: "elsewhere" }, ctx("read", 2))).output).toMatchObject({
       refused: true,
       why: "no dataset named elsewhere; the datasets are scanner-a",
@@ -331,7 +357,7 @@ describe("identity-check", () => {
     );
     expect(probe.output).toMatchObject({ job: 7, state: "queued" });
     const dialled = e.seen.find((c) => c.path === "/api/ingest/probe");
-    expect(dialled?.body).toEqual({ root: "@scanner-a/originals", sample: 500, rules: [CURRENT, CANDIDATE] });
+    expect(dialled?.body).toEqual({ dataset: "scanner-a", sample: 500, rules: [CURRENT, CANDIDATE] });
     expect(probesOf(conversation)[0]).toMatchObject({ job: 7, dataset: "scanner-a", location: null });
     // the job's result, the diagnostics' samples dropped, the candidates kept for the held reading
     const job = await tool("nils_job").run({ job: 7 }, ctx("diagnose", 8));
@@ -517,5 +543,156 @@ describe("identity-check", () => {
     expect(checks.held_read(v, { conversation })).toBeNull();
     expect(checks.path_answered(v, { conversation })).toBeNull();
     expect(heldVerdict(conversation)).toEqual({ held: null, map_needed: null });
+  });
+
+  it("record 55 K9: the subjects a dataset's probe found alike are proposed as a merge, which a person makes", async () => {
+    const PAIR = {
+      subjects: ["BENM01", "BENM02"],
+      agree: ["birth_date", "sex"],
+      visits: { shared: 2, of: [2, 2] },
+    };
+    const withAlike = {
+      ...PROBE_RESULT,
+      candidates: [
+        { ...PROBE_RESULT.candidates[0], alike: { pairs: [PAIR], linked: 0, unmapped: 1 } },
+        { ...PROBE_RESULT.candidates[1], alike: { pairs: [PAIR], linked: 0, unmapped: 0 } },
+      ],
+    };
+    const e = await stubEngine((c) => {
+      if (c.path === "/api/ingest/probe" && c.method === "POST")
+        return { status: 202, body: { job: 9, state: "queued" } };
+      if (c.path === "/api/jobs/9") return { body: { id: 9, state: "done", result: withAlike } };
+      if (c.path === "/api/linkage/types") return { body: { types: [{ name: "patient-id" }] } };
+      if (c.path.startsWith("/api/linkage/held")) return { body: [] };
+      return null;
+    });
+    closers.push(e.close);
+    const conversation = "c-merge";
+    const seam = seamOf(
+      e.url,
+      { id: "identity-check", grant: GRANT, ceiling: "operator", content: "rows" },
+      conversation,
+    );
+    const ctx = (phase: string, n: number) => toolContext(seam, conversation, phase, n);
+    // nothing alike before the probe: a merge is refused
+    expect(
+      (await tool("propose_merge").run({ subjects: ["BENM01", "BENM02"], why: "x" }, ctx("propose", 1)))
+        .output,
+    ).toMatchObject({ refused: true, why: expect.stringMatching(/named no subjects alike/u) });
+    await tool("nils_identifier_types").run({}, ctx("read", 2));
+    await tool("nils_held").run({ dataset: "scanner-a" }, ctx("read", 3));
+    await tool("nils_probe").run({ dataset: "scanner-a", rules: [CURRENT, CANDIDATE] }, ctx("diagnose", 4));
+    const job = await tool("nils_job").run({ job: 9 }, ctx("diagnose", 5));
+    expect(JSON.stringify(job.output)).toContain("BENM01");
+    // the pair once, though both candidates named it
+    expect(alikeOf(conversation)).toEqual([PAIR]);
+    // one subject, a pair the probe never named, and a canonical outside the pair are refused
+    expect(
+      (await tool("propose_merge").run({ subjects: ["BENM01"], why: "x" }, ctx("propose", 6))).output,
+    ).toMatchObject({ refused: true });
+    expect(
+      (await tool("propose_merge").run({ subjects: ["BENM01", "BENM03"], why: "x" }, ctx("propose", 7)))
+        .output,
+    ).toMatchObject({ refused: true, why: expect.stringMatching(/not a pair the probe named/u) });
+    expect(
+      (
+        await tool("propose_merge").run(
+          { subjects: ["BENM02", "BENM01"], canonical: "BENM09", why: "x" },
+          ctx("propose", 8),
+        )
+      ).output,
+    ).toMatchObject({ refused: true, why: expect.stringMatching(/canonical/u) });
+    const why = "the same birth date and sex, and both visits shared";
+    const recorded = await tool("propose_merge").run(
+      { subjects: ["BENM02", "BENM01"], canonical: "BENM01", why },
+      ctx("propose", 9),
+    );
+    expect(recorded.output).toMatchObject({ recorded: true });
+    const m = mergeOf(conversation);
+    expect(m).toMatchObject({
+      subjects: ["BENM01", "BENM02"],
+      canonical: "BENM01",
+      alias: "BENM02",
+      agree: ["birth_date", "sex"],
+      visits: { shared: 2, of: [2, 2] },
+      act: { door: "POST /api/linkage/merge", body: { canonical: "BENM01", alias: "BENM02", why } },
+    });
+    // the station never dials the merge door
+    expect(e.seen.some((c) => c.path.startsWith("/api/linkage/merge"))).toBe(false);
+    await tool("propose_rule").run({ rule: CURRENT, why: "the tag answers one shape" }, ctx("propose", 10));
+    const checks = identityCheckChecks();
+    const base = {
+      location: "scanner-a",
+      saw: [{ source: "PatientID", shape: "AA9999" }],
+      proposed: CURRENT,
+      held: { shapes: [], reading: "none" },
+      map_needed: false,
+      merge: m,
+      sentence:
+        "PatientID answered AA9999; two subjects share birth date, sex and visits, and their merge is proposed for a person to make.",
+    };
+    // the two codes of the merge are not values; another code-like token is
+    expect(checks.no_identifier_value(verdict(base), { conversation })).toBeNull();
+    expect(checks.no_identifier_value(verdict({ ...base, note: "BENM03" }), { conversation })).toMatch(
+      /value/u,
+    );
+    expect(checks.merge_named(verdict(base), { conversation })).toBeNull();
+    expect(
+      checks.merge_named(verdict({ ...base, sentence: "PatientID answered AA9999." }), { conversation }),
+    ).toMatch(/sentence says so/u);
+    expect(checks.merge_named(verdict({ ...base, merge: null }), { conversation })).toMatch(/not the one/u);
+    // a probe that named nothing alike asks for no merge, and a result may not invent one
+    expect(checks.merge_named(verdict({ ...base, merge: null }), { conversation: "c-same-kind" })).toBeNull();
+    expect(checks.merge_named(verdict(base), { conversation: "c-same-kind" })).toMatch(
+      /named no subjects alike/u,
+    );
+  });
+
+  it("record 55 K9: alike subjects with no merge proposed fail the check", async () => {
+    const e = await stubEngine((c) => {
+      if (c.path === "/api/ingest/probe" && c.method === "POST")
+        return { status: 202, body: { job: 11, state: "queued" } };
+      if (c.path === "/api/jobs/11")
+        return {
+          body: {
+            id: 11,
+            state: "done",
+            result: {
+              ...PROBE_RESULT,
+              candidates: [
+                {
+                  ...PROBE_RESULT.candidates[0],
+                  alike: {
+                    pairs: [
+                      {
+                        subjects: ["BENX01", "BENX02"],
+                        agree: ["birth_date", "sex"],
+                        visits: { shared: 1, of: [1, 2] },
+                      },
+                    ],
+                  },
+                },
+                PROBE_RESULT.candidates[1],
+              ],
+            },
+          },
+        };
+      return null;
+    });
+    closers.push(e.close);
+    const conversation = "c-merge-missed";
+    const seam = seamOf(
+      e.url,
+      { id: "identity-check", grant: GRANT, ceiling: "operator", content: "rows" },
+      conversation,
+    );
+    const ctx = (phase: string, n: number) => toolContext(seam, conversation, phase, n);
+    await tool("nils_probe").run({ dataset: "scanner-a", rules: [CURRENT, CANDIDATE] }, ctx("diagnose", 1));
+    await tool("nils_job").run({ job: 11 }, ctx("diagnose", 2));
+    expect(identityCheckChecks().merge_named(verdict({ sentence: "s" }), { conversation })).toMatch(
+      /propose their merge/u,
+    );
+    // a location's probe never names subjects: nothing alike is read from it
+    expect(alikeOf("c-location")).toEqual([]);
   });
 });

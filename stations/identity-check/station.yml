@@ -2,7 +2,9 @@
 # identity-check (Wave 4c section 9.14, record 26), as contracts/suite/v1/station.schema.json fixes a manifest.
 # The desk's headless runner (POST /assistant/stations/identity-check/runs) sends one message naming the
 # dataset, `dataset: <name>`, and may add `candidate: <a path segment, or a DICOM keyword>`; the run
-# probes the dataset's originals as the root @<name>/originals and never reads a path of the host.
+# probes the dataset's originals by the dataset's name and never reads a path of the host. Record 55 K9:
+# the probe names the subjects whose birth date, sex and visits agree, and the run proposes their merge,
+# which a person makes.
 id: identity-check
 app: nils-assistant
 purpose: assistant.identity-check
@@ -23,7 +25,7 @@ grant:
     calls: 30
 brief:
   path: SKILL.md
-  hash: f0df15e7cfd6819bab39c8e681ca9daba8228c563bf0c2c1b6c00ebd7bb54d80
+  hash: a84fd1fa5b8645fe338fa02214caa25d6360117b8b4ad97a99056488ed1b0bd7
 result:
   type: object
   required:
@@ -68,6 +70,11 @@ result:
       - boolean
       - "null"
       description: true when identifiers of the rule's kind are held, so a map releases them and no rule change would
+    merge:
+      type:
+      - object
+      - "null"
+      description: "record 55 K9: the merge proposed of two subjects the probe found alike, {subjects, canonical, alias, agree, visits: {shared, of}, why, act: {door, body}}, for a person to make at the engine's merge door; null when none is proposed"
     probe_jobs:
       type: array
       items:
@@ -81,6 +88,7 @@ checks:
 - path_answered
 - type_named
 - held_read
+- merge_named
 budget:
   turns: 12
   tool_calls: 36

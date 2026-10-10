@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // The chains and the stability check of ask-help (Wave 4c §9.11, D4).
+// STATION runs them through another station (the concierge, which delegates
+// each turn to ask-help); ask-help by default.
 //
 // A chain is one standing selection edited over and over, turn by turn,
 // through one conversation of the station; a follow-up turn re-enters the
@@ -11,6 +13,10 @@
 // is what the station needed against what the researcher gave. A chain the
 // corrections do not rescue is not reached.
 //
+// Each turn is scored on its final verdict: through a station that hands
+// the work on, the first verdict names no document and the answer comes in
+// the delegate's verdict and the parent's woken turn (bench/turns.ts).
+//
 // The stability check runs one shape several times, each in a fresh
 // conversation, and asks that every run come to one number and the same
 // session scheme digest (§11, D4).
@@ -18,10 +24,12 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parse } from "yaml";
+import { documentOf, engine, finalOf, verdictsOfTurn } from "./turns.ts";
 
 const host = (process.env.ASSISTANT_URL ?? "http://127.0.0.1:7300").replace(/\/+$/u, "");
 const nils = (process.env.NILS_URL ?? "http://127.0.0.1:8437").replace(/\/+$/u, "");
 const token = process.env.NILS_TOKEN ?? "the-persons-token";
+const station = process.env.STATION ?? "ask-help";
 const only = process.env.ONLY?.split(",").filter(Boolean);
 const stability = process.env.STABILITY ?? "shape-23:5";
 const root = process.cwd();
@@ -58,13 +66,14 @@ const expect = JSON.parse(readFileSync(join(root, "bench", "gold", "expect.json"
 >;
 
 async function json(url: string, init?: RequestInit): Promise<Record<string, unknown>> {
-  const r = await fetch(url, init);
+  // the person's token on every door: a run and its verdict are read by their owner
+  const r = await fetch(url, { ...init, headers: { authorization: `Bearer ${token}`, ...init?.headers } });
   return (await r.json()) as Record<string, unknown>;
 }
 
 /** The tool calls a conversation has made so far, from its history: the count and the refused ones. */
 async function calls(conversation: string): Promise<{ tool_calls: number; refused: number }> {
-  const h = (await json(`${host}/agents/ask-help/${conversation}?view=history`).catch(() => null)) as {
+  const h = (await json(`${host}/agents/${station}/${conversation}?view=history`).catch(() => null)) as {
     messages?: { role?: string; parts?: { type?: string; output?: unknown }[] }[];
   } | null;
   let tool_calls = 0;
@@ -80,7 +89,20 @@ async function calls(conversation: string): Promise<{ tool_calls: number; refuse
   return { tool_calls, refused };
 }
 
-/** One turn of a conversation through the headless door; the settled document, or null with the terminal reason, and the calls the turn took. */
+/** The delegations a conversation has started so far. */
+async function delegationCount(conversation: string): Promise<number> {
+  const d = (await json(`${host}/conversations/${conversation}/delegations`).catch(() => null)) as {
+    tasks?: unknown[];
+  } | null;
+  return d?.tasks?.length ?? 0;
+}
+
+/**
+ * One turn of a conversation through the headless door; the turn's final document, or null with the terminal
+ * reason, and the calls the turn took. A station that hands the work on settles first with no document; the
+ * turn is read once its delegations and the woken parent have settled (bench/turns.ts), never from the first
+ * verdict alone.
+ */
 async function turn(
   conversation: string,
   message: string,
@@ -92,8 +114,9 @@ async function turn(
   refused: number;
 }> {
   const before = await calls(conversation);
+  const delegationsBefore = await delegationCount(conversation);
   const started = Date.now();
-  const run = await json(`${host}/stations/ask-help/runs`, {
+  const run = await json(`${host}/stations/${station}/runs`, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
     body: JSON.stringify({ message, conversation }),
@@ -106,12 +129,16 @@ async function turn(
   }
   const reply = state.reply as { metadata?: { terminal?: string } } | null;
   const terminal = reply?.metadata?.terminal ?? (state.state === "settled" ? "settled" : String(state.state));
-  const verdict = (await json(`${host}/runs/${run.run}/verdict`).catch(() => ({}))) as {
-    result?: { document?: number };
-  };
+  const verdicts = await verdictsOfTurn(
+    {
+      get: (path) => json(`${host}${path}`).catch(() => null),
+      sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+    },
+    { run: String(run.run), conversation, delegationsBefore },
+  );
   const after = await calls(conversation);
   return {
-    document: verdict.result?.document ?? null,
+    document: documentOf(finalOf(verdicts)),
     terminal,
     seconds: Math.round((Date.now() - started) / 1000),
     tool_calls: after.tool_calls - before.tool_calls,
@@ -119,79 +146,19 @@ async function turn(
   };
 }
 
-/** The engine runs the document: its content hash, row count and declaration. */
-async function run(
-  document: number,
-): Promise<{ content_hash: string | null; row_count: number; digest: string | null; error: string | null }> {
-  const ran = await json(`${nils}/api/ask/run`, {
-    method: "POST",
-    headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-    body: JSON.stringify({ document_id: document }),
-  });
-  const decl = ran.declaration as { session_scheme?: { digest?: string } } | undefined;
-  return {
-    content_hash: typeof ran.content_hash === "string" ? ran.content_hash : null,
-    row_count: typeof ran.row_count === "number" ? ran.row_count : -1,
-    digest: decl?.session_scheme?.digest ?? null,
-    error: ran.error ? String(ran.error).slice(0, 120) : null,
-  };
-}
+const doors = engine(nils, token);
+const run = doors.run;
+const same = doors.same;
 
 const out: Record<string, unknown> = { at: new Date().toISOString(), host, chains: [], stability: null };
 
 /** A gold file drafted and stored now: its document, so the answers compare. */
-async function storeGold(file: string): Promise<number | null> {
-  const stored = await json(`${nils}/api/ask/draft`, {
-    method: "POST",
-    headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-    body: JSON.stringify({ text: readFileSync(join(root, "bench", "gold", file), "utf8") }),
-  });
-  return typeof stored.document === "number" ? stored.document : null;
-}
+const storeGold = (file: string): Promise<number | null> =>
+  doors.draft(readFileSync(join(root, "bench", "gold", file), "utf8"));
 
 /** The turn's document reached the gold: the same content hash, else the same answer. */
-async function reached(
-  document: number | null,
-  goldFile: string,
-  goldDocument: number | null,
-): Promise<boolean> {
-  if (document === null || goldDocument === null) return false;
-  const want = expect[goldFile];
-  const r = await run(document);
-  if (want?.content_hash && r.content_hash === want.content_hash) return true;
-  return same(document, goldDocument).catch(() => false);
-}
-
-/** The same answer as the gold: the set of subject codes when both carry one, else the one row of a count. */
-async function same(document: number, goldDocument: number): Promise<boolean> {
-  const codes = async (id: number): Promise<{ codes: string[] | null; first: string; n: number }> => {
-    const r = await json(`${nils}/api/ask/run`, {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-      body: JSON.stringify({ document_id: id }),
-    });
-    const cols = ((r.columns as (string | { name: string })[] | undefined) ?? []).map((c) =>
-      typeof c === "string" ? c : c.name,
-    );
-    const k = cols.findIndex((c) => c === "code" || c.endsWith(".code"));
-    const rows = (r.rows as unknown[][] | undefined) ?? [];
-    // the values of the first row without the technical columns, sorted: a count answered as rows and subjects, or as two named aggregates, is the same answer
-    const keep = cols.map((c) => !c.startsWith("_"));
-    const first = (rows[0] ?? [])
-      .filter((_, i) => keep[i])
-      .map((v) => JSON.stringify(v))
-      .sort();
-    return {
-      codes: k < 0 ? null : [...new Set(rows.map((row) => String(row[k])))].sort(),
-      first: JSON.stringify(first),
-      n: typeof r.row_count === "number" ? r.row_count : -1,
-    };
-  };
-  const [a, b] = await Promise.all([codes(document), codes(goldDocument)]);
-  if (a.codes && b.codes)
-    return a.codes.length === b.codes.length && a.codes.every((v, i) => v === b.codes?.[i]);
-  return a.n === b.n && (a.n !== 1 || a.first === b.first);
-}
+const reached = (document: number | null, goldFile: string, goldDocument: number | null): Promise<boolean> =>
+  doors.reached(document, expect[goldFile], goldDocument);
 
 for (const c of chains.filter((c) => c.turns.some((t) => t.gold))) {
   const conversation = `chain-${c.id}-${Date.now().toString(36)}`;
@@ -239,13 +206,7 @@ for (const c of chains.filter((c) => !c.turns.some((t) => t.gold))) {
     continue;
   }
   // the gold of the opening question, stored so the answers compare
-  const goldText = readFileSync(join(root, "bench", "gold", shape.rebased.gold), "utf8");
-  const stored = await json(`${nils}/api/ask/draft`, {
-    method: "POST",
-    headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-    body: JSON.stringify({ text: goldText }),
-  });
-  const goldDocument = typeof stored.document === "number" ? stored.document : null;
+  const goldDocument = await storeGold(shape.rebased.gold);
   const conversation = `chain-${c.id}-${Date.now().toString(36)}`;
   const sent: {
     kind: string;
@@ -368,7 +329,7 @@ if (stableShape?.rebased.gold && expect[stableShape.rebased.gold]?.content_hash)
 const kind = (out.chains as unknown[]).length === 0 && out.stability ? "stability" : "chains";
 writeFileSync(
   join(
-    process.env.EVALS_OUT ?? join(root, "stations", "ask-help", "evals"),
+    process.env.EVALS_OUT ?? join(root, "stations", station, "evals"),
     `${kind}-${new Date().toISOString().slice(0, 10)}.json`,
   ),
   `${JSON.stringify(out, null, 2)}\n`,

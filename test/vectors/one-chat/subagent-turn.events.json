@@ -1,0 +1,14 @@
+{
+  "about": "A find turn through the read-only sub-agent, as runtime events: the parent's task tool, the task's own events (which carry taskId and are not the parent's steps), the answer.",
+  "submission": "sub-9",
+  "events": [
+    {"v": 3, "eventIndex": 1, "type": "tool_start", "submissionId": "sub-9", "toolName": "task", "toolCallId": "t1", "args": {"agent": "find", "prompt": "count cohort B"}},
+    {"v": 3, "eventIndex": 2, "type": "task_start", "submissionId": "sub-9", "taskId": "k1", "agent": "find", "prompt": "count cohort B", "parentSession": "s"},
+    {"v": 3, "eventIndex": 3, "type": "tool_start", "submissionId": "sub-9", "taskId": "k1", "parentSession": "s", "toolName": "query_draft", "toolCallId": "c1"},
+    {"v": 3, "eventIndex": 4, "type": "tool", "submissionId": "sub-9", "taskId": "k1", "parentSession": "s", "toolName": "query_draft", "toolCallId": "c1", "isError": false, "result": {"details": {"document": 99}}, "durationMs": 10},
+    {"v": 3, "eventIndex": 5, "type": "task", "submissionId": "sub-9", "taskId": "k1", "agent": "find", "isError": false, "result": "document 813", "durationMs": 900},
+    {"v": 3, "eventIndex": 6, "type": "tool", "submissionId": "sub-9", "toolName": "task", "toolCallId": "t1", "isError": false, "result": {"content": [{"type": "text", "text": "document 813"}], "details": {"document": 813}}, "durationMs": 905},
+    {"v": 3, "eventIndex": 7, "type": "text_delta", "submissionId": "sub-9", "text": "Cohort B has 24 subjects."},
+    {"v": 3, "eventIndex": 8, "type": "submission_settled", "submissionId": "sub-9", "outcome": "completed"}
+  ]
+}

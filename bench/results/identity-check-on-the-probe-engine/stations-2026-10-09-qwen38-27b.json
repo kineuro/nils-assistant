@@ -1,0 +1,46 @@
+{
+  "at": "2026-10-09T02:04:41.352Z",
+  "model": "qwen38-27b",
+  "host_models": [
+    {
+      "id": "qwen38-27b",
+      "contextWindow": 65536,
+      "maxTokens": 8192
+    }
+  ],
+  "engine": "1.0.0-alpha.79",
+  "packs": [
+    {
+      "name": "mri",
+      "version": "1.0.1",
+      "contract": 8
+    }
+  ],
+  "stations": [
+    {
+      "station": "identity-check",
+      "loop": {
+        "passed": 1,
+        "of": 8
+      },
+      "held_out": {
+        "passed": 0,
+        "of": 3
+      },
+      "detail": {
+        "median_seconds": 88,
+        "gaps": []
+      },
+      "file": "stations-2026-10-09-qwen38-27b/identity-check/run-2026-10-09.json",
+      "why": null,
+      "state": "measured",
+      "measure": "cases ended as expected, every check passed",
+      "passed": 1,
+      "of": 11,
+      "through": {
+        "assistant": "http://127.0.0.1:17303",
+        "engine": "http://127.0.0.1:17439"
+      }
+    }
+  ]
+}

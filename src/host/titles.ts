@@ -9,7 +9,7 @@
 
 import type { Model } from "@earendil-works/pi-ai";
 import { streamSimple } from "@earendil-works/pi-ai/api/pi-messages";
-import type { Catalog } from "../providers/kvasir.ts";
+import { type Catalog, kvasirContext } from "../providers/kvasir.ts";
 import { guardMemory } from "./guard.ts";
 import { plainMentions } from "./mentions.ts";
 
@@ -50,7 +50,10 @@ export function kvasirTitles(o: {
     };
     const events = streamSimple(
       model,
-      { systemPrompt: instructions, messages: [{ role: "user", content: message, timestamp: Date.now() }] },
+      kvasirContext({
+        systemPrompt: instructions,
+        messages: [{ role: "user", content: message, timestamp: Date.now() }],
+      }),
       {
         apiKey: o.key,
         maxTokens: Math.min(entry.maxTokens, 4_096),

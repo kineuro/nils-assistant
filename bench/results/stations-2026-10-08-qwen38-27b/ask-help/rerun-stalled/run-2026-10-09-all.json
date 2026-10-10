@@ -1,0 +1,189 @@
+{
+  "at": "2026-10-09T00:55:22.563Z",
+  "corpus": "all",
+  "summary": {
+    "shapes": {
+      "of": 2,
+      "strict": 1,
+      "same_answer": 1,
+      "loop": {
+        "strict": {
+          "passed": 0,
+          "of": 0
+        },
+        "same_answer": {
+          "passed": 0,
+          "of": 0
+        }
+      },
+      "held_out": {
+        "strict": {
+          "passed": 1,
+          "of": 2
+        },
+        "same_answer": {
+          "passed": 1,
+          "of": 2
+        }
+      },
+      "median_seconds": 33,
+      "median_turns": 1,
+      "median_tool_calls": 4,
+      "refused_calls": 2,
+      "drafts": 13,
+      "draft_refusals": 6,
+      "by_budget": 0
+    },
+    "authored": {
+      "of": 3,
+      "strict": 3,
+      "same_answer": 3,
+      "loop": {
+        "strict": {
+          "passed": 2,
+          "of": 2
+        },
+        "same_answer": {
+          "passed": 2,
+          "of": 2
+        }
+      },
+      "held_out": {
+        "strict": {
+          "passed": 1,
+          "of": 1
+        },
+        "same_answer": {
+          "passed": 1,
+          "of": 1
+        }
+      },
+      "median_seconds": 15,
+      "median_turns": 1,
+      "median_tool_calls": 2,
+      "refused_calls": 0,
+      "drafts": 3,
+      "draft_refusals": 0,
+      "by_budget": 0
+    }
+  },
+  "results": [
+    {
+      "id": "shape-01",
+      "corpus": "shapes",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 214,
+      "seconds": 33,
+      "terminal": "settled",
+      "conversation": "eval-shape-01-mv09075n",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 4,
+        "refused": 0,
+        "drafts": 3,
+        "draft_refusals": 2,
+        "settles": 1,
+        "tools": ["nils_draft", "nils_draft", "nils_draft", "settle"]
+      }
+    },
+    {
+      "id": "shape-18",
+      "corpus": "shapes",
+      "passed": false,
+      "selection": false,
+      "why": "document 292: 144 rows, the gold has 144; Document 292 holds one stack per session per role for cohort A (144 T1w, 134 FLAIR, 144 T2w rows), e",
+      "document": 292,
+      "seconds": 253,
+      "terminal": "settled",
+      "conversation": "eval-shape-18-mv090wpk",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 16,
+        "refused": 2,
+        "drafts": 10,
+        "draft_refusals": 4,
+        "settles": 1,
+        "tools": [
+          "nils_draft",
+          "nils_draft",
+          "nils_draft",
+          "nils_draft",
+          "nils_draft",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_values",
+          "nils_draft",
+          "nils_draft",
+          "nils_draft",
+          "nils_draft",
+          "nils_draft",
+          "settle"
+        ]
+      }
+    },
+    {
+      "id": "auth-first-to-second-gap-b",
+      "corpus": "authored",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 29,
+      "seconds": 18,
+      "terminal": "settled",
+      "conversation": "eval-auth-first-to-second-gap-b-mv096buh",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 2,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": ["nils_draft", "settle"]
+      }
+    },
+    {
+      "id": "auth-mprage-1mm-sessions-a",
+      "corpus": "authored",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 66,
+      "seconds": 15,
+      "terminal": "settled",
+      "conversation": "eval-auth-mprage-1mm-sessions-a-mv096ps8",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 2,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": ["nils_draft", "settle"]
+      }
+    },
+    {
+      "id": "auth-low-field-subjects-b",
+      "corpus": "authored",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 294,
+      "seconds": 15,
+      "terminal": "settled",
+      "conversation": "eval-auth-low-field-subjects-b-mv0971et",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 2,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": ["nils_draft", "settle"]
+      }
+    }
+  ]
+}

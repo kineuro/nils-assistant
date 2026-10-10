@@ -32,6 +32,10 @@ export interface Station {
   model: string;
   /** Wave 5 section 9.1: the grant is a person's standing grant, not a station manifest's. */
   standing?: boolean;
+  /** One chat (2026-10-09): the seam a person's approval of a proposed change runs through, never a model's; it may hold the person's own acts (`PERSON_ONLY`). */
+  decides?: boolean;
+  /** The Kvasir purpose the station's model calls are filed under, when it is not `assistant.<id>`. */
+  purpose?: string;
 }
 
 export interface Call {
@@ -73,7 +77,10 @@ export class Seam {
   private readonly dial: typeof fetch;
   private readonly now: () => number;
   constructor(private readonly o: SeamOptions) {
-    this.keeper = new GrantKeeper(o.station.grant, o.station.standing === true);
+    this.keeper = new GrantKeeper(
+      o.station.grant,
+      o.station.decides === true ? "decides" : o.station.standing === true,
+    );
     this.dial = o.fetch ?? fetch;
     this.now = o.now ?? Date.now;
   }
@@ -123,12 +130,13 @@ export class Seam {
       ms,
       ceiling: this.o.station.ceiling,
       idempotency_key: key,
+      method: c.method,
     });
   }
 
   async call(c: Call): Promise<Answer> {
     const started = this.now();
-    const path = admitPath(c.path, c.method);
+    const path = admitPath(c.path, c.method, this.o.station.decides === true);
     if (!path.ok) {
       const operation = operationOf(c.method, c.path);
       this.record(

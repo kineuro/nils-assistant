@@ -1,0 +1,19 @@
+{
+  "about": "One find turn as the conversation stream's update chunks (Flue's GET /:id?view=updates): the skill activated, the summary read, a query drafted, the answer, settled.",
+  "submission": "sub-7",
+  "chunks": [
+    {"type": "message-appended", "conversationId": "c", "message": {"role": "user"}, "position": {"batch": 1, "index": 0}},
+    {"type": "message-started", "conversationId": "c", "messageId": "m1", "submissionId": "sub-7", "position": {"batch": 2, "index": 0}},
+    {"type": "tool-input", "conversationId": "c", "messageId": "m1", "toolCallId": "t1", "toolName": "activate_skill", "input": {"name": "find-data"}, "position": {"batch": 2, "index": 1}},
+    {"type": "tool-output", "conversationId": "c", "toolCallId": "t1", "output": {"content": [], "details": {"skill": "find-data"}}, "position": {"batch": 3, "index": 0}},
+    {"type": "tool-input", "conversationId": "c", "messageId": "m1", "toolCallId": "t2", "toolName": "registry_summary", "input": {}, "position": {"batch": 4, "index": 0}},
+    {"type": "tool-output", "conversationId": "c", "toolCallId": "t2", "output": {"content": [], "details": {"cohorts": 2}}, "position": {"batch": 5, "index": 0}},
+    {"type": "tool-input", "conversationId": "c", "messageId": "m1", "toolCallId": "t3", "toolName": "query_draft", "input": {"question": "How many subjects are in cohort B?"}, "position": {"batch": 6, "index": 0}},
+    {"type": "tool-output", "conversationId": "c", "toolCallId": "t3", "output": {"content": [{"type": "text", "text": "document 812"}], "details": {"document": 812}}, "position": {"batch": 7, "index": 0}},
+    {"type": "message-delta", "conversationId": "c", "messageId": "m1", "kind": "reasoning", "delta": "the count of cohort B", "position": {"batch": 8, "index": 0}},
+    {"type": "message-delta", "conversationId": "c", "messageId": "m1", "kind": "text", "delta": "Cohort B has ", "position": {"batch": 8, "index": 1}},
+    {"type": "message-delta", "conversationId": "c", "messageId": "m1", "kind": "text", "delta": "24 subjects.", "position": {"batch": 8, "index": 2}},
+    {"type": "message-completed", "conversationId": "c", "messageId": "m1", "position": {"batch": 9, "index": 0}},
+    {"type": "submission-settled", "conversationId": "c", "submissionId": "sub-7", "outcome": "completed", "position": {"batch": 9, "index": 1}}
+  ]
+}
