@@ -15,8 +15,10 @@
 //   identifiers whose birth date, sex and visits agree (record 55 K9).
 // - the operator: a source location `inbox` to digest, the datasets to
 //   bring in, and one stored question to run.
-// - the one-chat bench: a dataset sorted with the rest, on which body part
-//   and post-contrast never ran, its T1 scans' header weighting set.
+// - the one-chat bench: two datasets sorted with the rest, on which body
+//   part and post-contrast never ran, their T1 scans' header weighting set:
+//   one whose headers mark no scan as given contrast, and one whose headers
+//   mark three of its eight.
 
 import type { Series } from "./planted.ts";
 
@@ -140,22 +142,52 @@ export const DATASETS: Dataset[] = [
 ];
 
 /**
- * The one-chat bench's sorted dataset (bench/corpus/one-chat.yml, kind unknown): it arrives anonymised (its files
- * in `derivatives/dcm-anon`, PatientID the subject's code), is digested and sorted with the rest, and body part and
- * post-contrast, steps of their own since record 56 (a model over a dataset's scans), never run on it. Its
- * post_contrast is empty, and its T1 scans carry AcquisitionContrast T1, the weighting the scanner records, which
- * says nothing of a contrast agent: asked for a dataset's T1 scans with contrast, the chat once counted that field
- * (2026-10-09). The answer is that post-contrast is not known yet.
+ * The one-chat bench's sorted dataset (bench/corpus/one-chat.yml, kind unknown): it arrives anonymised (its files in
+ * `derivatives/dcm-anon`, PatientID the subject's code), is digested and sorted with the rest, and body part and
+ * post-contrast, steps of their own since record 56 (a model over a dataset's scans), never run on it. The sorting's
+ * rules mark post_contrast from the headers, given where they say contrast was given and not_given where they say it
+ * was not; no header here says either, so its post_contrast is empty, and whether its scans were given contrast is
+ * not known until post-contrast runs. Its T1 scans carry AcquisitionContrast T1, the weighting the scanner records,
+ * which says nothing of a contrast agent: asked for a dataset's T1 scans with contrast, the chat once counted that
+ * field (2026-10-09).
  */
 export const SORTED: Dataset = {
   name: "ds-sorted",
-  about: "sorted, with body part and post-contrast never run on it: post_contrast is empty",
+  about:
+    "sorted, no header marking contrast, body part and post-contrast never run on it: post_contrast is empty",
   people: ["BENR01", "BENR02", "BENR03"].map((code) => ({ patientId: code, folder: code, days: visits })),
 };
 
 /** The sorted dataset's series: one T1 per subject and visit, its header weighting T1. */
 export function sortedSeries(): { folder: string; series: Series }[] {
   return datasetSeries(SORTED, 11000).map((f) => ({ ...f, series: { ...f.series, contrast: "T1" } }));
+}
+
+/**
+ * The one-chat bench's marked dataset, laid down as the sorted one: four subjects, two visits each, one T1 a visit,
+ * and at the second visit of the first three a contrast agent recorded in the files (ContrastBolusAgent), which the
+ * sorting's rules read as post_contrast given. Its eight T1 scans carry AcquisitionContrast T1, only the agent's tag
+ * sets the three apart, and no header marks a scan not given. Until post-contrast runs on it, the scans with
+ * contrast are those three, and there may be more; the scans the headers mark without contrast are none, and whether
+ * the other five were given contrast is not known.
+ */
+export const MARKED: Dataset = {
+  name: "ds-marked",
+  about:
+    "sorted, three of eight T1 scans marked as given contrast in their headers, post-contrast never run on it",
+  people: ["BENG01", "BENG02", "BENG03", "BENG04"].map((code) => ({
+    patientId: code,
+    folder: code,
+    days: visits,
+  })),
+};
+
+/** The marked dataset's series: one T1 per subject and visit, its header weighting T1, the agent recorded at three. */
+export function markedSeries(): { folder: string; series: Series }[] {
+  return datasetSeries(MARKED, 11100).map((f, i) => ({
+    ...f,
+    series: { ...f.series, contrast: "T1", ...(i % 2 === 1 && i < 6 ? { bolus: "GADOBUTROL" } : {}) },
+  }));
 }
 
 /** A dataset's series: one per person and day, in `<folder>/<day>`. */

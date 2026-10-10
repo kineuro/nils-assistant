@@ -7,11 +7,13 @@
 // bench/one-chat-stub.ts, the oracle passing everything and each fault
 // caught by its grader.
 
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import type { AddressInfo } from "node:net";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { holds } from "../bench/cases.ts";
+import { MARKED, markedSeries, sortedSeries } from "../bench/fixtures.ts";
 import { bench, compare, loadCorpus, page } from "../bench/one-chat.ts";
 import {
   type Conversation,
@@ -33,6 +35,7 @@ import {
   type TurnObs,
 } from "../bench/one-chat-grade.ts";
 import { type Fault, STUB_RUNS, stub, stubInputs } from "../bench/one-chat-stub.ts";
+import { type Series, writeSeries } from "../bench/planted.ts";
 import { finalOf, verdictsOfTurn } from "../bench/turns.ts";
 
 const vectors = join("test", "vectors", "one-chat");
@@ -91,6 +94,68 @@ describe("the one-chat corpus", () => {
       expect(c.turns[0].expect?.says?.some((m) => typeof m === "object" && m !== null && "not" in m)).toBe(
         true,
       );
+      // the scans with contrast are the ones the headers mark: a question for post_contrast given, never another field
+      expect(c.turns[0].expect?.skill, c.id).toBe("find-data");
+      const query = JSON.stringify(c.turns[0].expect?.query ?? []);
+      expect(query, c.id).toMatch(/post_contrast/u);
+      expect(query, c.id).toMatch(/given/u);
+    }
+    // one dataset whose headers mark no scan as given contrast, and one whose headers mark some
+    expect(conversations.filter((c) => c.kind === "unknown").map((c) => c.id)).toEqual([
+      "unknown-post-contrast",
+      "marked-post-contrast",
+    ]);
+  });
+
+  it("asks of the seed's datasets what their headers mark: none of ds-sorted's scans, three of ds-marked's eight", () => {
+    const t1 = (series: { series: Series }[]) => series.filter((f) => f.series.contrast === "T1");
+    const marked = (series: { series: Series }[]) => series.filter((f) => f.series.bolus);
+    expect(sortedSeries()).toHaveLength(6);
+    expect(t1(sortedSeries())).toHaveLength(6);
+    expect(marked(sortedSeries())).toHaveLength(0);
+    expect(MARKED.name).toBe("ds-marked");
+    expect(markedSeries()).toHaveLength(8);
+    expect(t1(markedSeries())).toHaveLength(8);
+    expect(marked(markedSeries())).toHaveLength(3);
+    // a scan marked as given contrast differs from the rest only by its agent tag
+    const [a, b] = [marked(markedSeries())[0].series, markedSeries().find((f) => !f.series.bolus)?.series];
+    expect(a.description).toBe(b?.description);
+    expect(a.protocol).toBe(b?.protocol);
+    // the corpus asks of the dataset the fixtures make
+    expect(conversations.find((x) => x.id === "marked-post-contrast")?.turns[0].say).toMatch(
+      /\bds-marked\b/u,
+    );
+  });
+
+  it("writes a contrast agent's tag into the files of a series marked as given contrast", () => {
+    const dir = mkdtempSync(join(tmpdir(), "one-chat-bolus-"));
+    try {
+      const series = (bolus?: string): Series => ({
+        uid: 1,
+        study: 1,
+        patientId: "BENX01",
+        day: "20210510",
+        description: "t1_mprage_sag",
+        protocol: "MPRAGE",
+        slices: 1,
+        ...(bolus ? { bolus } : {}),
+      });
+      writeSeries(join(dir, "marked"), series("GADOBUTROL"));
+      writeSeries(join(dir, "plain"), series());
+      // ContrastBolusAgent (0018,0010), LO, in explicit little endian
+      const tag = Buffer.from([0x18, 0x00, 0x10, 0x00, 0x4c, 0x4f]);
+      const marked = readFileSync(join(dir, "marked", "1.dcm"));
+      const at = marked.indexOf(tag);
+      expect(at).toBeGreaterThan(0);
+      expect(
+        marked
+          .subarray(at + 8, at + 8 + marked.readUInt16LE(at + 6))
+          .toString("latin1")
+          .trim(),
+      ).toBe("GADOBUTROL");
+      expect(readFileSync(join(dir, "plain", "1.dcm")).indexOf(tag)).toBe(-1);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 
@@ -434,27 +499,185 @@ describe("what was true, 2026-10-09", () => {
     );
   });
 
-  it("misses the answer that counted the header weighting as contrast, and passes one that says post-contrast is not known yet", () => {
+  it("misses the answer that counted the header weighting as contrast", () => {
     const t = conv("unknown-post-contrast");
     // the answer of 2026-10-09, the dataset's name made up
     const then =
       'There are **9 T1 scans with contrast** in ds-sorted, from 2 subjects.\n\nOne note: the registry\'s "post-contrast" flag is not set on any of these scans, so I counted the T1-weighted scans whose acquisition contrast is recorded as T1 (i.e., contrast-enhanced). The question is saved so you can keep or adjust it.';
     const found = ["activate_skill", "query_draft", "registry_search", "query_draft"];
     expect(gradeTurn(t, said(then, found), lexicon, "skill").passed).toBe(false);
+  });
+});
+
+/** The question that counts a dataset's T1 scans with contrast: the scans the headers mark as given contrast. */
+const given = (dataset: string) => ({
+  ast_version: 1,
+  name: `T1 scans with contrast in ${dataset}`,
+  scheme: "default",
+  sets: {
+    t1c: {
+      grain: "stack",
+      where: [
+        ["=", {}, ["field", {}, "dataset"], dataset],
+        ["=", {}, ["axis", {}, "base"], "T1w"],
+        ["=", {}, ["axis", {}, "post_contrast"], "given"],
+      ],
+    },
+  },
+  out: { set: "t1c", level: "count" },
+});
+/** The question of 2026-10-09: the scans whose header weighting reads T1, counted as the scans with contrast. */
+const weighting = (dataset: string) => ({
+  ast_version: 1,
+  name: `T1 scans with contrast in ${dataset}`,
+  scheme: "default",
+  sets: {
+    t1c: {
+      grain: "stack",
+      where: [
+        ["=", {}, ["field", {}, "dataset"], dataset],
+        ["=", {}, ["field", {}, "acquisition_contrast"], "T1"],
+      ],
+    },
+  },
+  out: { set: "t1c", level: "count" },
+});
+
+describe("what is true, 2026-10-10: the headers mark the scans given contrast", () => {
+  const conv = (id: string, turn = 0) => {
+    const c = conversations.find((x) => x.id === id);
+    if (!c) throw new Error(`no conversation ${id}`);
+    return c.turns[turn];
+  };
+  /** A turn that activated the find skill, drafted `query` and said `text`. */
+  const drafted = (text: string, query: unknown): TurnObs => ({
+    events: [
+      { kind: "tool_start", id: "c0", name: "activate_skill", args: { name: "find-data" } },
+      {
+        kind: "tool",
+        id: "c0",
+        name: "activate_skill",
+        isError: false,
+        result: { content: [], details: {} },
+        error: null,
+      },
+      { kind: "tool_start", id: "c1", name: "query_draft", args: {} },
+      {
+        kind: "tool",
+        id: "c1",
+        name: "query_draft",
+        isError: false,
+        result: { content: [], details: { document: 901 } },
+        error: null,
+      },
+      { kind: "text", text },
+      { kind: "settled", submission: "s", outcome: "completed" },
+    ],
+    ledger: [],
+    ledgerBefore: 0,
+    seconds: 4,
+    queryText: JSON.stringify(query),
+  });
+  const misses = (t: ReturnType<typeof conv>, text: string, query: unknown) =>
+    gradeTurn(t, drafted(text, query), lexicon, "skill").misses;
+
+  it("where the headers mark no scan: none is marked, and whether any was given contrast is not known yet", () => {
+    const t = conv("unknown-post-contrast");
+    for (const right of [
+      "None of the 6 T1 scans in ds-sorted is marked in its headers as given contrast, and post-contrast has not run on it yet, so whether any of them was given contrast is not known.",
+      "The headers mark no scan in ds-sorted as given contrast; post-contrast hasn't run there, so whether its 6 T1-weighted scans were given contrast is not known yet.",
+      "0 T1 scans in ds-sorted are marked as given contrast in their headers. Post-contrast has not run on it, so the others are unknown, not without contrast.",
+    ])
+      expect(misses(t, right, given("ds-sorted")), right).toEqual([]);
     for (const wrong of [
       "ds-sorted holds 6 contrast-enhanced T1 scans.",
       "T1 scans with contrast: 6.",
       "There are 0 T1 scans with contrast in ds-sorted.",
-    ])
-      expect(gradeTurn(t, said(wrong, found), lexicon, "skill").passed, wrong).toBe(false);
-    for (const right of [
+      // what the facts of 2026-10-09 taught: nothing known, as if the sorting marked no scan anywhere
       "Post-contrast has not run on ds-sorted yet, so whether its scans were given contrast is not known; it holds 6 T1-weighted scans, and that step has no run button yet.",
-      "Whether any of them were given contrast is not known yet: post-contrast hasn't run on ds-sorted. It has 6 T1-weighted scans.",
+      // none marked, and said to be none at all
+      "None of the T1 scans in ds-sorted was given contrast.",
     ])
-      expect(
-        gradeTurn(t, said(right, ["activate_skill", "query_draft"]), lexicon, "skill").misses,
-        right,
-      ).toEqual([]);
+      expect(misses(t, wrong, given("ds-sorted")).length, wrong).toBeGreaterThan(0);
+    // the right words over a question that counts the header weighting: the question misses
+    expect(
+      misses(
+        t,
+        "None of the 6 T1 scans in ds-sorted is marked in its headers as given contrast, and post-contrast has not run on it yet, so whether any of them was given contrast is not known.",
+        weighting("ds-sorted"),
+      ).join(" "),
+    ).toMatch(/does not hold/u);
+  });
+
+  it("where the headers mark some: they are counted as given, and there may be more", () => {
+    const t = conv("marked-post-contrast");
+    for (const right of [
+      "3 of the 8 T1 scans in ds-marked are marked in their headers as given contrast; post-contrast has not run on it yet, so there may be more.",
+      "The headers mark three T1 scans in ds-marked as given contrast. That is a lower bound: post-contrast hasn't run there, so whether the other five were is not known yet.",
+      "At least 3 T1 scans in ds-marked were given contrast, the ones their headers mark; the rest are not known until post-contrast runs.",
+      // the other five named, and said not to be known
+      "3 of its 8 T1 scans are marked as given contrast; whether the other 5 were scanned without contrast is not known until post-contrast runs.",
+    ])
+      expect(misses(t, right, given("ds-marked")), right).toEqual([]);
+    for (const wrong of [
+      // every T1 scan, by its header weighting
+      "ds-marked holds 8 T1 scans with contrast.",
+      "8 contrast-enhanced T1 scans are in ds-marked.",
+      // the count of none the ask once gave
+      "There are 0 T1 scans with contrast in ds-marked.",
+      // the marks counted as all there is
+      "ds-marked holds 3 T1 scans with contrast.",
+      // the rest called without contrast
+      "3 T1 scans in ds-marked were given contrast and 5 were scanned without contrast; there may be more with contrast once post-contrast runs.",
+      // nothing known, as the facts of 2026-10-09 taught
+      "Post-contrast has not run on ds-marked yet, so whether its scans were given contrast is not known.",
+    ])
+      expect(misses(t, wrong, given("ds-marked")).length, wrong).toBeGreaterThan(0);
+    expect(
+      misses(
+        t,
+        "3 of the 8 T1 scans in ds-marked are marked in their headers as given contrast; post-contrast has not run on it yet, so there may be more.",
+        weighting("ds-marked"),
+      ).join(" "),
+    ).toMatch(/does not hold/u);
+  });
+
+  it("where the headers mark some, the scans without contrast are the ones they mark not given, none here, and the rest are not known", () => {
+    const t = conv("marked-post-contrast", 1);
+    const said = (text: string): TurnObs => ({
+      events: [
+        { kind: "text", text },
+        { kind: "settled", submission: "s", outcome: "completed" },
+      ],
+      ledger: [],
+      ledgerBefore: 0,
+      seconds: 3,
+    });
+    for (const right of [
+      // the headers' not_given marks counted, none here, and the rest not known
+      "None of the 8 T1 scans in ds-marked is marked in its headers as not given contrast, so 0 are counted without contrast; whether the other 5 were given contrast is not known until post-contrast runs.",
+      "0 of the 8 T1 scans in ds-marked are marked as without contrast in their headers; whether the others were given contrast is not known until post-contrast runs.",
+      "0: the headers mark no scan in ds-marked as not given contrast, and whether the 5 unmarked ones were given contrast is not known until post-contrast runs.",
+      // or no count at all, and the rest not known
+      "That cannot be counted yet: post-contrast has not run on ds-marked, so whether its other T1 scans were given contrast is not known.",
+      "Not yet: only the 3 scans the headers mark as given contrast are known; whether the other 5 were is unknown until post-contrast runs.",
+      "Of the 8 T1 scans, the number scanned without contrast can't be counted yet, since post-contrast hasn't run.",
+    ])
+      expect(gradeTurn(t, said(right), lexicon, "skill").misses, right).toEqual([]);
+    for (const wrong of [
+      // a count inferred from the missing marks
+      "5 T1 scans in ds-marked were scanned without contrast.",
+      "Without contrast: 5.",
+      "The other 5 were not given contrast.",
+      "ds-marked holds 5 non-contrast T1 scans.",
+      "All 8 were scanned without contrast.",
+      "5 have no contrast mark, so they were scanned without contrast.",
+      // even beside the sentence that says the rest is not known
+      "Of the 8 T1 scans, 5 were scanned without contrast; whether the rest were given contrast is not known until post-contrast runs.",
+      // the headers' count with no word that the rest is not known
+      "0 T1 scans in ds-marked are marked as without contrast in their headers.",
+    ])
+      expect(gradeTurn(t, said(wrong), lexicon, "skill").passed, wrong).toBe(false);
   });
 });
 

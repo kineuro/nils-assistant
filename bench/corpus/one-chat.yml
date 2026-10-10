@@ -356,13 +356,23 @@ conversations:
             - {match: "\\bds-clean\\b"}
             - {not: {match: "\\bno (such )?(cohort or )?datasets? (called|named|by that name|like)\\b|\\bthere(.s| is) no (such )?(cohort or )?dataset\\b|\\b(isn.t|is not|not) a dataset\\b|\\b(couldn.t|could not|can.t|cannot) find (a|any|the) (cohort or )?dataset\\b"}}
 
-  # --- a sorting value whose step has not run on the dataset (record 56: body
-  #     part and post-contrast are steps of their own, models run over a
-  #     dataset's scans): the answer says it is not known yet and presents no
-  #     count as the scans given contrast. The chat once counted the scans whose
-  #     header weighting (AcquisitionContrast) read T1 and called them
-  #     contrast-enhanced (2026-10-09). ds-sorted is sorted, six T1 scans whose
-  #     weighting reads T1, and post-contrast never ran on it (bench/seed.ts).
+  # --- a sorting value the headers answer before its step runs (record 56:
+  #     body part and post-contrast are steps of their own, models run over a
+  #     dataset's scans after the sorting, whose rules mark post_contrast
+  #     from the headers: mostly given, where they say contrast was given, and
+  #     not_given only where they say it was not, as words such as "pre
+  #     contrast" do, which is rare; measured on one registry on 2026-10-10,
+  #     every mark given, none not_given). Until post-contrast has run, the
+  #     scans with contrast are the ones the headers mark given and the scans
+  #     without it the ones they mark not_given, counts that may be short,
+  #     and whether an unmarked scan was given contrast is not known. The chat once counted the scans whose header weighting
+  #     (AcquisitionContrast) read T1 and called them contrast-enhanced
+  #     (2026-10-09); then its facts said the sorting answered neither value,
+  #     which was false (corrected 2026-10-10). The question counts
+  #     post_contrast given, never another field. ds-sorted is sorted, six T1 scans whose weighting reads T1, no
+  #     header marking contrast, and post-contrast never ran on it
+  #     (bench/seed.ts): the answer says none is marked and that whether any
+  #     was given contrast is not known yet.
   - id: unknown-post-contrast
     kind: unknown
     registry: seeded
@@ -370,11 +380,53 @@ conversations:
     turns:
       - say: How many T1 scans with contrast are in ds-sorted?
         expect:
+          skill: find-data
+          proposal: false
+          query:
+            - {match: "\\[\"field\",\\{\\},\"dataset\"\\]"}
+            - {match: "\"ds-sorted\""}
+            - {match: "\\[\"axis\",\\{\\},\"post_contrast\"\\],\"(given|1)\""}
+            - {not: {match: "acquisition_contrast"}}
+          says:
+            - {match: "\\b(none|no|zero|0|not one|neither)\\b[^.;]{0,80}\\b(marked|flagged|recorded|tagged|marks?|flags?|tags?)\\b|\\bheaders?\\b[^.;]{0,40}\\b(marks?|flags?|records?|shows?|says?|indicates?)\\s+(none|no)\\b|\\b(don't|do not|doesn't|does not|didn't|did not|isn't|is not|aren't|are not|wasn't|was not|weren't|were not)\\s+(\\w+\\s+){0,2}(marked|flagged|recorded|tagged|mark|flag|record|tag)\\b"}
+            - {match: "post-?contrast[^.]{0,80}(\\bnot\\b|n't\\b|\\bnever\\b|\\byet\\b)|\\bnot (yet )?(known|run)\\b|\\bunknown\\b|\\b(don't|do not|cannot|can't|can not) (yet )?(say|tell|know)\\b"}
+            - {not: {match: "\\b\\d+\\s+(T1[- ]?(weighted\\s+)?)?(scans?|series|stacks?|images?)\\s+(with|after|post)[- ]?contrast\\b|\\b\\d+\\b[^.;]{0,40}\\bcontrast[- ]enhanced\\b|\\b(with|after|post)[- ]?contrast\\b[^.;]{0,20}:\\s*\\d+"}}
+
+  # --- the same where the headers mark some: ds-marked holds eight T1 scans,
+  #     their weighting T1, and three carry a contrast agent's tag, which the
+  #     sorting reads as given (bench/seed.ts); none is marked not_given. The
+  #     answer counts those three as given contrast and says there may be
+  #     more; it never counts all eight, never none, and never calls the
+  #     other five scans without contrast. Its follow-up asks for the scans
+  #     without contrast: those the headers mark not_given, none here, with
+  #     the word that whether the other five were given contrast is not known
+  #     until post-contrast runs; a count inferred from the missing marks
+  #     fails, whatever is said beside it.
+  - id: marked-post-contrast
+    kind: unknown
+    registry: seeded
+    from: bench/seed.ts ds-marked, the question of 2026-10-09 where the headers mark some
+    turns:
+      - say: How many T1 scans with contrast are in ds-marked?
+        expect:
+          skill: find-data
+          proposal: false
+          query:
+            - {match: "\\[\"field\",\\{\\},\"dataset\"\\]"}
+            - {match: "\"ds-marked\""}
+            - {match: "\\[\"axis\",\\{\\},\"post_contrast\"\\],\"(given|1)\""}
+            - {not: {match: "acquisition_contrast"}}
+          says:
+            - {match: "\\b(3|three)\\b[^.;]{0,100}\\bcontrast\\b|\\bcontrast\\b[^.;]{0,40}\\b(3|three)\\b"}
+            - {match: "\\b(may|might|could) be (more|higher|larger|greater)\\b|\\bat least\\b|\\blower bound\\b|\\bnot (yet )?(known|run)\\b|\\b(hasn't|has not|haven't|have not) (yet )?(been )?run\\b|\\bunknown\\b|\\bnot all\\b"}
+            - {not: {match: "\\b(8|eight)\\s+(T1[- ]?(weighted\\s+)?)?(scans?|series|stacks?|images?)\\s+(with|after|post)[- ]?contrast\\b|\\b(8|eight)\\b[^.;]{0,40}\\bcontrast[- ]enhanced\\b|\\b(with|after|post)[- ]?contrast\\b[^.;]{0,20}:\\s*(8|eight)\\b|\\b(0|zero|no)\\s+(T1[- ]?(weighted\\s+)?)?(scans?|series|stacks?|images?)\\s+(with|after|post)[- ]?contrast\\b|(?<!\\bwhether\\b[^.;]*)(?![^.;]*(\\bcannot\\b|\\bcan't\\b|\\bcan not\\b|\\bnot (yet )?known\\b|n't (yet )?known\\b|\\bunknown\\b))\\b(5|five)\\b[^.;]{0,60}\\b(without|pre|before|non)[- ]?contrast\\b"}}
+      - say: And how many were scanned without contrast?
+        expect:
           skill: any
           proposal: false
           says:
-            - {match: "post-?contrast[^.]{0,80}(\\bnot\\b|n't\\b|\\bnever\\b|\\byet\\b)|\\bnot (yet )?(known|run)\\b|\\bunknown\\b|\\b(don't|do not|cannot|can't|can not) (yet )?(say|tell|know)\\b"}
-            - {not: {match: "\\b\\d+\\s+(T1[- ]?(weighted\\s+)?)?(scans?|series|stacks?|images?)\\s+(with|after|post)[- ]?contrast\\b|\\b\\d+\\b[^.;]{0,40}\\bcontrast[- ]enhanced\\b|\\b(with|after|post)[- ]?contrast\\b[^.;]{0,20}:\\s*\\d+"}}
+            - {match: "\\b(cannot|can't|can not|could not|couldn't)\\b[^.;]{0,40}\\b(be )?(counted|count|say|tell|know|answer(ed)?)\\b|(\\bnot|n't) (yet )?(known|countable|be counted)\\b|\\bunknown\\b|\\bnot yet\\b"}
+            - {not: {match: "(?<!\\bwhether\\b[^.;]*)(?<!\\b(?:0|zero|none|no)\\s+of\\s+(?:the\\s+|its\\s+)?)(?:\\b(?:5|five)\\b[^.;]{0,60}(?:\\b(?:without|pre|before|non|no)[- ]?contrast\\b|\\bnot given\\b|\\b(?:weren't|wasn't|aren't|isn't) given\\b)|\\b[1-9]\\d*\\s+(?:(?:T1[- ]?(?:weighted\\s+)?)?(?:scans?|series|stacks?|images?)\\s+)?(?:(?:were|are|was|is)\\s+)?(?:(?:scanned|acquired|done|taken)\\s+)?(?:without|before|pre)[- ]?contrast\\b|\\b[1-9]\\d*\\s+(?:were|are|was|is)\\s+not\\s+given\\b|\\b[1-9]\\d*\\s+(?:non|un)[- ]?(?:contrast|enhanced)\\b)|\\b(?:without|before|pre)[- ]?contrast\\b[^.;]{0,20}:\\s*[1-9]"}}
 
   # --- what the registry's jobs did, read with no skill, the newest first. The
   #     chat once read the open jobs alone and said there were none
