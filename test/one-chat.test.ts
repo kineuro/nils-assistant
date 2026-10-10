@@ -820,7 +820,7 @@ describe("the harness over HTTP, against the stand-in agent", () => {
   };
   const ctx = (
     arm: "skill" | "subagent",
-    tokens: Record<string, string> = { default: "t", "no-query-see": "u" },
+    tokens: Record<string, string> = { default: "t", "no-query-see": "u", "plain-reader": "p" },
   ) => ({
     lexicon,
     golds,

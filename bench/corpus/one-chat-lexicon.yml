@@ -65,6 +65,7 @@ tools:
   - query_draft
   - query_run_readonly
   - query_read_rows
+  - analysis_table
   - jobs_read
   - run_read
   - plan_update
@@ -76,7 +77,7 @@ framework_tools: [activate_skill, read_skill_resource, task]
 not_steps: [plan_update, ask_user, propose_change]
 
 # The skills (decision.md, "Skills from today's stations").
-skills: [find-data, plan-work, plan-analysis, read-run, tune-sorting-words, check-identities]
+skills: [find-data, analyse-table, plan-work, plan-analysis, read-run, tune-sorting-words, check-identities]
 
 # The find arm as a read-only sub-agent: the `task` tool with this agent
 # stands for the find-data skill when the host serves ONE_CHAT_FIND=subagent.

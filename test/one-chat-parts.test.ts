@@ -41,9 +41,10 @@ describe("what a person's grants mount", () => {
     expect(grantsLine(m)).toMatch(/an admin can give it/u);
   });
 
-  it("gives a reader finding data and nothing that plans or changes", () => {
+  it("gives a reader finding data and analysing it, and nothing that plans or changes", () => {
     const m = mountFor(SETS.reader);
-    expect(m.skills).toEqual(["find-data"]);
+    expect(m.skills).toEqual(["find-data", "analyse-table"]);
+    expect(m.tools).toContain("analysis_table");
     expect(m.tools).toContain("query_draft");
     expect(m.tools).not.toContain("run_read");
     expect(grantsLine(m)).toMatch(/counts and plain fields only/u);
@@ -168,7 +169,7 @@ describe("plain words", () => {
 
 describe("the skills", () => {
   const skills = loadSkills(["./stations"], SKILL_ORDER);
-  it("reads all six from disk, each with one catalog line", () => {
+  it("reads all seven from disk, each with one catalog line", () => {
     expect([...skills.keys()]).toEqual([...SKILL_ORDER]);
     for (const s of skills.values()) {
       expect(s.description.length).toBeGreaterThan(40);

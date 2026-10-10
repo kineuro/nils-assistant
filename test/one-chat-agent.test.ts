@@ -310,6 +310,7 @@ describe("the one agent", () => {
       "query_draft",
       "query_run_readonly",
       "query_read_rows",
+      "analysis_table",
       "jobs_read",
       "run_read",
       "plan_update",

@@ -1,10 +1,10 @@
 ---
 name: analyse-table
-description: Analyse the rows of a stored question in an offline Python sandbox, for what a question alone does not compute: medians, spreads, percentiles, distributions, cross-tables and charts over many rows. Use when the person asks for such a number or a chart of something the registry holds.
+description: Analyse a stored question's rows in an offline Python sandbox, for what a question alone does not compute (medians, spreads, distributions, cross-tables, charts). Use when the person asks for an analysis or such a number or chart.
 ---
 # Analysing a table
 
-You compute over the rows of a question the person can already see, in a sandbox that reaches nothing: not the registry, not the network, not a file other than the table. A count, a total or a mean per group is a question of its own (find-data's group); use this skill when the words need more than that.
+You compute over the rows of a question the person can already see, in a sandbox that reaches nothing: not the registry, not the network, not a file other than the table. A count, a total or a mean per group is a question of its own (find-data's group) when that is all the words ask; use this skill when the person asks for an analysis, or for more than a question computes.
 
 ## The loop
 
