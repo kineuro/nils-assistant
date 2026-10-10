@@ -114,6 +114,14 @@ async function apply(
   }
 }
 
+/** The change a person may decide: their own, or none, so a stranger's id tells them nothing. */
+export function ownChange(changes: Pick<ChangeStore, "get">, id: string, subject: string): ChangeRow | null {
+  const c = changes.get(id);
+  return c && c.subject === subject ? c : null;
+}
+
+const NOT_YOURS: Decided = { ok: false, status: 404, error: "no such change of yours" };
+
 /** A person decides one change: recorded first, then applied when approved. */
 export async function decide(
   deps: ApplyDeps,
@@ -121,8 +129,10 @@ export async function decide(
   subject: string,
   verdict: "approved" | "declined",
 ): Promise<Decided> {
-  const before = deps.changes.get(id);
-  if (before?.kind === "query_version")
+  // whose the change is comes first: a stranger learns nothing of it, not even its kind
+  const before = ownChange(deps.changes, id, subject);
+  if (!before) return NOT_YOURS;
+  if (before.kind === "query_version")
     return {
       ok: false,
       status: 409,
@@ -138,4 +148,23 @@ export async function decide(
   return r.failed
     ? { ok: false, status: 502, error: String(r.result.why ?? "it was not applied"), change: after }
     : { ok: true, change: after };
+}
+
+/**
+ * The decide door's work (2026-10-10, review of the one chat): the change must be the caller's before anything of
+ * theirs is kept, so a stranger holding a change's id cannot leave their token on its conversation, where its tools
+ * and the plan's later steps would run under it. Then the token is kept for the change's conversation, and the
+ * person decides.
+ */
+export async function decideAs(
+  deps: ApplyDeps,
+  id: string,
+  subject: string,
+  verdict: "approved" | "declined",
+  keepToken: (conversation: string) => void,
+): Promise<Decided> {
+  const mine = ownChange(deps.changes, id, subject);
+  if (!mine) return NOT_YOURS;
+  keepToken(mine.conversation);
+  return decide(deps, id, subject, verdict);
 }

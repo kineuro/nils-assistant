@@ -59,7 +59,7 @@ import {
 import { kvasirTitles, nameConversation, openingWords } from "./host/titles.ts";
 import { interceptTurn } from "./host/turns.ts";
 import { AGENT, findArm, notePerson } from "./one/agent.ts";
-import { decide } from "./one/apply.ts";
+import { decideAs } from "./one/apply.ts";
 import { ChangeStore, changeView, theChanges, useChangeStore } from "./one/changes.ts";
 import { Nils } from "./one/nils-agent.ts";
 import {
@@ -1334,11 +1334,9 @@ app.post("/changes/:id/decide", async (ctx) => {
   const verdict = body.verdict === "approved" ? "approved" : body.verdict === "declined" ? "declined" : null;
   if (!verdict) return ctx.json({ error: "verdict is approved or declined" }, 400);
   const id = ctx.req.param("id");
-  const ch = theChanges().get(id);
-  // the person's fresh token applies the change, kept for the change's conversation for this request
+  // the person's fresh token applies the change: kept for the change's conversation once the change is theirs
   const token = bearerOf(ctx);
-  if (ch && token) tokens.put(ch.conversation, token);
-  const r = await decide(
+  const r = await decideAs(
     {
       changes: theChanges(),
       ledger: theLedger(),
@@ -1357,6 +1355,9 @@ app.post("/changes/:id/decide", async (ctx) => {
     id,
     who.subject,
     verdict,
+    (conversation) => {
+      if (token) tokens.put(conversation, token);
+    },
   );
   return r.ok
     ? ctx.json(changeView(r.change))

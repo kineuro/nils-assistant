@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { SETS } from "../src/host/grants.ts";
-import { decide } from "../src/one/apply.ts";
+import { decide, decideAs } from "../src/one/apply.ts";
 import { ChangeStore } from "../src/one/changes.ts";
 import { activeSkills, complaintsOf } from "../src/one/checks.ts";
 import { factsOf, factsSummary } from "../src/one/facts.ts";
@@ -479,6 +479,48 @@ describe("a proposed change, decided by the person", () => {
     ]);
     // no run to queue, nothing to name
     expect(runScope(null, { cohorts: ["nmosd"], sessions: "all" })).toEqual([]);
+  });
+
+  it("tells a stranger nothing of a change and keeps none of their token: whose it is comes first (2026-10-10)", async () => {
+    const changes = new ChangeStore(join(dir, "changes-stranger.sqlite"));
+    const ledger = new Ledger(join(dir, "seam-stranger.sqlite"));
+    const deps = {
+      changes,
+      ledger,
+      seam: (): never => {
+        throw new Error("a stranger's decision reaches no seam");
+      },
+      confirmPlan: async () => ({ refused: "no plan" }),
+    };
+    const version = changes.propose({
+      conversation: "conv-b",
+      subject: "anna@n",
+      kind: "query_version",
+      sentence: "v",
+      payload: { document: 3 },
+    });
+    const plan = changes.propose({
+      conversation: "conv-b",
+      subject: "anna@n",
+      kind: "analysis_plan",
+      sentence: "Run synthseg over the selection x.",
+      payload: { command: ["run", "synthseg@2", "--select", "selection:x@1"] },
+    });
+    const notYours = { ok: false, status: 404, error: "no such change of yours" };
+    // someone else's question version is not shown to a stranger, not even as a refusal that carries it
+    expect(await decide(deps, version.id, "someone@n", "approved")).toEqual(notYours);
+    // the decide door keeps a stranger's token for no conversation, and their decision changes nothing
+    const kept: string[] = [];
+    expect(await decideAs(deps, plan.id, "someone@n", "approved", (c) => kept.push(c))).toEqual(notYours);
+    expect(kept).toEqual([]);
+    expect(changes.get(plan.id)?.state).toBe("open");
+    expect(ledger.rows("conv-b")).toEqual([]);
+    // the owner's token is kept for the change's conversation, then the owner decides
+    expect(await decideAs(deps, version.id, "anna@n", "approved", (c) => kept.push(c))).toMatchObject({
+      ok: false,
+      status: 409,
+    });
+    expect(kept).toEqual(["conv-b"]);
   });
 
   it("lets only a person's approval seam hold a merge, never a station's grant", () => {
