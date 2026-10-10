@@ -464,7 +464,8 @@ const registryDescribe: OneTool = {
           }),
           STEPS_TOOL_WAIT_MS,
         );
-        const unknown = steps ? unknownSentence(one, steps) : null;
+        // until body part and post-contrast have run, what the headers answer of them and what is not known yet
+        const known = steps ? unknownSentence(one, steps) : null;
         return {
           output: data(
             {
@@ -484,7 +485,7 @@ const registryDescribe: OneTool = {
                   }
                 : {}),
               ...(steps ? { steps: stepsLine(steps) } : {}),
-              ...(unknown ? { not_known: unknown } : {}),
+              ...(known ? { known_so_far: known } : {}),
               note: "a question names it with the field dataset",
             },
             "",

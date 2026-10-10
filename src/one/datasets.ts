@@ -193,7 +193,7 @@ export function lineOf(d: DatasetFact): string {
 
 const HEAD = "## The datasets (where the scans came from)";
 const INTRO =
-  "A dataset is not a cohort. How many subjects, visits or scans a dataset holds in all is its count here; anything narrower is a question that names the dataset. Body part and post-contrast are steps run on a dataset, not sorting: where one has not run, the dataset has no answer for it yet; the hint says which steps have run on a dataset the words name. State: identified, anonymised, both (identified, with an anonymised copy) or unknown. Newest first:";
+  "A dataset is not a cohort. How many subjects, visits or scans a dataset holds in all is its count here; anything narrower is a question that names the dataset. Body part and post-contrast are answered by the sorting from the headers, then by steps of their own run on a dataset: until a step has run, only what the headers say is known; the hint says which steps have run on a dataset the words name. State: identified, anonymised, both (identified, with an anonymised copy) or unknown. Newest first:";
 
 /**
  * The datasets as the turn's facts carry them: the newest `shown` in full, the rest counted. Where the sources door

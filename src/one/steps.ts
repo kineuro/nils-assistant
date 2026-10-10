@@ -1,14 +1,24 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// The steps of a dataset in the turn's facts (one chat, 2026-10-09): which
-// of sorted, body part, post-contrast, main scans and pictures have run on
-// it, from the engine's summary of one dataset (the Data page of Wave 7a,
+// The steps of a dataset in the turn's facts (one chat, 2026-10-09): which of
+// sorted, body part, post-contrast, main scans and pictures have run on it,
+// from the engine's summary of one dataset (the Data page of Wave 7a,
 // `GET /api/datasets/{name}/summary`). Since record 56 body part and
-// post-contrast are steps of their own, models run over a dataset's scans,
-// and the sorting fills neither: where post-contrast has not run, the sorting
-// value post_contrast is empty, and a question for the scans given contrast
-// finds none. Asked how many T1 scans with contrast a dataset held, the chat
-// then counted the scans whose header weighting reads T1 and called them
-// contrast-enhanced; nothing told it the step had not run. The steps are read
+// post-contrast are steps of their own, models run over a dataset's scans
+// after the sorting, whose rules answer first what the headers say:
+// post_contrast mostly `given`, where they say contrast was given, and
+// `not_given` only where they say it was not, as words such as "pre contrast"
+// do, which is rare (measured on one registry on 2026-10-10: every mark
+// `given`, none `not_given`); and the body part where they name it. Until a
+// step has run, that is all there is: a count of the scans marked either way
+// counts the headers' marks and may be short, whether an unmarked scan was
+// given contrast is not known (a scan with no mark is never counted as
+// without), and the body part is known where the headers name it. Asked how
+// many T1 scans with contrast a dataset held, the chat drafted the question,
+// found none, then counted the scans whose header weighting reads T1 and
+// called them contrast-enhanced. The none came from the ask, which matched
+// `given` against the label `1` the registry stores (an engine fault, fixed
+// there), not from a step not run; these facts first said the sorting
+// answered neither value, which was wrong (2026-10-10). The steps are read
 // for the datasets a turn is about, once a turn, and a tool of the same turn
 // reads them from there. An engine without the door, a refusal or a slow
 // answer leaves them out and says nothing of it. Written without angle
@@ -32,10 +42,20 @@ export interface Step {
   of: number | null;
 }
 
-/** The steps whose models answer sorting values of their own (record 56): their names and what is not known without them. */
+/**
+ * The steps whose models answer sorting values of their own (record 56): their names, and until they have run, what
+ * the headers answer through the sorting's rules and what is not known yet.
+ */
 const OPERATIONS = {
-  body_part: { name: "body part", unknown: "which body part a scan shows" },
-  post_contrast: { name: "post-contrast", unknown: "whether a scan was given contrast" },
+  body_part: {
+    name: "body part",
+    known: "a scan's body part is known where the headers name it, not yet elsewhere",
+  },
+  post_contrast: {
+    name: "post-contrast",
+    known:
+      "the scans the headers mark as given contrast or as not given are counted, and there may be more of either; whether an unmarked scan was given contrast is not known yet",
+  },
 } as const;
 type Operation = keyof typeof OPERATIONS;
 
@@ -91,7 +111,7 @@ function said(s: Step): string {
     case "post_contrast": {
       const name = OPERATIONS[s.step].name;
       if (s.state === "done") return `${name} done${part}`;
-      return open(s) ? `${name} ${s.state}` : `${name} not run`;
+      return open(s) ? `${name} ${s.state}` : `${name} not run (from the headers only)`;
     }
     case "main_scans":
       if (s.state === "done") return "main scans picked";
@@ -104,12 +124,17 @@ function said(s: Step): string {
   }
 }
 
-/** The steps in one line: `sorted; body part not run; post-contrast not run; main scans picked; pictures made`. */
+/** The steps in one line: `sorted; body part not run (from the headers only); post-contrast done; main scans picked; pictures made`. */
 export function stepsLine(steps: readonly Step[]): string {
   return steps.map(said).join("; ");
 }
 
-/** Where body part or post-contrast has not answered on a dataset, what is not known there yet; null once both have. */
+const sentence = (s: string): string => `${s[0].toUpperCase()}${s.slice(1)}`;
+
+/**
+ * Where body part or post-contrast has not answered on a dataset, what the headers answer of it and what is not known
+ * there yet; null once both have.
+ */
 export function unknownSentence(dataset: string, steps: readonly Step[]): string | null {
   const missing = steps.filter(
     (s): s is Step & { step: Operation } => s.step in OPERATIONS && s.state !== "done",
@@ -121,11 +146,12 @@ export function unknownSentence(dataset: string, steps: readonly Step[]): string
   const who = missing.every((s) => not(s) === not(missing[0]))
     ? `${missing.map((s) => OPERATIONS[s.step].name).join(" and ")} ${one ? "has" : "have"} ${not(missing[0])}`
     : missing.map((s) => `${OPERATIONS[s.step].name} has ${not(s)}`).join(" and ");
-  const what = missing.map((s) => OPERATIONS[s.step].unknown).join(" and ");
-  return `${who[0].toUpperCase()}${who.slice(1)} on ${dataset}: ${what} ${one ? "is" : "are"} not known there yet; never count another field in ${one ? "its" : "their"} place.`;
+  // what each answers from the headers until then, the first after a colon and any second a sentence of its own
+  const [first, ...rest] = missing.map((s) => OPERATIONS[s.step].known);
+  return `${sentence(who)} on ${dataset}: ${[first, ...rest.map(sentence)].join(". ")}. Never count another field in ${one ? "its" : "their"} place.`;
 }
 
-/** A dataset's steps as the facts say them: the line, and what is not known yet. */
+/** A dataset's steps as the facts say them: the line, and until body part and post-contrast have run, what is known. */
 export function stepsText(dataset: string, steps: readonly Step[]): string {
   const unknown = unknownSentence(dataset, steps);
   return `The steps of ${dataset}: ${stepsLine(steps)}.${unknown ? ` ${unknown}` : ""}`;

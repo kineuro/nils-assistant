@@ -10,6 +10,9 @@
 // first, the queue's own rows left out, and a question about them is no
 // question of the data; a dataset the words name comes with which of its
 // steps have run, read once a turn, and nothing where the engine has none.
+// And (2026-10-10): until body part or post-contrast has run, the facts say
+// what the headers answer of it and what is not known yet, never that
+// nothing is known.
 
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -591,12 +594,13 @@ describe("the one agent tells what is true now (2026-10-09)", () => {
     });
   }, 60_000);
 
-  it("says which steps have run on a dataset the words name, and that post-contrast has not run there", async () => {
-    // asked for the T1 scans with contrast where post-contrast had not run, the chat counted the scans
-    // whose header weighting reads T1 and called them contrast-enhanced
+  it("says which steps have run on a dataset the words name, and what the headers answer until they have", async () => {
+    // asked for the T1 scans with contrast, the chat counted the scans whose header weighting reads T1 and called
+    // them contrast-enhanced; then the facts said nothing was known of contrast until post-contrast ran, which was
+    // false: the sorting marks the scans whose headers say contrast was given
     play([
       {
-        text: "Post-contrast has not run on study-a yet, so whether its scans were given contrast is not known.",
+        text: "12 T1 scans in study-a are marked in their headers as given contrast; there may be more, since post-contrast has not run on it yet.",
       },
     ]);
     const h = init(Nils, { id: "oc-steps" });
@@ -604,11 +608,12 @@ describe("the one agent tells what is true now (2026-10-09)", () => {
     const first = appended(seen[0]);
     expect(first).toMatch(/they name the dataset study-a \(anonymised\): 63 subjects/u);
     expect(first).toMatch(
-      /The steps of study-a: sorted 991 of 1003 scans; body part not run; post-contrast not run; main scans picked; pictures made\./u,
+      /The steps of study-a: sorted 991 of 1003 scans; body part not run \(from the headers only\); post-contrast not run \(from the headers only\); main scans picked; pictures made\./u,
     );
     expect(first).toMatch(
-      /Body part and post-contrast have not run on study-a: which body part a scan shows and whether a scan was given contrast are not known there yet; never count another field in their place\./u,
+      /Body part and post-contrast have not run on study-a: a scan's body part is known where the headers name it, not yet elsewhere\. The scans the headers mark as given contrast or as not given are counted, and there may be more of either; whether an unmarked scan was given contrast is not known yet\. Never count another field in their place\./u,
     );
+    expect(first).not.toMatch(/whether a scan was given contrast are not known|has no answer for it yet/u);
     // read once, through the seam that reads the datasets
     expect(engine.seen.filter((x) => x.path === "/api/datasets/study-a/summary")).toHaveLength(1);
     expect(
@@ -632,16 +637,21 @@ describe("the one agent tells what is true now (2026-10-09)", () => {
   it("reads a dataset's steps once a turn: its description in the same turn has them from there", async () => {
     play([
       { tool: "registry_describe", args: { what: "dataset", name: "study-a" } },
-      { text: "study-a is sorted but for twelve scans; body part and post-contrast have not run on it." },
+      {
+        text: "study-a is sorted but for twelve scans; body part and post-contrast have not run on it, so only what the headers say of them is known.",
+      },
     ]);
     const before = engine.seen.filter((x) => x.path === "/api/datasets/study-a/summary").length;
     const h = init(Nils, { id: "oc-steps-describe" });
     await h.read(await h.dispatch("What has been done to study-a so far?"));
     const out = toolResults(seen[1]);
     expect(out).toMatch(
-      /\\"steps\\":\\"sorted 991 of 1003 scans; body part not run; post-contrast not run; main scans picked; pictures made\\"/u,
+      /\\"steps\\":\\"sorted 991 of 1003 scans; body part not run \(from the headers only\); post-contrast not run \(from the headers only\); main scans picked; pictures made\\"/u,
     );
-    expect(out).toMatch(/whether a scan was given contrast are not known there yet/u);
+    expect(out).toMatch(
+      /\\"known_so_far\\":\\"Body part and post-contrast have not run on study-a: a scan's body part is known where the headers name it, not yet elsewhere\. The scans the headers mark as given contrast or as not given are counted, and there may be more of either; whether an unmarked scan was given contrast is not known yet\./u,
+    );
+    expect(out).not.toMatch(/not_known|whether a scan was given contrast are not known/u);
     expect(engine.seen.filter((x) => x.path === "/api/datasets/study-a/summary").length).toBe(before + 1);
   }, 60_000);
 });
