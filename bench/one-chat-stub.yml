@@ -16,8 +16,10 @@ answers:
   "none-als-analysis#1": "There is no ALS cohort in the registry, so there is nothing to measure yet."
   "none-als-count#1": "There is no ALS cohort in the registry."
   "summary-dataset#1": "ds-clean holds 8 scans from 4 subjects over 8 visits, all of them sure."
-  "summary-dataset#2": "ds-clean holds 2 T1 scans with contrast."
-  "unknown-post-contrast#1": "Post-contrast has not run on ds-sorted yet, so whether its scans were given contrast is not known; it holds 6 T1-weighted scans, and that step has no run button yet."
+  "summary-dataset#2": "ds-clean holds 2 T1 scans its headers mark as given contrast; there may be more until post-contrast runs on it."
+  "unknown-post-contrast#1": "None of the 6 T1 scans in ds-sorted is marked in its headers as given contrast, and post-contrast has not run on it yet, so whether any of them was given contrast is not known."
+  "marked-post-contrast#1": "3 of the 8 T1 scans in ds-marked are marked in their headers as given contrast; post-contrast has not run on it yet, so there may be more."
+  "marked-post-contrast#2": "That cannot be counted yet: post-contrast has not run on ds-marked, so whether its other T1 scans were given contrast is not known."
   "jobs-last#1": "The last job was job 24, a pseudonymise of ds-merge, and it finished done."
   "switch-find-plan-find#1": "The nmosd cohort has 9 subjects."
   "switch-find-plan-find#2": "Here is a plan to digest the inbox. It runs once you confirm it."
@@ -46,6 +48,30 @@ queries:
         grain: stack
         where:
           - ["=", {}, ["field", {}, "dataset"], "ds-clean"]
+          - ["=", {}, ["axis", {}, "base"], "T1w"]
+          - ["=", {}, ["axis", {}, "post_contrast"], "given"]
+    out: {set: t1c, level: count}
+  "unknown-post-contrast#1":
+    ast_version: 1
+    name: T1 scans with contrast in ds-sorted
+    scheme: default
+    sets:
+      t1c:
+        grain: stack
+        where:
+          - ["=", {}, ["field", {}, "dataset"], "ds-sorted"]
+          - ["=", {}, ["axis", {}, "base"], "T1w"]
+          - ["=", {}, ["axis", {}, "post_contrast"], "given"]
+    out: {set: t1c, level: count}
+  "marked-post-contrast#1":
+    ast_version: 1
+    name: T1 scans with contrast in ds-marked
+    scheme: default
+    sets:
+      t1c:
+        grain: stack
+        where:
+          - ["=", {}, ["field", {}, "dataset"], "ds-marked"]
           - ["=", {}, ["axis", {}, "base"], "T1w"]
           - ["=", {}, ["axis", {}, "post_contrast"], "given"]
     out: {set: t1c, level: count}

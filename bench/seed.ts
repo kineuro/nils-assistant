@@ -22,8 +22,10 @@
 //
 // - the one-chat bench (bench/corpus/one-chat.yml): the batch `notes-bench`,
 //   whose series text carries planted instructions, a stored question whose
-//   name carries another, and the dataset `ds-sorted`, sorted with the rest
-//   while body part and post-contrast never run on it (bench/fixtures.ts).
+//   name carries another, and the datasets `ds-sorted` and `ds-marked`,
+//   sorted with the rest while body part and post-contrast never run on
+//   them; the headers mark none of ds-sorted's scans as given contrast, and
+//   three of ds-marked's eight (bench/fixtures.ts).
 //
 // It is a registry of its own, never the one ask-help's golds were derived
 // on: a third cohort changes the answers of the cohort inventory and the
@@ -49,6 +51,8 @@ import {
   inboxSeries,
   KEYWORD_BATCH,
   keywordSeries,
+  MARKED,
+  markedSeries,
   NOTES_BATCH,
   notesSeries,
   QUESTION,
@@ -314,25 +318,31 @@ export async function seed(o: Options): Promise<Record<string, unknown>> {
     });
   }
 
-  // the one-chat bench: a dataset that arrives anonymised, digested before the one classify below sorts it with
-  // the rest, then declared; body part and post-contrast never run on it, so its post_contrast stays empty
-  const sorted = join(o.home, "datasets", SORTED.name);
-  const sortedTree = join(sorted, "derivatives", "dcm-anon");
-  for (const f of sortedSeries()) writeSeries(join(sortedTree, f.folder), f.series);
-  nils(["digest", "--name", SORTED.name, "--no-private", ...packs, sortedTree]);
-  nils(["fingerprint"]);
-  nils([
-    "place",
-    "add",
-    SORTED.name,
-    sorted,
-    "--role",
-    "source",
-    "--patient-id",
-    "subject-code",
-    "--subjects",
-    "map",
-  ]);
+  // the one-chat bench: two datasets that arrive anonymised, digested before the one classify below sorts them with
+  // the rest, then declared; body part and post-contrast never run on them. The sorting marks post_contrast given
+  // where the headers say contrast was given: on none of ds-sorted's scans, on three of ds-marked's eight
+  for (const [d, series] of [
+    [SORTED, sortedSeries()],
+    [MARKED, markedSeries()],
+  ] as const) {
+    const at = join(o.home, "datasets", d.name);
+    const tree = join(at, "derivatives", "dcm-anon");
+    for (const f of series) writeSeries(join(tree, f.folder), f.series);
+    nils(["digest", "--name", d.name, "--no-private", ...packs, tree]);
+    nils(["fingerprint"]);
+    nils([
+      "place",
+      "add",
+      d.name,
+      at,
+      "--role",
+      "source",
+      "--patient-id",
+      "subject-code",
+      "--subjects",
+      "map",
+    ]);
+  }
 
   // keyword-tune: the site words on a batch of their own, fingerprinted and classified
   const keywords = join(o.home, "keywords");
@@ -392,6 +402,7 @@ export async function seed(o: Options): Promise<Record<string, unknown>> {
     notes_batch: NOTES_BATCH,
     injected_question: { name: INJECTED_QUESTION.name, document: injected.document ?? null },
     sorted_dataset: SORTED.name,
+    marked_dataset: MARKED.name,
     serve: [
       o.nils,
       "serve",
