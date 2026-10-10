@@ -50,7 +50,7 @@ import {
   namesOnly,
   readDatasets,
 } from "./datasets.ts";
-import { factsOf, factsSummary, type Told } from "./facts.ts";
+import { factsOf, factsSummary, TOLD_NOTHING, type Told, toldSince } from "./facts.ts";
 import { type Access, grantsLine, type Mounted, mountFor } from "./mount.ts";
 import { hintLine, routeOf } from "./route.ts";
 import { bodyFor, findExamples, loadSkills, skillOf } from "./skills.ts";
@@ -160,6 +160,8 @@ const SILENT: Writers = { progress: () => {}, approval: () => {}, clarification:
 // ------------------------------------------------------------------ the runtime's events
 
 let watching = false;
+/** The conversations whose earlier turns the runtime summarized since their facts were last told, in this process. */
+const summarized = new Set<string>();
 /** Follow the runtime's events of the one agent's conversations: the skills activated, the answer's words, the model calls against the turn's caps. */
 export function watchTurns(): void {
   if (watching) return;
@@ -176,6 +178,11 @@ export function watchTurns(): void {
     }
     // a sub-agent's own events are not the turn's
     if (e.taskId) return;
+    // a summary of the earlier turns took the facts' messages with it: the next turn tells them again
+    if (e.type === "compaction" && e.isError !== true) {
+      summarized.add(id);
+      return;
+    }
     if (e.type === "tool" && e.toolName === "activate_skill") {
       const r = e.result as { details?: { skill?: unknown } } | undefined;
       const args = (event as unknown as { args?: { name?: unknown } }).args;
@@ -214,10 +221,27 @@ export const FRAMEWORK_TOOLS = new Set(["activate_skill", "read_skill_resource",
  * be called hundreds of times with the same arguments (the station bench of 2026-10-09 saw it). Its own tools are
  * counted where they are mounted; here only the framework's. And one read-only sub-agent at a time: the card
  * serves one stream well, so tasks queue behind each other.
+ *
+ * After a stop, a framework tool's call ends the turn (2026-10-10, review of the one chat): the model had its call
+ * to answer, and a refusal as an error ends nothing by itself, so a model that kept calling the framework's tools
+ * was called again until the submission's hour ran out. A refused model call does not end it either: the runtime
+ * asks the model again. The result that ends it is the one the agent's own tools give after a stop, with terminate.
  */
 let lane: Promise<unknown> = Promise.resolve();
 /** The conversations the one agent has rendered in this process. */
 const ours = new Set<string>();
+/** What a framework tool answers once the turn is stopped: it runs nothing, and its terminate ends the model's loop. */
+export function stoppedResult(why: string): {
+  content: { type: "text"; text: string }[];
+  details: { refused: true; why: string };
+  terminate: true;
+} {
+  return {
+    content: [{ type: "text", text: `${why}: the turn ends here` }],
+    details: { refused: true, why },
+    terminate: true,
+  };
+}
 export const guardCalls: FlueExecutionInterceptor = (operation, ctx, next) => {
   if (
     operation.type === "tool" &&
@@ -227,7 +251,8 @@ export const guardCalls: FlueExecutionInterceptor = (operation, ctx, next) => {
     FRAMEWORK_TOOLS.has(operation.toolName)
   ) {
     const turn = turnOf(ctx.instanceId);
-    if (turn.stopped) return Promise.reject(new Error(`${turn.stopped}: answer the person now`));
+    if (turn.stopped)
+      return Promise.resolve(stoppedResult(turn.stopped)) as unknown as ReturnType<typeof next>;
     const gate = turn.machine.call(operation.toolName, { call: operation.toolName }, []);
     if (!gate.ok) {
       turn.stopped =
@@ -395,7 +420,7 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
 
     const [held, setHeld] = usePersistentState<Mounted | null>("mounted", null);
     const mounted = held ?? mountFor(accessOf(id));
-    const [told, setTold] = usePersistentState<Told>("told", { summary: null, grants: null, datasets: null });
+    const [told, setTold] = usePersistentState<Told>("told", TOLD_NOTHING);
     const subject = subjectOfConversation(id);
     const d = delivered as { kind?: unknown; body?: unknown } | null;
     const message = d?.kind === "user" && typeof d.body === "string" ? d.body : turnOf(id).message;
@@ -549,9 +574,13 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
             }),
           )
         : [];
-      const document = theLineage().conversation(id)?.document ?? null;
+      const kept = theLineage().conversation(id);
+      const document = kept?.document ?? null;
+      // after a summary of the earlier turns the facts are told again, whole
+      const compactions = kept?.compactions ?? 0;
       const facts = factsOf({
-        told,
+        told: toldSince(told, compactions, summarized.delete(id)),
+        compactions,
         summary,
         datasets: datasets ? datasetsBlock(datasets, names) : null,
         grants: grantsLine(mounted),

@@ -31,11 +31,11 @@ process.env.ASSISTANT_LADDER = join(dir, "ladder.sqlite");
 
 const { stubEngine } = await import("./child/stub-engine.ts");
 const { scriptedProvider } = await import("./child/loop-provider.ts");
-const { probeEngineAuth, registerStation, theLedger } = await import("../src/seam/for.ts");
+const { probeEngineAuth, registerStation, theLedger, theLineage } = await import("../src/seam/for.ts");
 const { loadManifests } = await import("../src/stations/manifest.ts");
 const { ChangeStore, theChanges, useChangeStore } = await import("../src/one/changes.ts");
 const { oneAgent, notePerson } = await import("../src/one/agent.ts");
-const { turnOf } = await import("../src/one/state.ts");
+const { TURN_BUDGET, turnOf } = await import("../src/one/state.ts");
 
 const CATALOG = {
   epoch: 3,
@@ -454,6 +454,60 @@ describe("the one agent", () => {
     expect(turnOf("oc-loop-framework").stopped).toBe("the same call came five times");
     // the sixth is refused before it runs, and the turn still ends
     expect(calls).toBeLessThanOrEqual(8);
+  }, 60_000);
+
+  it("ends a turn whose model never answers at the turn's guards, not at the submission's hour (2026-10-10)", async () => {
+    // a model that never writes a word: it keeps activating skills and reading skill files with ever new arguments.
+    // A guard stops it, it gets one call to answer, and the framework tool it calls instead ends the turn.
+    const skills = [
+      "find-data",
+      "plan-work",
+      "plan-analysis",
+      "read-run",
+      "tune-sorting-words",
+      "check-identities",
+    ];
+    play(
+      Array.from({ length: 400 }, (_, i) =>
+        i % 2 === 0
+          ? { tool: "activate_skill", args: { name: skills[(i / 2) % skills.length] } }
+          : { tool: "read_skill_resource", args: { name: "find-data", path: `notes-${i}.md` } },
+      ),
+    );
+    const h = init(Nils, { id: "oc-never-answers" });
+    const started = Date.now();
+    await h.read(await h.dispatch("Which scans are MPRAGE?"));
+    expect(turnOf("oc-never-answers").stopped).not.toBeNull();
+    expect(calls).toBeLessThanOrEqual(TURN_BUDGET.turns + 2);
+    expect(recorded("oc-never-answers")).toMatch(/the turn ends here/u);
+    expect(Date.now() - started).toBeLessThan(20_000);
+  }, 30_000);
+
+  it("tells the facts again, whole, once a summary of the earlier turns took them (2026-10-10)", async () => {
+    // the facts the turn was told: the last message of its context that carries the hint
+    const lastFacts = (c: Context): string =>
+      JSON.stringify(
+        [...c.messages].reverse().find((m) => JSON.stringify(m).includes("Hint from the words")) ?? null,
+      );
+    theLineage().open({ id: "oc-summarized", station: "nils", subject: "anonymous" });
+    play([{ text: "There are two cohorts, ms-cohort-a and ms-cohort-b." }]);
+    const h = init(Nils, { id: "oc-summarized" });
+    await h.read(await h.dispatch("Which cohorts are there?"));
+    expect(lastFacts(seen[0])).toMatch(/What the registry holds/u);
+    // an ordinary next turn: the summary was told and has not changed
+    play([{ text: "Both have 24 members." }]);
+    await h.read(await h.dispatch("And how big are they?"));
+    expect(lastFacts(seen[0])).not.toMatch(/What the registry holds/u);
+    // the runtime summarized the earlier turns, the facts' messages among them: the next turn tells them again
+    theLineage().noteCompaction("oc-summarized");
+    play([{ text: "Cohort A has 24 members." }]);
+    await h.read(await h.dispatch("And cohort A alone?"));
+    expect(lastFacts(seen[0])).toMatch(/What the registry holds/u);
+    expect(lastFacts(seen[0])).toMatch(/This person may look up data/u);
+    // and only once: the turn after it is ordinary again
+    play([{ text: "Yes." }]);
+    await h.read(await h.dispatch("Is that all?"));
+    expect(lastFacts(seen[0])).not.toMatch(/What the registry holds/u);
   }, 60_000);
 
   it("sends an answer in engine words back once, and the new answer stands", async () => {

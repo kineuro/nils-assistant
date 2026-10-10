@@ -52,6 +52,21 @@ export interface Told {
   grants: string | null;
   /** The datasets told last; absent in a conversation from before they were. */
   datasets?: string | null;
+  /** How many times the runtime had summarized the conversation's earlier turns when the facts were told; absent before 2026-10-10. */
+  compactions?: number;
+}
+
+/** Nothing told: the facts are sent whole on the next turn. */
+export const TOLD_NOTHING: Told = { summary: null, grants: null, datasets: null };
+
+/**
+ * What the conversation still holds of the facts it was told (2026-10-10, review of the one chat): a summary of its
+ * earlier turns replaces the messages the facts came in, so after one the facts are told again, whole. A summary is
+ * known from the runtime's event in this process, or from the count the registry of conversations keeps, which a
+ * restart does not lose.
+ */
+export function toldSince(told: Told, compactions: number, summarizedHere: boolean): Told {
+  return summarizedHere || (told.compactions ?? 0) !== compactions ? TOLD_NOTHING : told;
 }
 
 /** The facts of one turn, and what the conversation has been told after it. */
@@ -63,9 +78,11 @@ export function factsOf(o: {
   grants: string;
   hint: string;
   document: number | null;
+  /** The conversation's summaries so far, kept with what it was told. */
+  compactions?: number;
 }): { text: string; told: Told } {
   const parts: string[] = [];
-  const told: Told = { ...o.told };
+  const told: Told = { ...o.told, ...(o.compactions !== undefined ? { compactions: o.compactions } : {}) };
   if (o.summary !== null) {
     const h = hashOf(o.summary);
     if (told.summary !== h) {
