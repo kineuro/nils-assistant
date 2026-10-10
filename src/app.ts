@@ -12,7 +12,7 @@ import { createAgentRouter } from "@flue/runtime/routing";
 import { Hono } from "hono";
 import { config } from "./config.ts";
 import { guard, personIn, scopeOf } from "./host/access.ts";
-import { capabilities } from "./host/capabilities.ts";
+import { capabilities, purposeOf } from "./host/capabilities.ts";
 import { type Observe, watchContext } from "./host/context.ts";
 import { markdownOf } from "./host/export.ts";
 import {
@@ -167,7 +167,7 @@ function takeCatalog(next: Catalog): void {
     setProvider(
       kvasirProvider({
         station: s.id,
-        purpose: s.purpose ?? `assistant.${s.id}`,
+        purpose: purposeOf(s),
         catalog: served,
         key: c.kvasirKey,
         person: personStreaming,
@@ -315,7 +315,7 @@ app.get("/capabilities", (ctx) =>
         return {
           id: s.id,
           app: m?.app ?? "nils-assistant",
-          purpose: m?.purpose ?? `assistant.${s.id}`,
+          purpose: purposeOf(s, m?.purpose),
           content: s.content,
           ceiling: s.ceiling,
           brief: m?.brief ?? { path: "", hash: "" },

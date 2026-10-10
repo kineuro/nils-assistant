@@ -6,14 +6,27 @@ All notable changes to the NILS assistant are recorded here. The format follows 
 
 ### Added
 
+- One chat (record 55 B6): one agent, `nils` (`src/one/`), is the only voice of the chat. The stations' work became six skills it activates when a turn needs one (find-data, plan-work, plan-analysis, read-run, tune-sorting-words, check-identities), and about ten tools are mounted from the person's grants for the conversation's life. Each turn starts with the facts: what the registry holds, its datasets and their steps, what the person may do, and a hint from the words. The guards are code: a turn cap, a token cap, the repeat detector, one read-only sub-agent at a time, and the active skill's checks and plain words before a turn settles. Its model calls carry the concierge's Kvasir purpose. It writes nothing itself: `propose_change` puts a card before the person.
+- The changes doors, `GET /changes/{id}` and `POST /changes/{id}/decide` (approved or declined). A decision is recorded first, and an approval is applied by the host under the person's token: a job plan is confirmed, an analysis queued, sorting words proposed as an overlay, a merge made at the engine's merge door, and an identity rule recorded.
+- Settings: `ASSISTANT_ONE_CHAT` (`0` serves no one agent), `ASSISTANT_CHANGES` (the changes' store, `./data/changes.sqlite` unless said) and `ONE_CHAT_FIND` (`subagent` gives finding data to a read-only sub-agent instead of a skill).
+- The one-chat bench: `npm run bench:one-chat` drives forty-two multi-turn conversations, each three times, graded on outcomes with pass@1 and pass^3 (`bench/ONE-CHAT.md`), and `npm run bench:one-chat-stub` serves a stand-in that speaks its interface where no model runs. The stations' live runs on the local 27B of 2026-10-08 and 2026-10-09 are in `bench/results/`.
 - identity-check proposes a merge (record 55 K9): a dataset's probe names the subjects whose birth date and sex agree and whose visits overlap, by their codes, and `propose_merge` takes one such pair, the subject kept first, with why. The result carries `merge` (`subjects`, `canonical`, `alias`, `agree`, `visits`, `why`, and `act`, the body a person sends to the engine's merge door, `POST /api/linkage/merge`); the station never merges and never dials that door. The check `merge_named` asks for the merge when the probe named a pair and refuses one it did not, and the merge's two codes are the one exception to shapes only.
 - `npm run bench:offline`: a station's question set run through its own code against a seeded engine with a stub model, no model and no network.
 
 ### Changed
 
+- Flue 2.2.2 and pi-ai 0.87.1, from 2.0.5 and 0.83.0. Since pi 0.86 a provider gets the prompt and the tools as system messages in the transcript; the Kvasir provider and the title call send the transcript collapsed, as pi does for a model that takes a system message only first, because Kvasir's own pi reads only the prompt and the tools.
 - identity-check probes a dataset by its name (`{dataset}`), which the engine's probe door now takes, instead of `root: @<name>/originals`, which it refused.
 - identity-check reads a held shape as a second kind of identifier also when the rule read it only on the files held under it, beside the rule's own shape on files that are not held (a study number in a few files' PatientID).
 - `nils_dataset` without a name answers the datasets by name.
+
+### Fixed
+
+- The one agent's caps hold its model calls too. Once the tools are stopped, or the turn's model calls, tokens or time are spent, the model gets one call to answer and the call after it is refused. A model that kept calling the framework's own tools after a stop was called again until the submission's hour ran out.
+- `POST /changes/{id}/decide` checks that the change is the caller's before it keeps their token for the change's conversation. A stranger's decision learns nothing of the change, a question version's kind included.
+- After the runtime summarizes a conversation's earlier turns, the next turn tells the facts again, whole.
+- An analysis card names whom the run covers and its settings, read from the command its approval queues.
+- `/capabilities` lists the one agent under the purpose its calls carry, `assistant.concierge`, and names the runtime versions in use.
 
 ## [1.0.0-alpha.27] - 2026-09-25
 

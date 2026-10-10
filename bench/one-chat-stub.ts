@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // A stand-in for the one agent and its engine, to prove the one-chat bench
-// end to end before the agent exists: one HTTP server that speaks the
+// end to end without a model: one HTTP server that speaks the
 // interface of bench/ONE-CHAT.md (Flue's message admission and update
 // stream under /agents/nils, the ledger, the plans, the capabilities) and
 // the few engine doors the bench reads (ask run and draft, batches,

@@ -18,6 +18,6 @@ Record 49 A6's bar: a run with planted failures gets a summary that names them a
 npm run bench:measure -- --model <name> --assistant http://127.0.0.1:<port> --engine http://127.0.0.1:<port> --stations run-read --seeded <home>/seeded.json
 ```
 
-`test/measure.test.ts` holds each planted run to its case: the failures by reason, the breaches by check and the campaign. No live run has been taken yet.
+`test/measure.test.ts` holds each planted run to its case: the failures by reason, the breaches by check and the campaign. Measured live on the local 27B on 2026-10-08 and, after the upgrade to Flue 2.2.2, on 2026-10-09: 1 of 3 both times (bench/results/stations-2026-10-08-qwen38-27b-summary.md and stations-2026-10-09-qwen38-27b-summary.md).
 
 > **Warning:** the draft ask selects the stacks of a doubtful session by the pack's `role` axis. A registry whose classifier leaves that axis empty (the synthetic one does) freezes an empty campaign; the pre-flight of A7 should show its count before a person makes it.

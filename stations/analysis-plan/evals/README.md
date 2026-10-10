@@ -18,4 +18,4 @@ A case passes when the verdict's `run_document` names the expected pipeline, par
 
 > **Warning:** the synthetic registry has no live picks, so the pre-flight of a bids pipeline leaves every stack out ("no live pick takes it") and counts no unit ready. The plan still carries its pre-flight, which is what the case scores; the counts of `cases.yml` are the stub engine's, not this registry's.
 
-No live run has been taken yet.
+Measured live on the local 27B on 2026-10-08 and, after the upgrade to Flue 2.2.2, on 2026-10-09: 7 of 12, then 8 of 12 (bench/results/stations-2026-10-08-qwen38-27b-summary.md and stations-2026-10-09-qwen38-27b-summary.md).

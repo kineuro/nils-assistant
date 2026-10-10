@@ -402,7 +402,7 @@ describe("a proposed change, decided by the person", () => {
       const deps = { changes, ledger, seam, confirmPlan: async () => ({ refused: "no plan" }) };
       const overlay = changes.propose({
         conversation: "conv-a",
-        subject: "nima@n",
+        subject: "anna@n",
         kind: "overlay",
         sentence: "Add zorvex to the contrast words.",
         payload: {
@@ -417,25 +417,25 @@ describe("a proposed change, decided by the person", () => {
         ok: false,
         status: 404,
       });
-      const r = await decide(deps, overlay.id, "nima@n", "approved");
+      const r = await decide(deps, overlay.id, "anna@n", "approved");
       expect(r.ok).toBe(true);
       expect(engine.seen.find((c) => c.path === "/api/overlays")?.body).toMatchObject({
         name: "zorvex",
         scope: "batch:4",
       });
       // decided once only
-      expect(await decide(deps, overlay.id, "nima@n", "declined")).toMatchObject({ ok: false, status: 409 });
+      expect(await decide(deps, overlay.id, "anna@n", "declined")).toMatchObject({ ok: false, status: 409 });
       const rows = ledger.rows("conv-a");
       expect(rows.some((x) => x.phase === "approval" && x.operation === "changes/overlay")).toBe(true);
 
       const merge = changes.propose({
         conversation: "conv-a",
-        subject: "nima@n",
+        subject: "anna@n",
         kind: "identity_merge",
         sentence: "BENM01 and BENM02 are one person.",
         payload: { canonical: "BENM01", alias: "BENM02", why: "the same birth date and sex" },
       });
-      expect((await decide(deps, merge.id, "nima@n", "approved")).ok).toBe(true);
+      expect((await decide(deps, merge.id, "anna@n", "approved")).ok).toBe(true);
       expect(engine.seen.find((c) => c.path === "/api/linkage/merge")?.body).toEqual({
         canonical: "BENM01",
         alias: "BENM02",
@@ -444,24 +444,24 @@ describe("a proposed change, decided by the person", () => {
 
       const declined = changes.propose({
         conversation: "conv-a",
-        subject: "nima@n",
+        subject: "anna@n",
         kind: "identity_merge",
         sentence: "x",
         payload: {},
       });
       const before = engine.seen.length;
-      expect(await decide(deps, declined.id, "nima@n", "declined")).toMatchObject({ ok: true });
+      expect(await decide(deps, declined.id, "anna@n", "declined")).toMatchObject({ ok: true });
       expect(engine.seen.length).toBe(before);
       expect(ledger.rows("conv-a").some((x) => x.phase === "decline")).toBe(true);
 
       const version = changes.propose({
         conversation: "conv-a",
-        subject: "nima@n",
+        subject: "anna@n",
         kind: "query_version",
         sentence: "v",
         payload: { document: 3 },
       });
-      expect(await decide(deps, version.id, "nima@n", "approved")).toMatchObject({ ok: false, status: 409 });
+      expect(await decide(deps, version.id, "anna@n", "approved")).toMatchObject({ ok: false, status: 409 });
     } finally {
       engine.close();
     }

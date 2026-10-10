@@ -1,6 +1,6 @@
 # The one-chat bench: the interface it assumes
 
-The bench (`bench/one-chat.ts`) drives the one agent over the assistant host's HTTP API, the way `bench/measure.ts` drives the stations. The agent does not exist yet; this page is the contract it is written against. Everything here follows Flue's own surfaces, so the agent needs no bench-only route.
+The bench (`bench/one-chat.ts`) drives the one agent over the assistant host's HTTP API, the way `bench/measure.ts` drives the stations. The agent, `nils` (`src/one/agent.ts`), is written against this page, which is its contract. Everything here follows Flue's own surfaces, so the agent needs no bench-only route.
 
 ## The agent
 
@@ -61,4 +61,4 @@ npm run bench:one-chat -- --model <name> --registry gold --assistant http://127.
 npm run bench:one-chat -- --model <name> --registry seeded --seeded <home>/seeded.json ...
 ```
 
-Before the agent exists, `npm run bench:one-chat-stub -- --port <port> [--arm subagent] [--fault <conversation>=<fault>]` serves a stand-in that speaks this interface, and `test/one-chat.test.ts` runs the whole harness against it.
+Where no model runs, `npm run bench:one-chat-stub -- --port <port> [--arm subagent] [--fault <conversation>=<fault>]` serves a stand-in that speaks this interface, and `test/one-chat.test.ts` runs the whole harness against it.

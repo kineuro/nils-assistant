@@ -17,6 +17,18 @@ export interface StationSummary {
   writes: string[];
 }
 
+/**
+ * The Kvasir purpose a station's model calls are filed under, as the document lists it: its manifest's, else the one
+ * it was registered with (the one agent's is the concierge's), else `assistant.<id>`. The same order the providers
+ * are made in, so the document names the purpose the calls carry.
+ */
+export function purposeOf(
+  station: { id: string; purpose?: string | null },
+  manifest?: string | null,
+): string {
+  return manifest ?? station.purpose ?? `assistant.${station.id}`;
+}
+
 export function capabilities(
   c: Config,
   stations: StationSummary[],
@@ -29,7 +41,7 @@ export function capabilities(
 ): Record<string, unknown> {
   return {
     assistant: { name: "nils-assistant", version: c.version },
-    runtime: { flue: "2.0.5", pi_ai: "0.83.0" },
+    runtime: { flue: "2.2.2", pi_ai: "0.87.1" },
     stations,
     teaching: { open: extra.teaching_open },
     telemetry: { content: "off", exporter: null },
