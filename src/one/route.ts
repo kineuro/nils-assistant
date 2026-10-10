@@ -6,6 +6,7 @@
 
 export type SkillId =
   | "find-data"
+  | "analyse-table"
   | "plan-work"
   | "plan-analysis"
   | "read-run"
@@ -24,6 +25,11 @@ export interface Route {
 }
 
 const RULES: { skill: SkillId; re: RegExp; because: string }[] = [
+  {
+    skill: "analyse-table",
+    re: /\b(analy[sz]e|analysis of|median|medians|percentiles?|quartiles?|standard deviation|spread|histogram|distribution|chart|plot|graph|cross.?tab\w*)\b/iu,
+    because: "a computation over many rows is asked",
+  },
   {
     skill: "read-run",
     re: /\b(how did|how has|how was)\b[^.?]*\brun\b|\brun\s+#?\d+\b|\bpipeline run\b|\bin that run\b|\bfailed units?\b/iu,

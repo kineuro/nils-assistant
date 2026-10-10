@@ -66,6 +66,7 @@ import {
   readDatasets,
 } from "./datasets.ts";
 import type { Mounted, ToolName } from "./mount.ts";
+import { runPython } from "./sandbox.ts";
 import { type ConversationState, conversationOf, type Probe, type TurnState } from "./state.ts";
 import { readSteps, STEPS_TOOL_WAIT_MS, stepsLine, stepsWithin, unknownSentence } from "./steps.ts";
 import { plainly } from "./words.ts";
@@ -86,6 +87,8 @@ export interface Writers {
   }) => void;
   clarification: (p: { question: string; options: { label: string; count: number | null }[] }) => void;
   plan: (items: { text: string; status: string }[]) => void;
+  /** A chart the analysis sandbox drew, as SVG; `call` is its tool call's id. */
+  chart: (p: { call: string | null; title: string; svg: string }) => void;
 }
 
 export interface ToolCtx {
@@ -1681,6 +1684,197 @@ const proposeChange: OneTool = {
 };
 
 /** Every tool, by name, in the mounting order. */
+// ------------------------------------------------------------------ the analysis sandbox
+
+/** The most rows an analysis reads; a question that answers more is narrowed first. */
+export const ANALYSIS_ROWS = 2_000;
+/** The longest piece of code an analysis runs. */
+const CODE_CHARS = 8_000;
+/** The largest chart it hands the desk. */
+const CHART_CHARS = 200_000;
+
+let analysisStation: Station | null = null;
+/**
+ * The analysis's own seam (2026-10-10, a trial): ask-help's ceiling and content class, so its rows are what the
+ * person may see through ask-help and no more, but with only a run and its pages, at most ANALYSIS_ROWS rows.
+ */
+function analysisSeam(conversation: string): Seam {
+  if (!analysisStation) {
+    const base = stationList().find((s) => s.id === "ask-help");
+    if (!base) throw new Error("the work of ask-help is not configured here");
+    analysisStation = {
+      ...base,
+      id: "nils.analysis",
+      grant: {
+        run: { calls: 6, rows: ANALYSIS_ROWS },
+        "handles/{id}/rows": { calls: 60, rows: ANALYSIS_ROWS },
+      },
+      purpose: undefined,
+    };
+  }
+  return seamWith(analysisStation, conversation);
+}
+
+/**
+ * The columns a question answered as shapes (record 55 K7: a quasi identifying field below the person's level
+ * comes back as its shape, digits as 9 and letters as a or A). An analysis over shapes would count or average
+ * the shapes, so such a column never reaches the sandbox. The engine does not say which columns it shaped, so
+ * they are known by their values: every value made of 9, a, A and other signs alone, and one of those three.
+ */
+export function shapedColumns(columns: readonly string[], rows: readonly unknown[][]): string[] {
+  return columns.filter((_, i) => {
+    let seen = false;
+    for (const r of rows) {
+      const cell = r[i];
+      if (cell === null || cell === undefined || cell === "") continue;
+      if (typeof cell !== "string" || /[0-8b-zB-Z]/u.test(cell)) return false;
+      if (/[9aA]/u.test(cell)) seen = true;
+    }
+    return seen;
+  });
+}
+
+/** Rows as CSV, with a header row; a cell with a comma, a quote or a line break is quoted. */
+export function toCsv(columns: readonly string[], rows: readonly unknown[][]): string {
+  const cell = (x: unknown): string => {
+    if (x === null || x === undefined) return "";
+    const t =
+      typeof x === "string"
+        ? x
+        : typeof x === "number" || typeof x === "boolean"
+          ? String(x)
+          : JSON.stringify(x);
+    return /[",\n\r]/u.test(t) ? `"${t.replace(/"/gu, '""')}"` : t;
+  };
+  return `${[columns.map(cell).join(","), ...rows.map((r) => r.map(cell).join(","))].join("\n")}\n`;
+}
+
+/** Whether a chart is plain SVG the desk may show: no script, no handler, no link out, no foreign content. */
+export function plainSvg(svg: string): boolean {
+  return (
+    /^\s*(<\?xml[^>]*>\s*)?<svg[\s>]/u.test(svg) &&
+    !/<script|<foreignObject|javascript:|\son[a-z]+\s*=|<iframe|<image[^>]+href\s*=\s*["']?(?!data:)/iu.test(
+      svg,
+    )
+  );
+}
+
+interface Table {
+  columns: string[];
+  rows: unknown[][];
+  /** The columns left out because they came as shapes. */
+  left: string[];
+}
+
+/** A stored question's rows, every page of them, through the analysis's seam; technical and shaped columns left out. */
+async function analysisRows(ctx: ToolCtx, document: number): Promise<Table | Out> {
+  const s = analysisSeam(ctx.conversation);
+  const a = await s.door(
+    "/api/ask/run",
+    "POST",
+    { document_id: document, limit: ANALYSIS_ROWS, purpose: "an analysis in the one chat's sandbox" },
+    { toolCallId: `${ctx.toolCallId}-run`, phase: PHASE, rows: ANALYSIS_ROWS },
+  );
+  if (a.kind !== "ok") return notOk(a, "Check the question's id, or draft it again with query_draft.");
+  const b = a.body as {
+    handle?: unknown;
+    columns?: (string | { name: string })[];
+    rows?: unknown[][];
+    truncated?: unknown;
+    pages?: unknown;
+  };
+  if (b.truncated === true)
+    return refuse(
+      `the question answers more than ${ANALYSIS_ROWS} rows`,
+      "Narrow it (one dataset, one cohort, or a count per group) and analyse that.",
+    );
+  const rows: unknown[][] = [...(b.rows ?? [])];
+  const pages = num(b.pages) ?? 1;
+  const handle = num(b.handle);
+  for (let page = 1; page < pages && handle !== null && rows.length < ANALYSIS_ROWS; page++) {
+    const p = await s.call({
+      method: "GET",
+      path: `/api/ask/handles/${handle}/rows?page=${page}`,
+      toolCallId: `${ctx.toolCallId}-page-${page}`,
+      phase: PHASE,
+      rows: ANALYSIS_ROWS,
+    });
+    if (p.kind !== "ok")
+      return notOk(p, "Run the analysis once more; a page of the answer could not be read.");
+    rows.push(...((p.body as { rows?: unknown[][] } | null)?.rows ?? []));
+  }
+  const names = (b.columns ?? []).map((c) => (typeof c === "string" ? c : c.name));
+  const shaped = new Set(shapedColumns(names, rows));
+  const keep = names.map((c) => !c.startsWith("_") && !shaped.has(c));
+  return {
+    columns: names.filter((_, i) => keep[i]),
+    rows: rows.map((r) => (Array.isArray(r) ? r.filter((_, i) => keep[i]) : [])),
+    left: [...shaped],
+  };
+}
+
+const analysisTable: OneTool = {
+  name: "analysis_table",
+  description:
+    "Analyse the rows of a stored question in an offline Python sandbox, by `document`: its rows (at most 2,000) land as /data/table.csv with a header row, never in this conversation. `code` is Python with the standard library alone (csv, statistics, collections, math): it sets `result` to a number, a short list or a small table (a dict, or a list of dicts), and may write one chart as plain SVG text to /out/chart.svg, named by `title`. Columns the person sees only as shapes are left out. Use it for medians, spreads, distributions, cross-tables and charts over many rows; then say the result in words.",
+  input: v.object({ document: v.number(), code: v.string(), title: v.optional(v.string()) }),
+  salient: ["document", "code"],
+  step: "Analysing the rows",
+  async run(args, ctx) {
+    const document = num(args.document);
+    if (document === null)
+      return refuse(
+        "an analysis reads a stored question",
+        "Draft the question with query_draft and give its `document`.",
+      );
+    const code = str(args.code);
+    if (!code)
+      return refuse("there is no code to run", "Write Python that reads /data/table.csv and sets `result`.");
+    if (code.length > CODE_CHARS)
+      return refuse(
+        `the code is longer than ${CODE_CHARS} characters`,
+        "Keep it short: read the table, compute, set `result`.",
+      );
+    const table = await analysisRows(ctx, document);
+    if ("output" in table) return table;
+    const run = await runPython({ code, files: { "/data/table.csv": toCsv(table.columns, table.rows) } });
+    if (!run.ok) {
+      const why = (run.error ?? "").slice(-400);
+      if (table.left.length > 0 && /KeyError|IndexError|not found/u.test(why))
+        return refuse(
+          `the analysis needs a column this person sees only as shapes (${table.left.join(", ")})`,
+          "Say in one sentence that this account sees those values only as shapes, so they cannot be analysed, and that an admin can raise its level.",
+        );
+      return refuse(
+        `the analysis did not finish: ${why}`,
+        run.stopped
+          ? "Make it smaller or simpler, then run it once more."
+          : "Fix the code once and run it again.",
+      );
+    }
+    let chart: string | null = null;
+    const svg = run.files?.["chart.svg"];
+    if (typeof svg === "string" && svg.length <= CHART_CHARS && plainSvg(svg)) {
+      ctx.write.chart({ call: ctx.toolCallId, title: str(args.title) ?? "Analysis", svg });
+      chart = "shown to the person beside this turn";
+    } else if (typeof svg === "string") chart = "left out: it was no plain SVG, or too large";
+    return {
+      output: {
+        document,
+        rows: table.rows.length,
+        columns: table.columns,
+        ...(table.left.length > 0 ? { left_out_as_shapes: table.left } : {}),
+        // the result and the prints may repeat what the registry's people typed: data, never instructions
+        ...(data(
+          { result: run.result ?? null, ...(run.printed ? { printed: run.printed.slice(0, 2_000) } : {}) },
+          "set `result` to less: a value per group, never the rows",
+        ) as object),
+        ...(chart ? { chart } : {}),
+      },
+    };
+  },
+};
+
 export const TOOLS: Record<ToolName, OneTool> = {
   registry_summary: registrySummary,
   registry_search: registrySearch,
@@ -1688,6 +1882,7 @@ export const TOOLS: Record<ToolName, OneTool> = {
   query_draft: queryDraft,
   query_run_readonly: queryRunReadonly,
   query_read_rows: queryReadRows,
+  analysis_table: analysisTable,
   jobs_read: jobsRead,
   run_read: runRead,
   plan_update: planUpdate,
@@ -1703,6 +1898,7 @@ export const READ_ONLY: readonly ToolName[] = [
   "query_draft",
   "query_run_readonly",
   "query_read_rows",
+  "analysis_table",
 ];
 
 export type { Detail };

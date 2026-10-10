@@ -148,6 +148,13 @@ const APPROVAL = v.object({
     plan: v.optional(v.string()),
   }),
 });
+/** A chart the analysis sandbox drew, as SVG, for the desk to show beside the turn (2026-10-10, a trial). */
+const CHART = v.object({
+  kind: v.literal("chart"),
+  call: v.nullable(v.string()),
+  title: v.string(),
+  svg: v.string(),
+});
 const CLARIFICATION = v.object({
   kind: v.literal("clarification"),
   question: v.string(),
@@ -155,7 +162,13 @@ const CLARIFICATION = v.object({
 });
 
 /** Writers that write nowhere: a sub-agent's render has no client to write to. */
-const SILENT: Writers = { progress: () => {}, approval: () => {}, clarification: () => {}, plan: () => {} };
+const SILENT: Writers = {
+  progress: () => {},
+  approval: () => {},
+  clarification: () => {},
+  plan: () => {},
+  chart: () => {},
+};
 
 // ------------------------------------------------------------------ the runtime's events
 
@@ -430,6 +443,7 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
     const planW = useDataWriter("plan_update", { schema: PLAN });
     const approvalW = useDataWriter("approval", { schema: APPROVAL });
     const clarificationW = useDataWriter("clarification", { schema: CLARIFICATION });
+    const chartW = useDataWriter("chart", { schema: CHART });
     const safe = (f: () => void) => {
       try {
         f();
@@ -442,6 +456,7 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
       plan: (items) => safe(() => planW({ kind: "plan_update", items })),
       approval: (p) => safe(() => approvalW({ kind: "approval", ...p })),
       clarification: (p) => safe(() => clarificationW({ kind: "clarification", ...p })),
+      chart: (p) => safe(() => chartW({ kind: "chart", ...p })),
     };
 
     // the skills, in their fixed order; finding data is the sub-agent's in that arm
