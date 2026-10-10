@@ -19,7 +19,7 @@ import { grantsLine, mountFor, SKILL_ORDER, TOOL_ORDER } from "../src/one/mount.
 import { hintLine, routeOf } from "../src/one/route.ts";
 import { bodyFor, findExamples, loadSkills, parseSkill } from "../src/one/skills.ts";
 import { conversationOf, newTurn } from "../src/one/state.ts";
-import { isWorker, jobsOf, searchCatalog, TOOLS } from "../src/one/tools.ts";
+import { isWorker, jobsOf, runScope, searchCatalog, TOOLS } from "../src/one/tools.ts";
 import { plainly, unplainWords } from "../src/one/words.ts";
 import { withoutTask } from "../src/providers/kvasir.ts";
 import { GrantKeeper } from "../src/seam/grant.ts";
@@ -465,6 +465,20 @@ describe("a proposed change, decided by the person", () => {
     } finally {
       engine.close();
     }
+  });
+
+  it("names on an analysis card whom the queued run covers and its settings (2026-10-10)", () => {
+    expect(
+      runScope(["run", "synthseg@2", "--select", "selection:ms-t1@3", "--param", "robust=true"], null),
+    ).toEqual(["runs over the selection ms-t1@3", "settings: robust=true"]);
+    expect(
+      runScope(["run", "synthseg@2", "--handle", "55"], { cohorts: ["nmosd", "ms"], sessions: "first" }),
+    ).toEqual([
+      "runs over the first session of each subject of nmosd and ms",
+      "settings: the analysis's own defaults",
+    ]);
+    // no run to queue, nothing to name
+    expect(runScope(null, { cohorts: ["nmosd"], sessions: "all" })).toEqual([]);
   });
 
   it("lets only a person's approval seam hold a merge, never a station's grant", () => {

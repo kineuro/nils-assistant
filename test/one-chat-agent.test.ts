@@ -569,6 +569,10 @@ describe("the one agent", () => {
     expect(c.kind).toBe("analysis_plan");
     expect(c.state).toBe("open");
     expect(c.payload.command).toEqual(["run", "synthseg@2", "--handle", "55", "--param", "robust=true"]);
+    // the card names whom the queued run covers and its settings, not only the model's sentence (2026-10-10)
+    const card = recorded("oc-analysis");
+    expect(card).toMatch(/runs over every session of nmosd/u);
+    expect(card).toMatch(/settings: robust=true/u);
     expect(engine.seen.some((x) => x.method === "POST" && x.path === "/api/jobs")).toBe(false);
     expect(recorded("oc-analysis")).toMatch(/"change":"job_plan"/u);
   }, 60_000);

@@ -1328,6 +1328,32 @@ async function proposeJobPlan(args: Record<string, unknown>, ctx: ToolCtx, sente
   });
 }
 
+/**
+ * What an analysis card says of the run it proposes, read from the command its approval queues (2026-10-10, review
+ * of the one chat): whom it runs over and with which settings, so the person approves the run itself and not only the
+ * model's sentence about it. A run over cohorts is queued over the answer of the question that names them, so the
+ * cohorts and sessions that question was written for are named.
+ */
+export function runScope(
+  command: readonly string[] | null,
+  cohorts: { cohorts: readonly string[]; sessions: Sessions } | null,
+): string[] {
+  if (!command) return [];
+  const after = (flag: string): string[] =>
+    command.flatMap((w, i) => (w === flag && i + 1 < command.length ? [command[i + 1]] : []));
+  const [select] = after("--select");
+  const over = select
+    ? `runs over the selection ${select.replace(/^selection:/u, "")}`
+    : cohorts
+      ? `runs over ${cohorts.sessions === "all" ? "every session" : `the ${cohorts.sessions} session of each subject`} of ${cohorts.cohorts.join(" and ")}`
+      : null;
+  const params = after("--param");
+  return [
+    ...(over ? [over] : []),
+    params.length ? `settings: ${params.join(", ")}` : "settings: the analysis's own defaults",
+  ];
+}
+
 async function proposeAnalysis(args: Record<string, unknown>, ctx: ToolCtx, sentence: string): Promise<Out> {
   const s = seam(ctx, "analysis-plan");
   const pipelineName = str(args.pipeline);
@@ -1441,13 +1467,15 @@ async function proposeAnalysis(args: Record<string, unknown>, ctx: ToolCtx, sent
   if (!preflight && !proposed && why)
     return refuse(why, "Say the selection could not be found, and ask which one they mean.");
   const command = over ? runCommand(entry.label, over, params) : null;
+  const scope = runScope(command, proposed);
   const lines = preflight
     ? [
         `${entry.name}: ${preflight.units.ready} of ${preflight.units.total} units ready${preflight.units.missing ? `, ${preflight.units.missing} missing` : ""}`,
+        ...scope,
         `time: ${preflight.estimate.words}`,
         preflight.ready ? "ready to run" : `blocked: ${preflight.blockers.join("; ") || "see the check"}`,
       ]
-    : [`${entry.name}: ${why ?? "no check before the run"}`];
+    : [`${entry.name}: ${why ?? "no check before the run"}`, ...scope];
   return propose(ctx, {
     kind: "analysis_plan",
     sentence,
