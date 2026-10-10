@@ -4,7 +4,8 @@
 // host builds (the person's words as they wrote them, the grants line) and
 // only the read tools. Its draft counts as the turn's, so the question is
 // still offered as the conversation's new version. A dataset the words name
-// comes into the brief with which of its steps have run.
+// comes into the brief with which of its steps have run, and until body part
+// or post-contrast has run, what the headers answer of it (2026-10-10).
 
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -131,14 +132,19 @@ describe("finding data as a read-only sub-agent", () => {
     ).toEqual(["query_version"]);
   }, 60_000);
 
-  it("tells the find agent which steps have run on the dataset the words name", async () => {
+  it("tells the find agent which steps have run on the dataset the words name, and what the headers answer until they have", async () => {
     child.length = 0;
     parent.length = 0;
     const h = init(Nils, { id: "oc-sub-steps" });
     await h.read(await h.dispatch("How many T1 scans with contrast are in study-a?"));
     const brief = getCurrentSystemPrompt(child[0].messages as never) ?? "";
     expect(brief).toMatch(
-      /The question is about the dataset study-a \(anonymised\): 63 subjects[^\n]*: name it with the field dataset\. The steps of study-a: sorted; body part not run; post-contrast not run; main scans picked; pictures made\. Body part and post-contrast have not run on study-a: [^\n]*never count another field in their place\./u,
+      /The question is about the dataset study-a \(anonymised\): 63 subjects[^\n]*: name it with the field dataset\. The steps of study-a: sorted; body part not run \(from the headers only\); post-contrast not run \(from the headers only\); main scans picked; pictures made\. Body part and post-contrast have not run on study-a: a scan's body part is known where the headers name it, not yet elsewhere\. The scans the headers mark as given contrast are counted, and there may be more; whether the others were is not known yet\. Never count another field in their place\./u,
     );
+    // and its skill counts the scans the headers mark, never saying the sorting answers neither
+    expect(brief).toMatch(
+      /\*\*the scans with contrast\*\* are those `given`: count them and say there may be more/u,
+    );
+    expect(brief).not.toMatch(/not filled by the sorting|whether a scan was given contrast are not known/u);
   }, 60_000);
 });
