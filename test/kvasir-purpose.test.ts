@@ -4,6 +4,7 @@
 // every station's calls under the first purpose of the app's key; the provider
 // now puts the purpose into each call itself.
 
+import { normalizeContext } from "@earendil-works/pi-ai";
 import { describe, expect, it } from "vitest";
 import { kvasirProvider } from "../src/providers/kvasir.ts";
 
@@ -58,7 +59,9 @@ describe("a station's calls to Kvasir", () => {
     });
     const model = provider.getModels()[0];
     expect(model).toBeDefined();
-    const context = { messages: [{ role: "user" as const, content: "How many subjects?", timestamp: 1 }] };
+    const context = normalizeContext({
+      messages: [{ role: "user" as const, content: "How many subjects?", timestamp: 1 }],
+    });
     for await (const _ of provider.streamSimple(model as never, context, {
       apiKey: "the-app-key",
       fetch: dial,
@@ -76,5 +79,67 @@ describe("a station's calls to Kvasir", () => {
       { purpose: "assistant.concierge", other: "kept", auth: "Bearer the-app-key" },
       { purpose: "assistant.concierge", other: null, auth: "Bearer the-app-key" },
     ]);
+  });
+
+  it("send the prompt and the tools as a Kvasir on an earlier pi reads them, with no system message in the history", async () => {
+    const bodies: { context: Record<string, unknown> }[] = [];
+    const dial = (async (_input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+      bodies.push(JSON.parse(String(init?.body)));
+      return new Response(events.map((e) => `data: ${JSON.stringify(e)}\n\n`).join(""), {
+        headers: { "content-type": "text/event-stream" },
+      });
+    }) as typeof fetch;
+    const provider = kvasirProvider({
+      station: "ask-help",
+      purpose: "assistant.ask-help",
+      catalog: {
+        baseUrl: "http://kvasir.test/v1/pi",
+        models: [
+          {
+            id: "qwen",
+            name: "Qwen",
+            reasoning: false,
+            input: ["text"],
+            cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+            contextWindow: 32768,
+            maxTokens: 4096,
+          },
+        ],
+      },
+      key: "the-app-key",
+    });
+    const tool = (name: string) => ({
+      name,
+      description: name,
+      parameters: { type: "object", properties: {} },
+    });
+    const context = normalizeContext({
+      messages: [
+        { role: "system", content: "You draft.", toolsAdded: [tool("describe")] as never, timestamp: 1 },
+        { role: "user", content: "How many subjects?", timestamp: 2 },
+        {
+          role: "system",
+          content: "Answer in one line.",
+          toolsAdded: [tool("draft")] as never,
+          timestamp: 3,
+        },
+        { role: "user", content: "And sessions?", timestamp: 4 },
+      ],
+    });
+    for await (const _ of provider.streamSimple(provider.getModels()[0] as never, context, {
+      apiKey: "the-app-key",
+      fetch: dial,
+    } as never)) {
+      // the body is what this test reads
+    }
+    const sent = bodies[0].context as {
+      systemPrompt?: string;
+      tools?: { name: string }[];
+      messages: { role: string }[];
+    };
+    expect(sent.systemPrompt).toContain("You draft.");
+    expect(sent.systemPrompt).toContain("Answer in one line.");
+    expect(sent.tools?.map((t) => t.name)).toEqual(["describe", "draft"]);
+    expect(sent.messages.map((m) => m.role)).toEqual(["user", "user"]);
   });
 });

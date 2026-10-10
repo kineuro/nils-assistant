@@ -53,6 +53,8 @@ export function operationOf(method: string, path: string): string {
   // a pipeline is named by its id, its name or name@version (record 49)
   if (/^pipelines\/[^/]+\/preflight$/u.test(named)) return "pipelines/{name}/preflight";
   if (/^pipelines\/[^/]+$/u.test(named)) return "pipelines/{name}";
+  // a dataset is named by its name (Wave 7a, the Data page)
+  if (/^datasets\/[^/]+\/summary$/u.test(named)) return "datasets/{name}/summary";
   return method.toUpperCase() === "GET" && named === "capabilities" ? "capabilities" : named;
 }
 
@@ -65,6 +67,13 @@ export interface Decision {
 /** The operations a person's standing grant may name that a station's manifest grant may not (Wave 5 section 9.1): rung-two jobs whose result is a new object beside the old. */
 export const STANDING_ONLY: readonly string[] = ["sessions/rebuild"];
 
+/**
+ * The person's own acts a seam may dial only when a person approved a proposed change on its card (one chat,
+ * 2026-10-09): the host applies the change in its own code, under the person's token, and no model tool reaches
+ * this seam. A merge of two subjects is one.
+ */
+export const PERSON_ONLY: readonly string[] = ["linkage/merge"];
+
 export class GrantKeeper {
   private readonly used = new Map<string, number>();
   /**
@@ -74,10 +83,13 @@ export class GrantKeeper {
    */
   constructor(
     readonly grant: Grant,
-    readonly standing = false,
+    readonly standing: boolean | "decides" = false,
   ) {
     for (const f of FORBIDDEN) {
-      if (f in grant && !(standing && STANDING_ONLY.includes(f)))
+      const allowed =
+        (standing === true && STANDING_ONLY.includes(f)) ||
+        (standing === "decides" && PERSON_ONLY.includes(f));
+      if (f in grant && !allowed)
         throw new Error(`a grant may not hold ${f}: a decision apply is a person's (Wave 4c section 9.6)`);
     }
   }

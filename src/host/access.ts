@@ -75,6 +75,8 @@ export function doorOf(method: string, path: string): Door {
     // the ladder and teaching name the person themselves, and are a person's doors like the rest (record 25)
     /^\/grants(\/[^/]+)?$/u.test(path) ||
     /^\/plans\/[^/]+(\/confirm|\/proposals\/[^/]+\/decide)?$/u.test(path) ||
+    // one chat: a change the one agent proposed is decided by the person it was proposed to
+    /^\/changes\/[^/]+(\/decide)?$/u.test(path) ||
     path === "/inbox" ||
     /^\/teaching\//u.test(path)
   )

@@ -12,7 +12,7 @@ import { createAgentRouter } from "@flue/runtime/routing";
 import { Hono } from "hono";
 import { config } from "./config.ts";
 import { guard, personIn, scopeOf } from "./host/access.ts";
-import { capabilities } from "./host/capabilities.ts";
+import { capabilities, purposeOf } from "./host/capabilities.ts";
 import { type Observe, watchContext } from "./host/context.ts";
 import { markdownOf } from "./host/export.ts";
 import {
@@ -58,12 +58,17 @@ import {
 } from "./host/teaching.ts";
 import { kvasirTitles, nameConversation, openingWords } from "./host/titles.ts";
 import { interceptTurn } from "./host/turns.ts";
+import { AGENT, findArm, notePerson } from "./one/agent.ts";
+import { decideAs } from "./one/apply.ts";
+import { ChangeStore, changeView, theChanges, useChangeStore } from "./one/changes.ts";
+import { Nils } from "./one/nils-agent.ts";
 import {
   type Catalog,
   kvasirProvider,
   readCatalog,
   servedCatalog,
   watchCatalog,
+  withoutTask,
 } from "./providers/kvasir.ts";
 import { personInstrumentation, streamingConversation } from "./providers/person.ts";
 import { agentIds, delegationsOf, delegationView, registerAgent } from "./seam/delegations.ts";
@@ -121,6 +126,10 @@ if (manifests.has("operator")) agents.set("operator", Operator);
 if (manifests.has("analysis-plan")) agents.set("analysis-plan", AnalysisPlan);
 if (manifests.has("run-read")) agents.set("run-read", RunRead);
 agents.set("echo", Echo);
+// one chat (2026-10-09): the one agent every new chat talks to, unless the deployment turns it off
+const oneChat = process.env.ASSISTANT_ONE_CHAT !== "0";
+if (oneChat) agents.set(AGENT, Nils);
+useChangeStore(() => new ChangeStore(c.changes));
 // the stations a concierge may delegate to, by id (section 9.12)
 for (const [id, a] of agents) registerAgent(id, a);
 registerStation({
@@ -158,10 +167,12 @@ function takeCatalog(next: Catalog): void {
     setProvider(
       kvasirProvider({
         station: s.id,
-        purpose: `assistant.${s.id}`,
+        purpose: purposeOf(s),
         catalog: served,
         key: c.kvasirKey,
         person: personStreaming,
+        // the one agent without Flue's decoy task tool, unless finding data is its read-only sub-agent
+        ...(s.id === AGENT && findArm() === "skill" ? { shape: withoutTask } : {}),
       }),
     );
   titles = kvasirTitles({ catalog: served, model: chosenModel(model), key: c.kvasirKey });
@@ -286,21 +297,25 @@ app.use("*", guard({ people, lineage: theLineage, authOff: () => engineAuthOff, 
 app.use("*", async (ctx, next) => {
   const auth = ctx.req.header("authorization") ?? "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
-  const m = /^\/agents\/[^/]+\/([^/]+)/u.exec(ctx.req.path);
-  if (token && m && ctx.req.method === "POST") tokens.put(decodeURIComponent(m[1]), token);
+  const m = /^\/agents\/([^/]+)\/([^/]+)/u.exec(ctx.req.path);
+  if (token && m && ctx.req.method === "POST") tokens.put(decodeURIComponent(m[2]), token);
+  // the one agent mounts its tools from what this person may open, as the engine said it with their token
+  const who = personIn(ctx.req.raw);
+  if (m && m[1] === AGENT && ctx.req.method === "POST" && who)
+    notePerson(decodeURIComponent(m[2]), { grants: who.grants, detail: who.detail });
   await next();
 });
 
 app.get("/capabilities", (ctx) =>
-  ctx.json(
-    capabilities(
+  ctx.json({
+    ...capabilities(
       c,
       stationList().map((s) => {
         const m = manifests.get(s.id);
         return {
           id: s.id,
           app: m?.app ?? "nils-assistant",
-          purpose: m?.purpose ?? `assistant.${s.id}`,
+          purpose: purposeOf(s, m?.purpose),
           content: s.content,
           ceiling: s.ceiling,
           brief: m?.brief ?? { path: "", hash: "" },
@@ -310,7 +325,9 @@ app.get("/capabilities", (ctx) =>
       }),
       { teaching_open: true, conversations: 0, models: modelList() },
     ),
-  ),
+    // one chat: whether the one agent is served, and how it finds data (the bench reads it)
+    ...(oneChat ? { one_chat: { agent: AGENT, find: findArm() } } : {}),
+  }),
 );
 
 /** The desk pushes a fresh token before expiry (§5.5, 19 Q8). */
@@ -1287,6 +1304,64 @@ app.post("/plans/:id/proposals/:n/decide", async (ctx) => {
   if (!step) return ctx.json({ error: "no such proposal" }, 404);
   const r = ladder.decide(step.id, verdict, who.subject);
   return "refused" in r ? ctx.json({ error: r.refused }, 409) : ctx.json(r);
+});
+
+// one chat (2026-10-09): the person's own seam for applying a change they approved; no model tool reaches it
+registerStation({
+  id: "one-decide",
+  version: c.version,
+  grant: { jobs: {}, overlays: {}, "linkage/merge": {}, capabilities: {} },
+  ceiling: "operator",
+  content: "catalog",
+  model: "none",
+  decides: true,
+});
+
+/** A change the one agent proposed, as its card shows it; the person's own. */
+app.get("/changes/:id", async (ctx) => {
+  const who = await personOf(ctx);
+  if (!who) return ctx.json({ error: "no token" }, 401);
+  const ch = theChanges().get(ctx.req.param("id"));
+  if (!ch || ch.subject !== who.subject) return ctx.json({ error: "no such change of yours" }, 404);
+  return ctx.json(changeView(ch));
+});
+
+/** The person approves or declines a proposed change; an approval is applied here, in the host's code, under their token. */
+app.post("/changes/:id/decide", async (ctx) => {
+  const who = await personOf(ctx);
+  if (!who) return ctx.json({ error: "no token" }, 401);
+  const body = (await ctx.req.json().catch(() => ({}))) as { verdict?: unknown };
+  const verdict = body.verdict === "approved" ? "approved" : body.verdict === "declined" ? "declined" : null;
+  if (!verdict) return ctx.json({ error: "verdict is approved or declined" }, 400);
+  const id = ctx.req.param("id");
+  // the person's fresh token applies the change: kept for the change's conversation once the change is theirs
+  const token = bearerOf(ctx);
+  const r = await decideAs(
+    {
+      changes: theChanges(),
+      ledger: theLedger(),
+      seam: (conversation) => seamFor("one-decide", conversation),
+      confirmPlan: async (plan, subject) => {
+        const confirmed = ladder.confirm(plan, subject);
+        if ("refused" in confirmed) return confirmed;
+        const fired = await scheduler.tick();
+        return {
+          ...confirmed,
+          steps: ladder.steps(plan),
+          fired: fired.filter((f) => ladder.step(f.step)?.plan === plan),
+        };
+      },
+    },
+    id,
+    who.subject,
+    verdict,
+    (conversation) => {
+      if (token) tokens.put(conversation, token);
+    },
+  );
+  return r.ok
+    ? ctx.json(changeView(r.change))
+    : ctx.json({ error: r.error, ...(r.change ? { change: changeView(r.change) } : {}) }, r.status as 404);
 });
 
 /** The inbox (section 9.4): what the assistant and the engine did for this person, the teaching jobs among them. */

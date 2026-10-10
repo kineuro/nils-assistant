@@ -11,7 +11,7 @@ import { init } from "@flue/runtime";
 import { sqlite, start } from "@flue/runtime/node";
 import { afterAll, describe, expect, it } from "vitest";
 import { config } from "../src/config.ts";
-import { capabilities } from "../src/host/capabilities.ts";
+import { capabilities, purposeOf } from "../src/host/capabilities.ts";
 import { exportStore, importStore } from "../src/host/records.ts";
 import { fakeProvider } from "./child/fake-provider.ts";
 import { Slow } from "./child/slow-agent.ts";
@@ -42,11 +42,17 @@ describe("the host", () => {
     );
     expect(doc).toMatchObject({
       assistant: { name: "nils-assistant" },
-      runtime: { flue: "2.0.5", pi_ai: "0.83.0" },
+      runtime: { flue: "2.2.2", pi_ai: "0.87.1" },
       telemetry: { content: "off" },
     });
     expect((doc.stations as unknown[]).length).toBe(1);
     expect(JSON.stringify(doc)).not.toContain("kvs_x");
+  });
+
+  it("lists a station under the purpose its model calls carry: the one agent under the concierge's (2026-10-10)", () => {
+    expect(purposeOf({ id: "nils", purpose: "assistant.concierge" })).toBe("assistant.concierge");
+    expect(purposeOf({ id: "ask-help" }, "assistant.ask-help")).toBe("assistant.ask-help");
+    expect(purposeOf({ id: "one-decide" })).toBe("assistant.one-decide");
   });
 
   it("a conversation survives a process kill and round-trips through export", async () => {

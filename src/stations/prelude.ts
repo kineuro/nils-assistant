@@ -37,6 +37,8 @@ export interface Catalog {
   diseases?: { name: string; courses?: string[] }[];
   namespaces?: string[];
   cohorts?: { name: string; owner?: string; members?: number }[];
+  /** Wave 7a: the datasets in force, by name, that the ask's `dataset` field compares with. */
+  datasets?: string[];
   schemes?: { name: string; digest?: string; window_days?: number; anchor?: string }[];
   roles?: string[];
   pick_models?: string[];

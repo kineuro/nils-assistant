@@ -7,7 +7,13 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type AssistantMessageEvent, type Context, createProvider, type Model } from "@earendil-works/pi-ai";
+import {
+  type AssistantMessageEvent,
+  type Context,
+  createProvider,
+  getCurrentSystemPrompt,
+  type Model,
+} from "@earendil-works/pi-ai";
 import { init, observe, useDelivery, useModel } from "@flue/runtime";
 import { sqlite, start } from "@flue/runtime/node";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -60,7 +66,7 @@ function quietProvider() {
     timestamp: Date.now(),
   });
   const stream = (_m: Model<"openai-completions">, context: Context) => {
-    const message = (context.systemPrompt ?? "").includes("summarization")
+    const message = getCurrentSystemPrompt(context.messages).includes("summarization")
       ? reply("Goal: count the cohorts. Progress: counted.")
       : reply("Noted.");
     const text = message.content[0].text;

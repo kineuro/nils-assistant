@@ -1,0 +1,212 @@
+{
+  "at": "2026-10-09T11:19:37.819Z",
+  "corpus": "all",
+  "summary": {
+    "shapes": {
+      "of": 2,
+      "strict": 2,
+      "same_answer": 2,
+      "loop": {
+        "strict": {
+          "passed": 2,
+          "of": 2
+        },
+        "same_answer": {
+          "passed": 2,
+          "of": 2
+        }
+      },
+      "held_out": {
+        "strict": {
+          "passed": 0,
+          "of": 0
+        },
+        "same_answer": {
+          "passed": 0,
+          "of": 0
+        }
+      },
+      "median_seconds": 27,
+      "median_turns": 1,
+      "median_tool_calls": 2,
+      "refused_calls": 0,
+      "drafts": 2,
+      "draft_refusals": 0,
+      "by_budget": 0
+    },
+    "authored": {
+      "of": 5,
+      "strict": 5,
+      "same_answer": 5,
+      "loop": {
+        "strict": {
+          "passed": 4,
+          "of": 4
+        },
+        "same_answer": {
+          "passed": 4,
+          "of": 4
+        }
+      },
+      "held_out": {
+        "strict": {
+          "passed": 1,
+          "of": 1
+        },
+        "same_answer": {
+          "passed": 1,
+          "of": 1
+        }
+      },
+      "median_seconds": 18,
+      "median_turns": 1,
+      "median_tool_calls": 2,
+      "refused_calls": 0,
+      "drafts": 5,
+      "draft_refusals": 0,
+      "by_budget": 0
+    }
+  },
+  "results": [
+    {
+      "id": "shape-24",
+      "corpus": "shapes",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 140,
+      "seconds": 40,
+      "terminal": "settled",
+      "conversation": "eval-shape-24-mv0vez6p",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 2,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": ["nils_draft", "settle"]
+      }
+    },
+    {
+      "id": "shape-25",
+      "corpus": "shapes",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 9,
+      "seconds": 27,
+      "terminal": "settled",
+      "conversation": "eval-shape-25-mv0vftwm",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 2,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": ["nils_draft", "settle"]
+      }
+    },
+    {
+      "id": "auth-cohort-b-size",
+      "corpus": "authored",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 19,
+      "seconds": 12,
+      "terminal": "settled",
+      "conversation": "eval-auth-cohort-b-size-mv0vgetm",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 2,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": ["nils_draft", "settle"]
+      }
+    },
+    {
+      "id": "auth-cohort-a-sessions",
+      "corpus": "authored",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 18,
+      "seconds": 12,
+      "terminal": "settled",
+      "conversation": "eval-auth-cohort-a-sessions-mv0vgo5g",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 2,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": ["nils_draft", "settle"]
+      }
+    },
+    {
+      "id": "auth-only-in-a",
+      "corpus": "authored",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 227,
+      "seconds": 18,
+      "terminal": "settled",
+      "conversation": "eval-auth-only-in-a-mv0vgxip",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 2,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": ["nils_draft", "settle"]
+      }
+    },
+    {
+      "id": "auth-four-sessions",
+      "corpus": "authored",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 31,
+      "seconds": 18,
+      "terminal": "settled",
+      "conversation": "eval-auth-four-sessions-mv0vhbgs",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 2,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": ["nils_draft", "settle"]
+      }
+    },
+    {
+      "id": "auth-sessions-per-subject-b",
+      "corpus": "authored",
+      "passed": true,
+      "selection": true,
+      "why": "",
+      "document": 159,
+      "seconds": 21,
+      "terminal": "settled",
+      "conversation": "eval-auth-sessions-per-subject-b-mv0vhpf0",
+      "trace": {
+        "turns": 1,
+        "tool_calls": 2,
+        "refused": 0,
+        "drafts": 1,
+        "draft_refusals": 0,
+        "settles": 1,
+        "tools": ["nils_draft", "settle"]
+      }
+    }
+  ]
+}

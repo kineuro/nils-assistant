@@ -1,0 +1,45 @@
+{
+  "at": "2026-10-09T10:30:24.753Z",
+  "station": "run-read",
+  "passed": 1,
+  "of": 3,
+  "split": {
+    "loop": {
+      "passed": 0,
+      "of": 2
+    },
+    "held_out": {
+      "passed": 1,
+      "of": 1
+    }
+  },
+  "results": [
+    {
+      "id": "planted-synthseg",
+      "passed": false,
+      "why": "failures {\"a missing input\":2,\"no result reported\":1,\"the tool failed\":1}; campaign false",
+      "terminal": "settled",
+      "seconds": 12,
+      "conversation": "bench-planted-synthseg-mv0tq5fd",
+      "sentence": "Run 1 of planted-synthseg ended partial: 16 of 20 units done, 3 failed (2 for a missing input, 1 where the tool failed), 1 unreported, and 4 units broke a declared check (3 with qc_general_white_matter under 0.65, worst 0.41; 1 with qc_general_csf under 0.65, worst 0.52)."
+    },
+    {
+      "id": "samseg-both-sides",
+      "passed": false,
+      "why": "campaign false",
+      "terminal": "settled",
+      "seconds": 15,
+      "conversation": "bench-samseg-both-sides-mv0tqesj",
+      "sentence": "Run 2 of planted-samseg ended done with all 8 units finished and none failed; two units broke a declared check — stack-897 with an intracranial volume of 850000 mm³, below the 900000 floor (a failed segmentation more often than a small head), and stack-898 at 2400000 mm³, above the 2300000 ceiling (a failed segmentation more often than a large head) — and no campaign is needed."
+    },
+    {
+      "id": "clean-mriqc",
+      "passed": true,
+      "why": "",
+      "terminal": "settled",
+      "seconds": 6,
+      "conversation": "bench-clean-mriqc-mv0tqqfa",
+      "sentence": "Run 3 of planted-mriqc ended done with all 6 units done; no unit failed and no unit broke a check, so no campaign is needed."
+    }
+  ]
+}

@@ -12,10 +12,12 @@ Record 49 A6's bar: a run with planted failures gets a summary that names them a
 
 ## Live
 
+`bench/seed.ts` plants the three runs on a registry of its own (`bench/planted.ts`): a small synthetic DICOM tree, one stand-in pipeline per case whose units fail, stay silent or report measures as the case says, run by the engine through a stand-in container runtime, so each run is a real run with its units, checks and review items. It writes the run ids as the `RUNS` line of `seeded.json`, and `bench/measure.ts` reads it:
+
 ```sh
-STATION=run-read RUNS=<run>:planted-synthseg,<run>:samseg-both-sides ASSISTANT_URL=http://127.0.0.1:<port> npm run bench:analyses
+npm run bench:measure -- --model <name> --assistant http://127.0.0.1:<port> --engine http://127.0.0.1:<port> --stations run-read --seeded <home>/seeded.json
 ```
 
-It needs runs on an engine whose failures and breaches are planted as the cases say. No live run has been taken yet.
+`test/measure.test.ts` holds each planted run to its case: the failures by reason, the breaches by check and the campaign. Measured live on the local 27B on 2026-10-08 and, after the upgrade to Flue 2.2.2, on 2026-10-09: 1 of 3 both times (bench/results/stations-2026-10-08-qwen38-27b-summary.md and stations-2026-10-09-qwen38-27b-summary.md).
 
 > **Warning:** the draft ask selects the stacks of a doubtful session by the pack's `role` axis. A registry whose classifier leaves that axis empty (the synthetic one does) freezes an empty campaign; the pre-flight of A7 should show its count before a person makes it.

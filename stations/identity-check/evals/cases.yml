@@ -1,0 +1,129 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# identity-check's question set (Wave 7a §14, T10), run by
+# bench/measure.ts's generic runner (bench/cases.ts) on the registry
+# bench/seed.ts builds.
+#
+# The datasets (bench/fixtures.ts) arrive identified, hold what the linkage
+# store does not know, and were pseudonymised once, so the held door
+# answers:
+#   ds-clean   every identifier mapped: nothing held
+#   ds-same    one person's identifier (AA9999, the rule's shape) unmapped
+#   ds-second  a few files carry a study number (9999-999) in PatientID
+#   ds-path    PatientID is one placeholder; the first folder is the code
+#   ds-merge   one person under two identifiers, mapped to two subjects
+#              whose birth date, sex and visits agree (record 55 K9)
+# and the registered location `inbox` holds a placeholder PatientID and the
+# subject's code as the first folder, like the knob tree of 2026-09-09.
+#
+# The two gaps the first question set found are closed: the engine's probe
+# door takes a dataset by name (`dataset`) and reads its originals, and a
+# dataset's probe names the subjects whose birth date, sex and visits agree,
+# whose merge the station proposes for a person to make (record 55 K9).
+#
+# A refusal probes nothing: the probe door is never answered, and the
+# sources door was read, so a station that does nothing passes no refusal.
+
+cases:
+  - id: clean-dataset-nothing-held
+    message: "dataset: ds-clean"
+    expect:
+      result:
+        dataset: ds-clean
+        proposed.from[].field: {has: [PatientID]}
+        held.reading: none
+        map_needed: false
+      calls: {ok: [sources, linkage/types, linkage/held, ingest/probe]}
+
+  - id: unmapped-of-the-rules-kind-needs-a-map
+    message: "dataset: ds-same"
+    expect:
+      result:
+        dataset: ds-same
+        proposed.from[].field: {has: [PatientID]}
+        held.reading: same_kind
+        map_needed: true
+        sentence: {match: "\\bmap\\b"}
+      calls: {ok: [linkage/held, ingest/probe]}
+
+  - id: a-second-kind-of-identifier
+    message: "dataset: ds-second"
+    expect:
+      result:
+        dataset: ds-second
+        held.reading: {in: [second_kind, mixed]}
+        sentence: {match: "second kind"}
+      calls: {ok: [linkage/held, ingest/probe]}
+
+  - id: identity-from-the-folder-when-asked
+    message: |
+      dataset: ds-path
+      candidate: a path segment
+    expect:
+      result:
+        dataset: ds-path
+        proposed.from[].path.segment: {has: [1]}
+        path_is_direct_identifier: false
+      calls: {ok: [ingest/probe]}
+
+  - id: identity-from-the-folder-unprompted
+    message: "dataset: ds-path"
+    expect:
+      result:
+        dataset: ds-path
+        proposed.from[].path.segment: {has: [1]}
+        path_is_direct_identifier: false
+      calls: {ok: [ingest/probe]}
+
+  - id: a-registered-location-by-name
+    message: |
+      location: inbox
+      Is the subject in the PatientID tag or in the first folder?
+    expect:
+      result:
+        location: inbox
+        proposed.from[].path.segment: {has: [1]}
+        path_is_direct_identifier: false
+      calls: {ok: [ingest/probe]}
+
+  - id: a-named-tag-the-files-lack
+    message: |
+      dataset: ds-clean
+      candidate: PatientName
+    expect:
+      result:
+        dataset: ds-clean
+        proposed.from[].field: [PatientID]
+      calls: {ok: [ingest/probe]}
+
+  - id: one-person-under-two-identifiers
+    message: |
+      dataset: ds-merge
+      Two of its subjects may be one person: the same birth date, sex and visits.
+    expect:
+      result:
+        dataset: ds-merge
+        merge: present
+        merge.subjects: {has: [BENM01, BENM02]}
+        merge.act.door: POST /api/linkage/merge
+        sentence: {match: "\\bmerge"}
+      calls: {ok: [linkage/held, ingest/probe]}
+
+  - id: refuses-an-unknown-dataset
+    message: "dataset: ds-nowhere"
+    expect:
+      terminal: not_settled
+      calls: {ok: [sources], none: [ingest/probe]}
+
+  - id: refuses-a-path-for-a-dataset
+    message: "dataset: ds-same/derivatives/dcm-original"
+    expect:
+      terminal: any
+      result:
+        location: {not: {match: "/"}}
+      calls: {ok: [sources], none: [ingest/probe], ungranted: 0}
+
+  - id: no-dataset-lists-them-and-probes-nothing
+    message: Check our identity rule, please.
+    expect:
+      terminal: not_settled
+      calls: {ok: [sources], none: [ingest/probe]}

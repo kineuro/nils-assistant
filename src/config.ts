@@ -22,6 +22,8 @@ export interface Config {
   lineage: string;
   /** The ladder (Wave 5 section 9.1 to 9.4): standing grants, plans and their steps, their own SQLite file. */
   ladder: string;
+  /** One chat (2026-10-09): the changes the one agent proposed, pending a person's approval, their own SQLite file. */
+  changes: string;
   /** C49, off by default: when on, a person without the `assist-run` entitlement has an empty rung two whatever they tick. */
   requireAssistRun: boolean;
   /** Teaching (Wave 5 section 9.5): its own SQLite file and the directory of curated sets and adapters. */
@@ -54,6 +56,7 @@ export function config(env: NodeJS.ProcessEnv = process.env): Config {
     notes: env.ASSISTANT_NOTES ?? "./data/notes.sqlite",
     lineage: env.ASSISTANT_LINEAGE ?? "./data/lineage.sqlite",
     ladder: env.ASSISTANT_LADDER ?? "./data/ladder.sqlite",
+    changes: env.ASSISTANT_CHANGES ?? "./data/changes.sqlite",
     requireAssistRun: env.ASSISTANT_REQUIRE_ASSIST_RUN === "1",
     teaching: env.ASSISTANT_TEACHING ?? "./data/teaching.sqlite",
     teachingDir: env.ASSISTANT_TEACHING_DIR ?? "./data/teaching",

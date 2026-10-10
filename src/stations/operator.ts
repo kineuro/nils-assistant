@@ -24,9 +24,13 @@ let store: (() => LadderStore) | null = null;
 export function useLadderStore(f: () => LadderStore): void {
   store = f;
 }
+/** The ladder the host opened, for the one agent's job plans; null in a test that opened none. */
+export function ladderStore(): LadderStore | null {
+  return store ? store() : null;
+}
 
 /** The engine's policy and the person's grants, read through the seam once per run: a step the grants do not open is refused at planning (record 26). */
-async function policyOf(
+export async function policyOf(
   seam: Seam,
   toolCallId: string,
   phase: string,

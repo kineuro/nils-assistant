@@ -1,0 +1,116 @@
+{
+  "at": "2026-10-08T22:18:47.970Z",
+  "station": "keyword-tune",
+  "results": [
+    {
+      "id": "agent-into-its-bucket",
+      "passed": true,
+      "why": "",
+      "gap": null,
+      "terminal": "settled",
+      "seconds": 52,
+      "model": "qwen38-27b",
+      "conversation": "bench-agent-into-its-bucket-mv031s3e"
+    },
+    {
+      "id": "agent-list-left-to-the-station",
+      "passed": false,
+      "why": "ended loop_stopped, not settled; axis is undefined, not \"post_contrast\"; list is undefined, not \"contrast_positive\"; diff is undefined, not \"keep\"; proposal is undefined, not \"present\"; no classify/try call answered; no overlays call answered",
+      "gap": null,
+      "terminal": "loop_stopped",
+      "seconds": 30,
+      "model": null,
+      "conversation": "bench-agent-list-left-to-the-station-mv032vww"
+    },
+    {
+      "id": "agent-in-the-persons-words",
+      "passed": true,
+      "why": "",
+      "gap": null,
+      "terminal": "settled",
+      "seconds": 54,
+      "model": "qwen38-27b",
+      "conversation": "bench-agent-in-the-persons-words-mv033j4s"
+    },
+    {
+      "id": "agent-over-the-origin",
+      "passed": false,
+      "why": "ended loop_stopped, not settled; axis is undefined, not \"post_contrast\"; list is undefined, not \"contrast_positive\"; diff is undefined, not \"keep\"; proposal is undefined, not \"present\"; no classify/try call answered; no overlays call answered",
+      "gap": null,
+      "terminal": "loop_stopped",
+      "seconds": 33,
+      "model": null,
+      "conversation": "bench-agent-over-the-origin-mv034ovv"
+    },
+    {
+      "id": "flair-word-into-the-value-list",
+      "passed": false,
+      "why": "ended loop_stopped, not settled; axis is undefined, not \"modifier\"; list is undefined, not \"modifier.FLAIR\"; value is undefined, not \"FLAIR\"; diff is undefined, not \"keep\"; proposal is undefined, not \"present\"; no classify/try call answered; no overlays call answered",
+      "gap": null,
+      "terminal": "loop_stopped",
+      "seconds": 33,
+      "model": null,
+      "conversation": "bench-flair-word-into-the-value-list-mv035efp"
+    },
+    {
+      "id": "flair-word-list-left-to-the-station",
+      "passed": false,
+      "why": "ended loop_stopped, not settled; axis is undefined, not \"modifier\"; list is undefined, not \"modifier.FLAIR\"; diff is undefined, not \"keep\"; proposal is undefined, not \"present\"; no classify/try call answered; no overlays call answered",
+      "gap": null,
+      "terminal": "loop_stopped",
+      "seconds": 33,
+      "model": null,
+      "conversation": "bench-flair-word-list-left-to-the-station-mv0363z0"
+    },
+    {
+      "id": "refuses-a-term-the-list-holds",
+      "passed": true,
+      "why": "",
+      "gap": null,
+      "terminal": "budget_wall_clock",
+      "seconds": 184,
+      "model": null,
+      "conversation": "bench-refuses-a-term-the-list-holds-mv036tic"
+    },
+    {
+      "id": "refuses-a-term-that-takes-plain-series",
+      "passed": true,
+      "why": "",
+      "gap": null,
+      "terminal": "running",
+      "seconds": 361,
+      "model": null,
+      "conversation": "bench-refuses-a-term-that-takes-plain-series-mv03are2"
+    },
+    {
+      "id": "refuses-to-remove-a-working-agent",
+      "passed": true,
+      "why": "",
+      "gap": null,
+      "terminal": "loop_stopped",
+      "seconds": 96,
+      "model": null,
+      "conversation": "bench-refuses-to-remove-a-working-agent-mv03ii46"
+    },
+    {
+      "id": "nothing-to-tune-where-the-word-is-absent",
+      "passed": true,
+      "why": "",
+      "gap": null,
+      "terminal": "loop_stopped",
+      "seconds": 34,
+      "model": null,
+      "conversation": "bench-nothing-to-tune-where-the-word-is-absent-mv03kkhe"
+    },
+    {
+      "id": "no-scope-no-rehearsal",
+      "passed": true,
+      "why": "",
+      "gap": null,
+      "terminal": "loop_stopped",
+      "seconds": 33,
+      "model": null,
+      "conversation": "bench-no-scope-no-rehearsal-mv03lal0"
+    }
+  ]
+}

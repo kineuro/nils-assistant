@@ -15,3 +15,7 @@ The next live run tunes the word list of an axis value rather than a bucket: the
 - `bucket` null and `value` set in the result, `list` naming the same `axis.value`.
 
 A second run over a bucket keeps passing as before, the overlay under `buckets`. The knob registry stays synthetic: a made-up site word in the descriptions of a few stacks.
+
+## The question set (Wave 7a)
+
+`cases.yml`: 11 cases, run by `bench/measure.ts` through `bench/cases.ts` on the registry `bench/seed.ts` builds (`bench/fixtures.ts` says what it holds for this station). Six succeed (the made-up agent `zorvex` into `contrast_positive`, named, left to the station, in the person's words and over the origin; the made-up FLAIR word `darkwater` into `modifier.FLAIR`, named and left to the station), each proposing one overlay with the diff keep; five refuse (a term the list holds, a term that takes plain series, removing a working agent, a batch without the word, no scope) and propose nothing. `test/cases.test.ts` holds the set to its shape and to the seed. Measured live on the local 27B on 2026-10-08 and, after the upgrade to Flue 2.2.2, on 2026-10-09: 7 of 11 both times (bench/results/stations-2026-10-08-qwen38-27b-summary.md and stations-2026-10-09-qwen38-27b-summary.md).
