@@ -153,6 +153,8 @@ const CLARIFICATION = v.object({
   question: v.string(),
   options: v.array(v.object({ label: v.string(), count: v.nullable(v.number()) })),
 });
+/** The words the turn wrote so far are replaced by the answer it writes next: a check sent it back (2026-10-11). */
+const REPLACED = v.object({ kind: v.literal("replaced") });
 
 /** Writers that write nowhere: a sub-agent's render has no client to write to. */
 const SILENT: Writers = { progress: () => {}, approval: () => {}, clarification: () => {}, plan: () => {} };
@@ -425,11 +427,12 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
     const d = delivered as { kind?: unknown; body?: unknown } | null;
     const message = d?.kind === "user" && typeof d.body === "string" ? d.body : turnOf(id).message;
 
-    // the parts the desk reads: declared on every render, the same four
+    // the parts the desk reads: declared on every render, the same five
     const progressW = useDataWriter("progress", { schema: PROGRESS });
     const planW = useDataWriter("plan_update", { schema: PLAN });
     const approvalW = useDataWriter("approval", { schema: APPROVAL });
     const clarificationW = useDataWriter("clarification", { schema: CLARIFICATION });
+    const replacedW = useDataWriter("replaced", { schema: REPLACED });
     const safe = (f: () => void) => {
       try {
         f();
@@ -618,6 +621,9 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
         });
         if (complaints.length) {
           t.nudges += 1;
+          // the answer sent back stays on the stream; the desk hides it once the new one is written, live and on
+          // reload, where the part falls right after the step that wrote it (2026-10-11: the desk showed both)
+          if (answerOf(t)) safe(() => replacedW({ kind: "replaced" }));
           ctx.append({ kind: "signal", type: "check", body: sendBack(complaints) });
           return;
         }
