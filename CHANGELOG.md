@@ -27,6 +27,7 @@ All notable changes to the NILS assistant are recorded here. The format follows 
 - After the runtime summarizes a conversation's earlier turns, the next turn tells the facts again, whole.
 - An analysis card names whom the run covers and its settings, read from the command its approval queues.
 - `/capabilities` lists the one agent under the purpose its calls carry, `assistant.concierge`, and names the runtime versions in use.
+- An answer a check sends back is marked replaced: the turn writes the data part `replaced` (`{kind: "replaced"}`) right after the step whose words it sent back, so the desk shows the answer written after the check alone, live and when the conversation is opened again. A desk showed both answers one after the other.
 
 ## [1.0.0-alpha.27] - 2026-09-25
 

@@ -3,9 +3,10 @@
 // engine. A find turn activates its skill, drafts a question and leaves it
 // offered as a new version; the turn's facts arrive as one message; the
 // tools follow the person's grants; the repeat detector warns and stops; an
-// answer in engine words is sent back once; a question card ends the turn;
-// an analysis is proposed, never run; a dataset the words name is answered
-// from its own counts, never said not to be there, and a follow-up keeps it.
+// answer in engine words is sent back once, and marked replaced where a
+// page reads it; a question card ends the turn; an analysis is proposed,
+// never run; a dataset the words name is answered from its own counts,
+// never said not to be there, and a follow-up keeps it.
 // What is true now (2026-10-09): the jobs are read in every state, newest
 // first, the queue's own rows left out, and a question about them is no
 // question of the data; a dataset the words name comes with which of its
@@ -21,6 +22,7 @@ import { DatabaseSync } from "node:sqlite";
 import { type Context, getCurrentTools } from "@earendil-works/pi-ai";
 import { init } from "@flue/runtime";
 import { sqlite, start } from "@flue/runtime/node";
+import { createAgentRouter } from "@flue/runtime/routing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const dir = mkdtempSync(join(tmpdir(), "one-agent-"));
@@ -272,6 +274,12 @@ function recorded(id: string): string {
   return rows.map((r) => r.data).join("\n");
 }
 
+/** The conversation as a page reads it when it opens it: one message per answer, its steps' parts in order. */
+type History = { messages: { role: string; parts: { type: string; text?: string }[] }[] };
+async function history(id: string): Promise<History> {
+  return (await (await createAgentRouter(Nils).request(`/${id}?view=history`)).json()) as History;
+}
+
 const text = (c: Context): string => JSON.stringify(c.messages);
 /** The tools the request carried: pi puts them on the transcript's system message, an older context on `tools`. */
 const toolNames = (c: Context): string[] =>
@@ -519,6 +527,23 @@ describe("the one agent", () => {
       /Before you finish: the answer uses words a person should not need: station/u,
     );
     expect(reply.text).toMatch(/Cohort B has 24 subjects/u);
+    // the answer sent back is marked replaced, and a reload finds the mark right after its words (2026-10-11)
+    expect(recorded("oc-plain")).toMatch(/"kind":"replaced"/u);
+    const answer = (await history("oc-plain")).messages.filter((m) => m.role === "assistant");
+    expect(answer).toHaveLength(1);
+    expect(answer[0].parts.filter((p) => p.type === "text" || p.type === "data-replaced")).toEqual([
+      expect.objectContaining({ type: "text", text: "The ask-help station counted 24 subjects." }),
+      { type: "data-replaced", data: { kind: "replaced" } },
+      expect.objectContaining({ type: "text", text: "Cohort B has 24 subjects." }),
+    ]);
+  }, 60_000);
+
+  it("marks nothing replaced where the turn settles at once", async () => {
+    play([{ text: "Cohort B has 24 subjects." }]);
+    const h = init(Nils, { id: "oc-plain-once" });
+    await h.read(await h.dispatch("Which cohorts are there?"));
+    expect(calls).toBe(1);
+    expect(recorded("oc-plain-once")).not.toMatch(/"kind":"replaced"/u);
   }, 60_000);
 
   it("ends the turn with a question card", async () => {
