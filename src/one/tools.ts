@@ -232,7 +232,16 @@ const registrySummary: OneTool = {
   },
 };
 
-/** The names of the registry that hold any of the words: fields, sorting values, kinds, cohorts, datasets, derived fields. */
+/** The words that ask for the main scans NILS picked. */
+const MAIN_SCAN_WORDS = new Set(["main", "picked", "pick", "picks", "primary", "role", "roles"]);
+
+/** How the main scans are asked, with the roles the catalog lists. */
+export function mainScansLine(roles: readonly string[] | undefined): string {
+  const rs = roles?.length ? roles : ["t1w", "flair", "t2w"];
+  return `operator picked: the main scans, a visit's main ${rs.join(", ")} as the Main scans page shows them: a stack set with where: [["picked", {role: ${rs[0]}}]], one role per clause (roles: ${rs.join(", ")}); never the pick: clause, which only orders rows`;
+}
+
+/** The names of the registry that hold any of the words: fields, sorting values, kinds, cohorts, datasets, derived fields, and the main scans. */
 export function searchCatalog(
   cat: ReturnType<typeof catalogOf>,
   words: string,
@@ -244,6 +253,9 @@ export function searchCatalog(
     .filter((w) => w.length >= 2);
   const hit = (s: string) => ws.some((w) => s.toLowerCase().includes(w));
   const out: string[] = [];
+  // the main scans are a condition on a stack, never the pick clause: the chat
+  // once drafted `pick: {model: main}` eight times (2026-10-11)
+  if (ws.some((w) => MAIN_SCAN_WORDS.has(w) || /^main[-_]/u.test(w))) out.push(mainScansLine(cat?.roles));
   for (const l of cat?.levels ?? [])
     for (const f of l.fields) if (hit(f.path)) out.push(`field ${f.path} of ${l.level} (${f.type})`);
   for (const a of cat?.axes ?? [])
@@ -286,7 +298,7 @@ async function datasetsFor(ctx: ToolCtx): Promise<DatasetFact[]> {
 const registrySearch: OneTool = {
   name: "registry_search",
   description:
-    "Find the registry's own names for the person's words: fields, sorting values of scans (base, technique, modifier and the others), event kinds, cohorts, datasets (with their counts), derived fields, disease courses. Give `words`. With `level` and `field` instead, a sample of what one field holds (at most 20 values).",
+    "Find the registry's own names for the person's words: fields, sorting values of scans (base, technique, modifier and the others), event kinds, cohorts, datasets (with their counts), derived fields, disease courses, and how to ask for the main scans NILS picked. Give `words`. With `level` and `field` instead, a sample of what one field holds (at most 20 values).",
   input: v.object({
     words: v.optional(v.string()),
     level: v.optional(v.string()),

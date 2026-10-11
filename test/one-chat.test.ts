@@ -62,8 +62,12 @@ describe("the one-chat corpus", () => {
     expect(found.length).toBeGreaterThanOrEqual(5);
     for (const c of found) {
       expect(c.registry).toBe("gold");
-      expect(golds[c.turns[0].expect?.gold ?? ""]?.content_hash, c.id).toMatch(/^[0-9a-f]{64}$/u);
+      const e = c.turns[0].expect;
+      // a question of what the gold registry does not hold (the main scans: it has no picks) is graded on its clause
+      if (!e?.gold && e?.query?.length) continue;
+      expect(golds[e?.gold ?? ""]?.content_hash, c.id).toMatch(/^[0-9a-f]{64}$/u);
     }
+    expect(found.filter((c) => !c.turns[0].expect?.gold).map((c) => c.id)).toEqual(["find-main-scans"]);
     for (const c of conversations.filter((c) =>
       ["plan", "analysis", "run", "tune", "identity", "injection", "jobs", "unknown"].includes(c.kind),
     ))

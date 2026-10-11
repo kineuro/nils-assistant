@@ -371,6 +371,25 @@ describe("searching the registry's names", () => {
       ]),
     );
   });
+
+  it("answers the main scans with the picked operator, first, and never the pick clause (2026-10-11)", () => {
+    const cat = {
+      levels: [{ level: "session", fields: [{ path: "has_primary", type: "bool", class: "plain" }] }],
+      roles: ["t1w", "flair", "t2w"],
+      pick_models: ["main"],
+    };
+    // the words the chat searched with when it drafted pick: {model: main} eight times
+    const found = searchCatalog(cat as never, "main pick model primary scans roles");
+    expect(found[0]).toMatch(/^operator picked: the main scans/u);
+    expect(found[0]).toContain('where: [["picked", {role: t1w}]]');
+    expect(found[0]).toContain("roles: t1w, flair, t2w");
+    for (const words of ["main scans", "main-scan", "picked", "primary", "roles"])
+      expect(searchCatalog(cat as never, words)[0], words).toMatch(/^operator picked/u);
+    // a question of the sorting alone is not answered with the main scans
+    expect(searchCatalog(cat as never, "flair mprage").some((l) => l.startsWith("operator picked"))).toBe(
+      false,
+    );
+  });
 });
 
 describe("a proposed change, decided by the person", () => {

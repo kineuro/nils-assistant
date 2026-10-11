@@ -15,6 +15,7 @@ answers:
   "run-clean-mriqc#1": "All units succeeded and no result needs a second look."
   "none-als-analysis#1": "There is no ALS cohort in the registry, so there is nothing to measure yet."
   "none-als-count#1": "There is no ALS cohort in the registry."
+  "find-main-scans#1": "NILS has picked 5 main T1w scans, 4 main FLAIR scans and 5 main T2w scans."
   "summary-dataset#1": "ds-clean holds 8 scans from 4 subjects over 8 visits, all of them sure."
   "summary-dataset#2": "ds-clean holds 2 T1 scans its headers mark as given contrast; there may be more until post-contrast runs on it."
   "unknown-post-contrast#1": "None of the 6 T1 scans in ds-sorted is marked in its headers as given contrast, and post-contrast has not run on it yet, so whether any of them was given contrast is not known."
@@ -75,3 +76,20 @@ queries:
           - ["=", {}, ["axis", {}, "base"], "T1w"]
           - ["=", {}, ["axis", {}, "post_contrast"], "given"]
     out: {set: t1c, level: count}
+  "find-main-scans#1":
+    ast_version: 1
+    name: main scans per role
+    scheme: default
+    sets:
+      t1w:   {grain: stack, where: [["picked", {role: t1w}]]}
+      flair: {grain: stack, where: [["picked", {role: flair}]]}
+      t2w:   {grain: stack, where: [["picked", {role: t2w}]]}
+      main:  {grain: stack, algebra: {op: union, sets: [t1w, flair, t2w], tag: role}}
+      per_role:
+        grain: group
+        group: {of: main, by: [["field", {}, "role"]]}
+        bind: {n_scans: ["count", {set: main}]}
+    out:
+      set: per_role
+      level: aggregate
+      columns: [["field", {}, "role"], ["field", {}, "n_scans"], ["field", {}, "_subjects"]]
