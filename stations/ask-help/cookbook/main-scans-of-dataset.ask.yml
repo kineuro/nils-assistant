@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: List the main scans of study-a per visit: for each subject and visit, its picked T1w, FLAIR and T2w, with the role, the stack id and the series description.
+# synthetic: written for the cookbook, not a gold of the bench
+ast_version: 1
+name: main scans of a dataset per visit
+scheme: default
+sets:
+  main:
+    grain: stack
+    where:
+      - ["=", {}, ["field", {}, "dataset"], "study-a"]
+      - ["or", {}, ["picked", {role: t1w}], ["picked", {role: flair}], ["picked", {role: t2w}]]
+    bind:
+      role: ["case", {}, ["picked", {role: t1w}], "t1w", ["case", {}, ["picked", {role: flair}], "flair", "t2w"]]
+keep: [main]
+out:
+  set: main
+  level: record
+  columns:
+    - ["field", {}, "subject.code"]
+    - ["field", {}, "session.first"]
+    - ["field", {}, "role"]
+    - ["field", {}, "id"]
+    - ["field", {}, "text_series_description"]
+  order: [[["field", {}, "subject.code"], asc], [["field", {}, "session.first"], asc], [["field", {}, "role"], asc]]

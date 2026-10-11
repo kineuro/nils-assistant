@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: What are the main scans of our data? How many main scans (the picked T1w, FLAIR and T2w) are there of each role, and in how many subjects?
+# synthetic: written for the cookbook, not a gold of the bench
+ast_version: 1
+name: main scans per role
+scheme: default
+sets:
+  t1w:   {grain: stack, where: [["picked", {role: t1w}]]}
+  flair: {grain: stack, where: [["picked", {role: flair}]]}
+  t2w:   {grain: stack, where: [["picked", {role: t2w}]]}
+  main:  {grain: stack, algebra: {op: union, sets: [t1w, flair, t2w], tag: role}}
+  per_role:
+    grain: group
+    group: {of: main, by: [["field", {}, "role"]]}
+    bind: {n_scans: ["count", {set: main}]}
+out:
+  set: per_role
+  level: aggregate
+  columns: [["field", {}, "role"], ["field", {}, "n_scans"], ["field", {}, "_subjects"]]
+  order: [[["field", {}, "role"], asc]]

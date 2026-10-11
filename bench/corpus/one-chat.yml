@@ -159,6 +159,27 @@ conversations:
       - say: Which subjects have ever had an EDSS of 6 or more?
         expect: {skill: find-data, gold: edss-six-or-more.ask.yml}
 
+  # --- the main scans: a visit's main T1w, FLAIR and T2w, as the Main scans
+  #     page shows them, are the stacks the operator picked holds, a
+  #     condition on a stack. The chat once took them for the pick clause and
+  #     drafted pick: {model: main}, scheme: main and a role inside pick eight
+  #     times, every draft refused, and answered with no count (2026-10-11).
+  #     The gold registry has no picks, so the answer may be none: the
+  #     question is graded on its clause.
+  - id: find-main-scans
+    kind: find
+    registry: gold
+    from: the question of 2026-10-11
+    turns:
+      - say: What are the main scans of our data?
+        expect:
+          skill: find-data
+          proposal: false
+          query:
+            - {match: "\\[\"picked\",\\{\"role\":\"(t1w|flair|t2w)\"\\}\\]"}
+            - {not: {match: "\"pick\":"}}
+          says: [{match: "\\b(\\d+|no|none)\\b"}]
+
   # --- refinements of one document, turn by turn
   - id: refine-mprage-1mm
     kind: refine
