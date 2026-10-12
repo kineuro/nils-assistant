@@ -1078,6 +1078,52 @@ describe("what is true since the ruling on aggregates (record 55 K7, round 4): a
         "The mean age at the first scan is 40.8 years, with a standard deviation of 4.8 years over 38 subjects.",
       ),
     ).toBe(true);
+    // round 4's final run, right and in five sentences
+    expect(
+      passes(
+        "table-shapes-refusal",
+        "In ms-cohort-a, the 38 subjects were on average 40.8 years old at their first scan, with a standard deviation of 4.8 years. I counted one age per subject, at the first visit. Question 142 holds it, and its card offers it as a CSV. At your detail the registry gives age only as a group's mean or spread, so there is no age-band breakdown; an admin can widen that access. I can split it by disease course for the groups large enough to report.",
+      ),
+    ).toBe(true);
+  });
+
+  it("passes a run that stopped before its first unit said in other words, and misses no unit failed (round 4)", () => {
+    const c = conversations.find((x) => x.id === "run-converter-missing");
+    if (!c) throw new Error("no conversation run-converter-missing");
+    const read = (text: string) =>
+      gradeTurn(
+        c.turns[0],
+        {
+          events: [
+            { kind: "tool_start", id: "c0", name: "activate_skill", args: { name: "read-run" } },
+            {
+              kind: "tool",
+              id: "c0",
+              name: "activate_skill",
+              isError: false,
+              result: { content: [], details: {} },
+              error: null,
+            },
+            { kind: "text", text },
+            { kind: "settled", submission: "s", outcome: "completed" },
+          ],
+          ledger: [],
+          ledgerBefore: 0,
+          seconds: 3,
+        },
+        lexicon,
+        "skill",
+      ).passed;
+    expect(
+      read(
+        "Run 4 (n4-bias-correction) failed before it started: not a single unit was tried. The engine could not run dcm2niix; an admin installs it with nils tools install dcm2niix.",
+      ),
+    ).toBe(true);
+    expect(
+      read(
+        "Run 4 finished with 0 of 0 units done, so no unit failed; dcm2niix was missing, which an admin installs.",
+      ),
+    ).toBe(false);
   });
 
   it("passes the youngest and oldest refused beside the cohort's mean, which plain now shows", () => {
