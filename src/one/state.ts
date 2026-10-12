@@ -8,6 +8,7 @@
 // rehearsed, the identity probes). Held in the process like the stations'
 // own readings; a restart forgets them, and the next turn reads again.
 
+import type { HeldBack } from "../seam/shaped.ts";
 import type { HeldShape, ProbeCandidate } from "../stations/identity-check.ts";
 import type { Prediction } from "../stations/keyword-tune.ts";
 import { initialState, Machine } from "../stations/machine.ts";
@@ -61,6 +62,11 @@ export interface TurnState {
    * the answer may state no value of them, and says their detail does not show them.
    */
   shaped: string[];
+  /**
+   * The columns the last answer the turn read held values back in (record 55 K7, the ruling on aggregates of
+   * 2026-10-12): the answer says which and why, and states no value of them.
+   */
+  heldBack: HeldBack[];
 }
 
 export interface Rehearsal {
@@ -118,6 +124,7 @@ export function newTurn(conversation: string, message: string, now = Date.now())
     datasets: [],
     outputs: { charts: [], files: [], seen: new Map() },
     shaped: [],
+    heldBack: [],
   };
   turns.set(conversation, t);
   return t;

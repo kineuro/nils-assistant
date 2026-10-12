@@ -25,12 +25,16 @@ process.env.ASSISTANT_LADDER = join(dir, "ladder.sqlite");
 const { stubEngine } = await import("./child/stub-engine.ts");
 const { probeEngineAuth, registerStation } = await import("../src/seam/for.ts");
 const { loadManifests } = await import("../src/stations/manifest.ts");
-const { shapedLine, shapedOf, withShapedLine } = await import("../src/seam/shaped.ts");
+const { heldBackLine, heldBackOf, shapedLine, shapedOf, withShapedLine } = await import(
+  "../src/seam/shaped.ts"
+);
 const { askHelpTools, compactPreview } = await import("../src/stations/ask-help.ts");
 const { conciergeTools } = await import("../src/stations/concierge.ts");
 const { TOOLS } = await import("../src/one/tools.ts");
 const { conversationOf, newTurn, turnOf } = await import("../src/one/state.ts");
-const { columnWords, complaintsOf, shapedComplaint, valueGiven } = await import("../src/one/checks.ts");
+const { columnWords, complaintsOf, heldBackComplaint, shapedComplaint, valueGiven } = await import(
+  "../src/one/checks.ts"
+);
 
 /** The bench's question at detail plain: a group's youngest and oldest age at the first scan, answered as shapes. */
 const AGES = {
@@ -42,6 +46,23 @@ const AGES = {
 };
 const LINE =
   "These columns came back as shapes at your detail: youngest, oldest; their values are not known to you.";
+/**
+ * A plain reader's mean age at the first scan per dataset (record 55 K7, the ruling on aggregates): a group of 5
+ * subjects or more is answered, one of fewer is null and named in `held_back`.
+ */
+const MEANS = {
+  level: "aggregate",
+  columns: ["dataset", "mean_age", "_subjects"],
+  rows: [
+    ["ds-a", 41.5, 12],
+    ["ds-b", null, 3],
+  ],
+  truncated: false,
+  shaped: [],
+  held_back: [{ column: "mean_age", why: "a group under 5 subjects" }],
+};
+const HELD =
+  "Some values of these columns were held back at your detail and are null in the rows: mean_age (a group under 5 subjects). Never state, compute or guess a held-back value; say which values were held back and why.";
 /** A page of a handle's rows: the codes come as shapes, marked on the column and named in `shaped`. */
 const PAGE = {
   handle: 31,
@@ -69,7 +90,9 @@ const engine = await stubEngine((c) => {
     // question 22 comes from an engine that names no shapes, as one before 2026-10-12 answers
     return body.document_id === 22
       ? { body: { level: "record", columns: ["code"], rows: [["aaa9"]], truncated: false } }
-      : { body: AGES };
+      : body.document_id === 23
+        ? { body: MEANS }
+        : { body: AGES };
   if (p === "/api/ask/handles/31/rows") return { body: PAGE };
   if (p === "/api/ask/handles/31") return { body: { id: 31, grain: "subject", truncated: false, ...PAGE } };
   if (p === "/api/jobs/41")
@@ -327,5 +350,53 @@ describe("the check before a turn settles", () => {
       "Your account's detail does not show ages, so I cannot give the youngest or the oldest; an admin can give that access.",
     );
     expect(await complaintsOf(check)).toEqual([]);
+  });
+});
+
+describe("the values an answer held back (record 55 K7, the ruling on aggregates of 2026-10-12)", () => {
+  it("are its list and its columns' marks, once each, and nothing where it names neither", () => {
+    expect(heldBackOf(MEANS)).toEqual([{ column: "mean_age", why: "a group under 5 subjects" }]);
+    expect(
+      heldBackOf({
+        columns: [{ name: "mean_age", held_back: "a group under 5 subjects" }, { name: "n" }],
+        held_back: [{ column: "mean_age", why: "a group under 5 subjects" }],
+      }),
+    ).toEqual([{ column: "mean_age", why: "a group under 5 subjects" }]);
+    expect(heldBackOf({ held_back: [] })).toEqual([]);
+    expect(heldBackOf(AGES)).toBeNull();
+    expect(heldBackLine([])).toBeNull();
+    expect(heldBackLine([{ column: "mean_age", why: "a group under 5 subjects" }])).toBe(HELD);
+    expect(withShapedLine({ document: 23 }, MEANS)).toEqual({ document: 23, held_back: HELD });
+  });
+
+  it("reach the model as one plain line beside the rows, and the turn keeps them", async () => {
+    const r = await call("query_read_rows", { document: 23 }, "h-doc");
+    expect(r.output.held_back).toBe(HELD);
+    expect(r.output.shaped).toBeUndefined();
+    expect(turnOf("h-doc").heldBack).toEqual([{ column: "mean_age", why: "a group under 5 subjects" }]);
+  });
+
+  it("are said, with why, before a turn settles: never invented", async () => {
+    const held = [{ column: "mean_age", why: "a group under 5 subjects" }];
+    for (const right of [
+      "The mean age at the first scan is 41.5 in ds-a; ds-b's was held back, since it has fewer than 5 subjects.",
+      "ds-a: 41.5 years on average. The value for ds-b is not shown at your detail: the group is too small (under five subjects).",
+    ])
+      expect(heldBackComplaint(right, held), right).toBeNull();
+    for (const wrong of [
+      "The mean age at the first scan is 41.5 in ds-a and about 38 in ds-b.",
+      "The mean age at the first scan is 41.5 in ds-a; ds-b has no value.",
+      "ds-b's mean was held back.",
+    ])
+      expect(heldBackComplaint(wrong, held), wrong).toMatch(
+        /^some values of mean_age were held back at this person's detail \(a group under 5 subjects\)/u,
+      );
+    expect(heldBackComplaint("Cohort A has 24 subjects.", [])).toBeNull();
+    const id = "chk-held";
+    const turn = newTurn(id, "What is the mean age at the first scan per dataset?");
+    turn.heldBack = held;
+    turn.texts.push("The mean age is 41.5 in ds-a and 38 in ds-b.");
+    const check = { turn, convo: conversationOf(id), conversation: id, validate: null };
+    expect((await complaintsOf(check)).join("; ")).toMatch(/some values of mean_age were held back/u);
   });
 });

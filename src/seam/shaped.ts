@@ -34,12 +34,51 @@ export function shapedLine(columns: readonly string[]): string | null {
     : null;
 }
 
+/** A column of an answer with values held back, and why (record 55 K7, the ruling on aggregates of 2026-10-12). */
+export interface HeldBack {
+  column: string;
+  why: string;
+}
+
 /**
- * A tool's answer with that line as its `shaped`, in place of the engine's list of names, which the line holds;
- * unchanged when the answer holds nothing as shapes or is not an object.
+ * The columns an engine answer names with values held back, in order and once each: its `held_back` list
+ * ([{column, why}]) and its columns marked `held_back: <why>`. At detail plain a group's mean, spread or count of
+ * distinct values of a quasi identifying field (an age) is null where the group holds fewer than 5 subjects with a
+ * value. Null when the answer names neither, as an engine from before then answers.
+ */
+export function heldBackOf(body: unknown): HeldBack[] | null {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return null;
+  const b = body as { held_back?: unknown; columns?: unknown };
+  const out = new Map<string, string>();
+  const listed = Array.isArray(b.held_back);
+  for (const h of listed ? (b.held_back as unknown[]) : []) {
+    const x = (h ?? {}) as { column?: unknown; why?: unknown };
+    if (typeof x.column === "string" && !out.has(x.column))
+      out.set(x.column, typeof x.why === "string" && x.why.trim() ? x.why.trim() : "held back");
+  }
+  for (const c of Array.isArray(b.columns) ? b.columns : []) {
+    const col = (c ?? {}) as { name?: unknown; held_back?: unknown };
+    if (typeof col.name === "string" && typeof col.held_back === "string" && !out.has(col.name))
+      out.set(col.name, col.held_back);
+  }
+  if (!listed && out.size === 0) return null;
+  return [...out].map(([column, why]) => ({ column, why }));
+}
+
+/** The one plain line a model reads of the values an answer held back; null when there are none. */
+export function heldBackLine(held: readonly HeldBack[]): string | null {
+  return held.length
+    ? `Some values of these columns were held back at your detail and are null in the rows: ${held.map((h) => `${h.column} (${h.why})`).join(", ")}. Never state, compute or guess a held-back value; say which values were held back and why.`
+    : null;
+}
+
+/**
+ * A tool's answer with those lines as its `shaped` and `held_back`, in place of the engine's lists, which the lines
+ * hold; unchanged when the answer holds nothing as shapes or held back, or is not an object.
  */
 export function withShapedLine(output: JsonValue, body: unknown): JsonValue {
   const line = shapedLine(shapedOf(body) ?? []);
-  if (!line || !output || typeof output !== "object" || Array.isArray(output)) return output;
-  return { ...output, shaped: line };
+  const held = heldBackLine(heldBackOf(body) ?? []);
+  if ((!line && !held) || !output || typeof output !== "object" || Array.isArray(output)) return output;
+  return { ...output, ...(line ? { shaped: line } : {}), ...(held ? { held_back: held } : {}) };
 }

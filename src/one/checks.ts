@@ -7,6 +7,7 @@
 
 import { VERBS } from "../host/ladder.ts";
 import type { Seam } from "../seam/client.ts";
+import type { HeldBack } from "../seam/shaped.ts";
 import { heldReading, shapeCounts } from "../stations/identity-check.ts";
 import { ladderStore } from "../stations/operator.ts";
 import { saysNotThere } from "./datasets.ts";
@@ -82,6 +83,26 @@ export function shapedComplaint(answer: string, shaped: readonly string[]): stri
   return `${these} ${shaped.join(", ")} came back as shapes at this person's detail, so no value of ${it} is known${given === null ? "" : ` (the answer gives ${given})`}: never state or guess one; say plainly that their detail does not show ${it}, and that an admin can give that access`;
 }
 
+/** Words that say a value was held back. */
+const HELD_SAID =
+  /\b(?:held back|withheld|withhold|not (?:shown|given|reported|available)|(?:is|are|was|were) hidden|suppressed|left out|left blank|blank|null|not disclosed)\b/iu;
+/** Why: the group is too small. */
+const HELD_WHY = /\b(?:5|five)\b|\btoo (?:few|small)\b|\bsmall(?:er)? (?:group|number)s?\b|\bfewer\b/iu;
+
+/**
+ * What is wrong with an answer about columns whose values were held back at the person's detail (record 55 K7, the
+ * ruling on aggregates of 2026-10-12): a group's mean, spread or count of distinct values of an age is null where
+ * the group holds fewer than 5 subjects. The answer says which values were held back and why, as it says what came
+ * back as shapes; null when it does. That it states no held value is the rules' and the tool's line: the column's
+ * other groups have values it may give.
+ */
+export function heldBackComplaint(answer: string, held: readonly HeldBack[]): string | null {
+  if (held.length === 0 || answer.trim() === "") return null;
+  if (HELD_SAID.test(answer) && HELD_WHY.test(answer)) return null;
+  const whys = [...new Set(held.map((h) => h.why))].join("; ");
+  return `some values of ${held.map((h) => h.column).join(", ")} were held back at this person's detail (${whys}) and are not known: say which values were held back and why, and never state or guess them`;
+}
+
 export interface CheckContext {
   turn: TurnState;
   convo: ConversationState;
@@ -129,6 +150,9 @@ export async function complaintsOf(c: CheckContext): Promise<string[]> {
   // a column that came back as shapes has no value the chat knows (record 55 K7, 2026-10-12)
   const shaped = shapedComplaint(answer, c.turn.shaped);
   if (shaped) out.push(shaped);
+  // a value held back below detail quasi, a group under 5 subjects (record 55 K7, the ruling on aggregates)
+  const held = heldBackComplaint(answer, c.turn.heldBack ?? []);
+  if (held) out.push(held);
   // a dataset the words name and the facts list is there: the chat once said it was not (2026-10-09)
   if (c.turn.datasets.length && saysNotThere(answer, c.turn.datasets))
     out.push(
