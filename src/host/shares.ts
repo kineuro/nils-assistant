@@ -104,6 +104,55 @@ interface HistoryMessage {
   parts?: HistoryPart[];
 }
 
+const kindOf = (p: HistoryPart): unknown =>
+  p.type.startsWith("data-") ? (p.data as { kind?: unknown } | undefined)?.kind : undefined;
+
+/** The words of an answer's text parts, each step's a paragraph apart, with any reasoning a model left inline read out. */
+function wordsOf(parts: readonly HistoryPart[], assistant: boolean): string {
+  return parts
+    .filter((p) => p.type === "text")
+    .map((p) => (assistant ? splitReasoning(p.text ?? "").text : (p.text ?? "")))
+    .reduce(joinSteps, "");
+}
+
+/**
+ * An answer's words as the person read them (2026-10-12): where a check sent the turn back, the words before its
+ * `replaced` mark gave way to the answer written after it, so they are left out once that answer has words of its
+ * own, as the desk leaves them out. An export once held both, the draft and its replacement, one after the other.
+ */
+export function answerWords(parts: readonly HistoryPart[]): string {
+  const mark = parts.findLastIndex((p) => kindOf(p) === "replaced");
+  const after = mark < 0 ? "" : wordsOf(parts.slice(mark + 1), true);
+  return after.trim() ? after : wordsOf(parts, true);
+}
+
+/**
+ * The question a turn asked the person, as words (2026-10-12): the question, then its choices, each with how many
+ * it would give where that was said. A turn that ended with a question has no words of its own, and an export once
+ * showed it as its steps and nothing else.
+ */
+export function askedWords(parts: readonly HistoryPart[]): string {
+  const asked = parts
+    .flatMap((p) => {
+      const kind = kindOf(p);
+      const d = p.data as { question?: unknown; options?: unknown } | undefined;
+      return (kind === "clarification" || kind === "choice") &&
+        typeof d?.question === "string" &&
+        d.question.trim()
+        ? [d]
+        : [];
+    })
+    .at(-1);
+  if (!asked) return "";
+  const options = (Array.isArray(asked.options) ? asked.options : []).flatMap((o) => {
+    const x = o as { label?: unknown; count?: unknown } | null;
+    return typeof x?.label === "string" && x.label.trim()
+      ? [`- ${x.label.trim()}${typeof x.count === "number" ? ` (${x.count.toLocaleString("en-US")})` : ""}`]
+      : [];
+  });
+  return [String(asked.question).trim(), ...(options.length ? [options.join("\n")] : [])].join("\n\n");
+}
+
 /** The snapshot of a conversation's history: what was said, the steps by name, and the proposals with their decisions. */
 export function snapshotOf(
   history: { messages?: HistoryMessage[] },
@@ -125,11 +174,11 @@ export function snapshotOf(
       if (m.role === "assistant") continue;
     }
     const parts = m.parts ?? [];
-    // each step's words a paragraph apart, with any reasoning a model left inline read out (the chat, slice 9)
-    const text = parts
-      .filter((p) => p.type === "text")
-      .map((p) => (m.role === "assistant" ? splitReasoning(p.text ?? "").text : (p.text ?? "")))
-      .reduce(joinSteps, "");
+    // each step's words a paragraph apart, with any reasoning a model left inline read out (the chat, slice 9); an
+    // answer a check sent back is left out once its replacement has words, and a question the turn asked is words
+    // of its own (2026-10-12)
+    const text =
+      m.role === "assistant" ? joinSteps(answerWords(parts), askedWords(parts)) : wordsOf(parts, false);
     const steps =
       m.role === "assistant"
         ? parts.flatMap((p) =>
@@ -138,24 +187,38 @@ export function snapshotOf(
               : [],
           )
         : [];
-    const proposals = parts.flatMap((p) => {
+    const listed = parts.flatMap((p) => {
       const d = p.data as
-        | { kind?: unknown; document?: unknown; parent?: unknown; sentence?: unknown }
+        | {
+            kind?: unknown;
+            change?: unknown;
+            document?: unknown;
+            parent?: unknown;
+            sentence?: unknown;
+            ref?: { document?: unknown; parent?: unknown };
+          }
         | undefined;
-      return p.type.startsWith("data-") &&
-        d?.kind === "move_proposal" &&
-        typeof d.document === "number" &&
-        typeof d.sentence === "string"
+      if (!p.type.startsWith("data-") || typeof d?.sentence !== "string") return [];
+      // a station's version of the question, or the one chat's card for one (2026-10-12: the export left those out)
+      const [document, parent] =
+        d.kind === "move_proposal"
+          ? [d.document, d.parent]
+          : d.kind === "approval" && d.change === "query_version"
+            ? [d.ref?.document, d.ref?.parent]
+            : [undefined, undefined];
+      return typeof document === "number"
         ? [
             {
-              document: d.document,
-              parent: typeof d.parent === "number" ? d.parent : null,
+              document,
+              parent: typeof parent === "number" ? parent : null,
               sentence: d.sentence,
-              decided: decided.get(d.document) ?? null,
+              decided: decided.get(document) ?? null,
             },
           ]
         : [];
     });
+    // one card per question, as the desk shows it
+    const proposals = listed.filter((x, i) => listed.findIndex((y) => y.document === x.document) === i);
     // a turn that wrote no words answered with the sentence it settled on, unless its proposals already say it (the chat, slice 7)
     const settled = parts
       .flatMap((p) => {
