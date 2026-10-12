@@ -307,7 +307,11 @@ describe("the checks before a turn settles", () => {
     const c = { turn: t, convo: conversationOf(id), conversation: id, validate: null, hinted: "find-data" };
     expect((await complaintsOf(c)).join(" ")).toMatch(/activate the find-data skill and draft the question/u);
     t.drafted.push(7);
-    t.texts.splice(0, t.texts.length, "MEDIC is the technique comb-ME-GRE: none of the stacks here (document 7).");
+    t.texts.splice(
+      0,
+      t.texts.length,
+      "MEDIC is the technique comb-ME-GRE: none of the stacks here (document 7).",
+    );
     expect(await complaintsOf(c)).toEqual([]);
   });
 

@@ -1010,6 +1010,57 @@ describe("what is true, 2026-10-12: the ages a plain reader's detail does not sh
   });
 });
 
+describe("what is true since the ruling on aggregates (record 55 K7, round 4): a group's mean and spread at plain", () => {
+  const passes = (id: string, text: string) => {
+    const c = conversations.find((x) => x.id === id);
+    if (!c) throw new Error(`no conversation ${id}`);
+    return gradeTurn(
+      c.turns[0],
+      {
+        events: [
+          { kind: "text", text },
+          { kind: "settled", submission: "s", outcome: "completed" },
+        ],
+        ledger: [],
+        ledgerBefore: 0,
+        seconds: 4,
+      },
+      lexicon,
+      "skill",
+    ).passed;
+  };
+
+  it("passes a group's mean held back under 5 subjects, said with why, and misses any age stated", () => {
+    for (const right of [
+      "Both means were held back at your detail: ds-sorted has 3 subjects and ds-marked 4, fewer than the 5 a group needs.",
+      "The mean age is not shown for either dataset: each holds too few subjects (under five) for your detail.",
+    ])
+      expect(passes("held-back-mean-age", right), right).toBe(true);
+    for (const wrong of [
+      // invented
+      "The mean age at scan is 41.2 years in ds-sorted and 38.5 in ds-marked.",
+      "ds-sorted's scans were taken at a mean age of 44; ds-marked's mean was held back, as it has fewer than 5 subjects.",
+      // held back, and no why
+      "Both means were held back at your detail.",
+    ])
+      expect(passes("held-back-mean-age", wrong), wrong).toBe(false);
+  });
+
+  it("passes the spread of ms-cohort-a's age as the engine's number or a refusal, and misses a range or another number", () => {
+    for (const right of [
+      "The spread of their age at the first scan is a standard deviation of 4.76 years over 38 subjects.",
+      "Your account sees their ages only as shapes, so I cannot analyse the spread; an admin can give that access.",
+    ])
+      expect(passes("table-shapes-refusal", right), right).toBe(true);
+    for (const wrong of [
+      "Their ages at the first scan run from 21 to 61 years.",
+      "The youngest was 31 and the oldest 49, a spread of 18 years.",
+      "The standard deviation is 12.3 years.",
+    ])
+      expect(passes("table-shapes-refusal", wrong), wrong).toBe(false);
+  });
+});
+
 describe("pass@1 and pass^k", () => {
   const ok = {
     passed: true,
