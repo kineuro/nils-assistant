@@ -199,6 +199,24 @@ const engine = await stubEngine((c) => {
         shaped: ["youngest", "oldest"],
       },
     };
+  // a group's spread of the age, a measure the preview leaves out and a run computes (round 4)
+  if (p === "/api/ask/draft" && JSON.stringify(c.body).includes("stddev"))
+    return { body: { document: 815, hash: "h", diagnosis: [{ set: "first", rows: 38 }] } };
+  if (p === "/api/ask/preview" && (c.body as { document_id?: number } | null)?.document_id === 815)
+    return {
+      body: { level: "aggregate", columns: ["mean_age", "_subjects"], rows: [[40.76, 38]], truncated: false },
+    };
+  if (p === "/api/ask/run" && (c.body as { document_id?: number } | null)?.document_id === 815)
+    return {
+      body: {
+        handle: 815,
+        columns: ["_key", "mean_age", "_subjects", "stddev.age"],
+        rows: [[1, 40.76, 38, 4.76]],
+        truncated: false,
+        shaped: [],
+        held_back: [],
+      },
+    };
   if (p === "/api/ask/draft")
     return { body: { document: 812, hash: "h", diagnosis: [{ set: "people", rows: 24 }] } };
   if (p === "/api/ask/preview") return { body: { level: "count", columns: ["n_subjects"], rows: [[24]] } };
@@ -401,6 +419,26 @@ describe("the one agent", () => {
         .rows("oc-find")
         .map((r) => r.operation),
     ).toEqual(expect.arrayContaining(["draft", "preview", "validate"]));
+  }, 60_000);
+
+  it("reads a measure the question declares from a run, which the preview leaves out (round 4, 2026-10-12)", async () => {
+    play([
+      {
+        tool: "query_draft",
+        args: {
+          text: "ast_version: 1\nname: spread\nout:\n  set: whole\n  measures:\n    - {stddev: {of: age}}\n",
+        },
+      },
+      { text: "The mean age is 40.8 years, with a standard deviation of 4.8 years (document 815)." },
+    ]);
+    const h = init(Nils, { id: "oc-measure" });
+    await h.read(await h.dispatch("What is the spread of the age at the first scan in ms-cohort-a?"));
+    const out = lastResult(seen[1]);
+    expect(out.document).toBe(815);
+    expect((out.measures as { registry_data: unknown }).registry_data).toEqual({
+      columns: ["stddev.age"],
+      rows: [[4.76]],
+    });
   }, 60_000);
 
   it("offers the question the answer names, not a nearby one drafted after it (round 4, 2026-10-12)", async () => {

@@ -706,6 +706,11 @@ const queryDraft: OneTool = {
       { toolCallId: `${ctx.toolCallId}-preview`, phase: PHASE, rows: 10 },
     );
     const body = (drafted.kind === "ok" ? drafted.body : {}) as Record<string, unknown>;
+    // a measure the question declares (a group's spread) is computed by a run, never by the preview (round 4)
+    const measured =
+      previewed.kind === "ok" && /^\s*measures\s*:/mu.test(String(args.text))
+        ? await measuresOf(ctx, document)
+        : null;
     return {
       output: {
         document,
@@ -714,11 +719,48 @@ const queryDraft: OneTool = {
           previewed.kind === "ok"
             ? previewOf(ctx, previewed.body)
             : { unavailable: previewed.kind === "blocked" ? plainly(previewed.reason) : previewed.kind },
+        ...(measured ? { measures: measured } : {}),
         repairs: shorten((body.repairs ?? null) as JsonValue, 1500),
       },
     };
   },
 };
+
+/**
+ * The measures a stored question declares (`out.measures`, such as a group's spread, `stddev.age`), read from a run
+ * of it (round 4, 2026-10-12): the preview leaves them out, and a plain reader's chat, finding no spread, rebuilt the
+ * ages from counts of age bands or spent its turn on drafts. Through the analysis's seam, which may run a question;
+ * the values held back or shaped are said as for any answer. Null when it cannot be read.
+ */
+async function measuresOf(ctx: ToolCtx, document: number): Promise<JsonValue | null> {
+  try {
+    const a = await analysisSeam(ctx.conversation).door(
+      "/api/ask/run",
+      "POST",
+      { document_id: document, limit: 10, purpose: "the measures a question declares" },
+      { toolCallId: `${ctx.toolCallId}-measures`, phase: PHASE, rows: 10 },
+    );
+    if (a.kind !== "ok") return null;
+    const b = (a.body ?? {}) as { columns?: (string | { name: string })[]; rows?: unknown[][] };
+    const names = (b.columns ?? []).map((c) => (typeof c === "string" ? c : c.name));
+    const at = names.flatMap((n, i) => (/^(stddev|median|percentile)\./u.test(n) ? [i] : []));
+    if (at.length === 0) return null;
+    return {
+      ...(data(
+        {
+          columns: at.map((i) => names[i]),
+          rows: (b.rows ?? [])
+            .slice(0, 10)
+            .map((r) => at.map((i) => (Array.isArray(r) ? r[i] : null) as JsonValue)),
+        },
+        "",
+      ) as Record<string, JsonValue>),
+      ...shapedField(ctx, a.body),
+    };
+  } catch {
+    return null;
+  }
+}
 
 const RUN_WHAT = ["document", "sorting_words", "identity_rules"] as const;
 
