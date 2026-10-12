@@ -19,7 +19,16 @@ import { grantsLine, mountFor, SKILL_ORDER, TOOL_ORDER } from "../src/one/mount.
 import { hintLine, routeOf } from "../src/one/route.ts";
 import { bodyFor, findExamples, loadSkills, parseSkill } from "../src/one/skills.ts";
 import { conversationOf, newTurn } from "../src/one/state.ts";
-import { isWorker, jobsOf, runScope, searchCatalog, TOOLS } from "../src/one/tools.ts";
+import {
+  draftNext,
+  isWorker,
+  jobsOf,
+  runScope,
+  searchCatalog,
+  selectionNamed,
+  selectionNote,
+  TOOLS,
+} from "../src/one/tools.ts";
 import { plainly, unplainWords } from "../src/one/words.ts";
 import { withoutTask } from "../src/providers/kvasir.ts";
 import { GrantKeeper } from "../src/seam/grant.ts";
@@ -434,6 +443,35 @@ describe("searching the registry's names", () => {
     // a question of the sorting alone is not answered with the main scans
     expect(searchCatalog(cat as never, "flair mprage").some((l) => l.startsWith("operator picked"))).toBe(
       false,
+    );
+  });
+
+  it("says a saved selection is an analysis's input, which no question names (round 3, 2026-10-12)", () => {
+    // the words of the three runs that went to find-data instead of planning the analysis
+    expect(selectionNamed("selection ms-baseline saved selection quality")).toBe("");
+    expect(
+      selectionNamed(
+        "baseline ms-baseline",
+        "Which scans in my selection ms-baseline@1 have poor image quality?",
+      ),
+    ).toBe("ms-baseline@1");
+    expect(selectionNamed("planted-mriqc@1 snr")).toBeNull();
+    expect(selectionNote("ms-baseline@1")).toMatch(
+      /^ms-baseline@1 is a saved selection: the scans an analysis runs over/u,
+    );
+    expect(selectionNote("ms-baseline@1")).toContain("plan-analysis skill (`selection: ms-baseline@1`)");
+    expect(selectionNote("")).toMatch(/^A saved selection \(name@version\) is/u);
+  });
+
+  it("gives a draft refused for a sorting value as a column the group that holds it (round 3)", () => {
+    const issues = JSON.stringify({
+      issues: [
+        { message: "an axis is read through has or =, which compile it as a predicate, or as a group's by" },
+      ],
+    });
+    expect(draftNext(issues)).toContain('by: [["axis", {}, "base"], ["field", {}, "n_instances"]]');
+    expect(draftNext("unknown field `union`")).toBe(
+      "Fix exactly the path and issue named, and draft the whole document again.",
     );
   });
 });

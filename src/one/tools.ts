@@ -399,6 +399,16 @@ const registrySearch: OneTool = {
     if (!words) return refuse("nothing to look for", "Give words, or a level and a field.");
     if (!catalogOf(ctx.subject)) await summaryText(ctx);
     const found = searchCatalog(catalogOf(ctx.subject), words, await datasetsFor(ctx));
+    const selection = selectionNamed(words, ctx.turn.message);
+    if (selection !== null)
+      return {
+        output: {
+          ...(found.length
+            ? (data(found, "use fewer or more exact words") as { [k: string]: JsonValue })
+            : {}),
+          selection: selectionNote(selection),
+        },
+      };
     return found.length
       ? { output: data(found, "use fewer or more exact words") }
       : refuse(
@@ -407,6 +417,35 @@ const registrySearch: OneTool = {
         );
   },
 };
+
+/**
+ * A saved selection the words or the person's message name (round 3 of 2026-10-12): the registry's names never list
+ * one, so a search for it found nothing, and the model looked for a way to name it in a question (there is none)
+ * instead of planning the analysis over it. The name as written (`ms-baseline@1`), "" for the word alone, null when
+ * neither speaks of a selection.
+ */
+export function selectionNamed(words: string, message = ""): string | null {
+  const said = `${words}\n${message}`;
+  if (!/\bselections?\b/iu.test(said)) return null;
+  return /\b([a-z0-9][\w-]*@\d+)\b/iu.exec(said)?.[1] ?? "";
+}
+
+/** What a saved selection is, and where it goes: the plan of an analysis, never a question. */
+export function selectionNote(name: string): string {
+  const it = name || "name@version";
+  return `${name ? `${name} is a saved selection` : "A saved selection (name@version) is"}: the scans an analysis runs over. The registry's names do not list selections, and a question cannot name one. An analysis over it is planned with the plan-analysis skill (\`selection: ${it}\`), whose check says whether it is there and how many scans it holds.`;
+}
+
+/**
+ * The next step of a draft the engine refused, for an issue whose words say more than "fix it" (round 3 of
+ * 2026-10-12): a sorting value asked as a record's column cost the analysis turns up to ten drafts (unions, cases,
+ * one question per value) before the turn's work was spent. A group keyed by the axis and the field holds it.
+ */
+export function draftNext(issues: string): string {
+  if (/an axis is read through/u.test(issues))
+    return 'A sorting value (an axis) is never a column of a record. To have it beside a field, make a group keyed by both, with a count: `{grain: group, group: {of: scans, by: [["axis", {}, "base"], ["field", {}, "n_instances"]]}, bind: {n_scans: ["count", {set: scans}]}}` at `level: aggregate`; each row stands for n_scans scans. Draft the whole document again.';
+  return "Fix exactly the path and issue named, and draft the whole document again.";
+}
 
 const DESCRIBE = [
   "document",
@@ -638,14 +677,10 @@ const queryDraft: OneTool = {
     );
     const document = documentOf(drafted);
     if (document === null) {
-      if (drafted.kind === "ok" || drafted.kind === "refused")
-        return refuse(
-          "the draft did not validate",
-          "Fix exactly the path and issue named, and draft the whole document again.",
-          {
-            issues: shorten(toolResult(drafted).output, 4000),
-          },
-        );
+      if (drafted.kind === "ok" || drafted.kind === "refused") {
+        const issues = shorten(toolResult(drafted).output, 4000);
+        return refuse("the draft did not validate", draftNext(JSON.stringify(issues)), { issues });
+      }
       return notOk(drafted, "Draft again.");
     }
     ctx.turn.drafted.push(document);
