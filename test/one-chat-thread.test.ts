@@ -137,6 +137,8 @@ describe("a run that failed before any unit ran (2026-10-12)", () => {
     expect(say).toMatch(/why it failed, in plain words, from its error/u);
     expect(say).toMatch(/what to do about it, as its error says/u);
     expect(say).not.toMatch(/that no unit failed/u);
+    // the words "no unit ... failed" came back as "no unit failed" (round 3): none reach the model
+    expect(say).not.toMatch(/\bno unit\b/u);
     expect(runFailureView(r.failure as never)).toEqual({
       error: expect.stringMatching(/rordenlab\/dcm2niix/u),
     });

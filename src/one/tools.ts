@@ -1278,8 +1278,9 @@ function failureWords(f: RunFailure): string {
 export function runSay(r: Reading, failed: number, campaign: boolean): string {
   const head = `Say run ${r.run} of ${r.name} ended ${r.status} with ${r.units.succeeded} of ${r.units.total} units done`;
   const why = r.failure ? failureWords(r.failure) : null;
+  // round 3 (2026-10-12): "so no unit was done or failed" came back as "no unit failed" in one run of three
   if (why && r.units.total === 0)
-    return `${head}: it failed before any unit ran, so no unit was done or failed and no check was taken; say ${why}. Numbers from here only.`;
+    return `Say run ${r.run} of ${r.name} failed before any unit ran: none was tried. Say ${why}. Numbers from here only.`;
   return `${head}; ${why ? `${why}; ` : ""}${failed ? `that ${failed} units failed, by reason` : "that no unit failed"}; ${r.breaches.length ? "each check broken, by its metric, with its count and what it means" : "that no unit broke a check"}; ${campaign ? "and that a campaign over those units is drafted for a person to make" : "and that nothing needs a campaign"}. Numbers from here only.`;
 }
 
