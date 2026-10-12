@@ -428,6 +428,10 @@ export async function seed(o: Options): Promise<Record<string, unknown>> {
   const inbox = join(o.home, INBOX);
   for (const f of inboxSeries()) writeSeries(join(inbox, f.folder), f.series);
 
+  // the sessions are a cache that questions read: built once everything is in, so no question at grain session
+  // finds it empty (on the engine of 2026-10-12 nothing above builds it)
+  nils(["session", "rebuild"]);
+
   // the operator: one stored question to run
   const drafted = JSON.parse(
     nils(["ask", "draft", "--file", file("question.json", QUESTION.doc), ...packs, "--json"]),
