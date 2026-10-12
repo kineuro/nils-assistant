@@ -864,6 +864,13 @@ describe("what is true, 2026-10-10: the headers mark the scans given contrast", 
       "None that the headers mark as contrast-enhanced: of the 6 T1-weighted scans in ds-sorted (3 subjects), not one is marked as given contrast. But that is not the same as none existing \u2014 the post-contrast step has not run on ds-sorted yet, so all 6 scans are simply unmarked, and whether any of them was enhanced is not known until that step runs.",
       given("ds-sorted"),
     );
+    // round 4's final run: "from 3 subjects" is a count of subjects, and "no header marks any" a count of none
+    right(
+      "unknown-post-contrast",
+      0,
+      "**None** \u2014 of the 6 scans in ds-sorted (all 6 are T1w, from 3 subjects), no header marks any as given contrast. That is the count of scans marked as given; the post-contrast step has not run on ds-sorted yet, so whether any of the 6 was actually given contrast is not known.",
+      given("ds-sorted"),
+    );
     wrong(
       "unknown-post-contrast",
       0,

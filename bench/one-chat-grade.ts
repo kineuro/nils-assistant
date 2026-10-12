@@ -492,13 +492,16 @@ const WORDS: Record<string, number | "all"> = {
   all: "all",
   "every one": "all",
 };
-// "no" is a count only before the scans it counts ("no T1 scan"), never in "no contrast mark"
-const NUMBER = `(?:\\d+|not one|every one|no(?=\\s+(?:T1[\\w-]*\\s+)?(?:scans?|series|stacks?|images?)\\b)|${Object.keys(
+// "no" is a count only before the scans it counts ("no T1 scan", "no header marks one"), never in "no contrast mark"
+const NUMBER = `(?:\\d+|not one|every one|no(?=\\s+(?:T1[\\w-]*\\s+)?(?:scans?|series|stacks?|images?|headers?)\\b)|${Object.keys(
   WORDS,
 )
   .filter((w) => !w.includes(" ") && w !== "no")
   .join("|")})`;
 const countValue = (w: string): number | "all" => (/^\d+$/u.test(w) ? Number(w) : WORDS[w.toLowerCase()]);
+/** What follows a number that counts something other than scans. */
+const OTHER =
+  /^\s+(?:different\s+)?(?:subjects?|visits?|sessions?|people|persons?|patients?|datasets?|cohorts?|days?|weeks?|months?|years?|documents?|questions?|runs?|jobs?|units?)\b/iu;
 /** Between the number and the thing: what makes the number not a count of it. */
 const BETWEEN =
   /\b(not|never|cannot|nor|unknown|unclear|uncertain|whether|if|could|may|might|rather than|instead of|how many)\b|n't\b/iu;
@@ -532,7 +535,11 @@ export function countsStated(text: string, of: string, lead = false): (number | 
     const numbers = [...clause.matchAll(new RegExp(`\\b${NUMBER}\\b`, "giu"))];
     for (const t of clause.matchAll(thing)) {
       const start = t.index ?? 0;
-      const before = numbers.filter((n) => (n.index ?? 0) + n[0].length <= start).at(-1);
+      // a count of something else ("from 3 subjects") is never the count of the thing (round 4's final run)
+      const before = numbers
+        .filter((n) => (n.index ?? 0) + n[0].length <= start)
+        .filter((n) => !OTHER.test(clause.slice((n.index ?? 0) + n[0].length)))
+        .at(-1);
       if (before) {
         const end = (before.index ?? 0) + before[0].length;
         const between = clause.slice(end, start);
