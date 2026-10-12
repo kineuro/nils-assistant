@@ -900,6 +900,8 @@ describe("what is true, 2026-10-10: the headers mark the scans given contrast", 
       "**None, as far as the headers say.** Of the 8 T1 scans in ds-marked, 3 are marked as given contrast and none are marked as scanned without it \u2014 the remaining 5 carry no contrast marking at all. Since the contrast check hasn't run on ds-marked yet, those 5 could include scans taken without contrast; I can't count them that way until the check has been run.",
       "**None** \u2014 no T1 scan in ds-marked has its headers saying contrast was not given. So of its 8 T1 scans: 3 marked as given contrast, 0 marked as without, and 5 left unmarked. Those 5 are unknown, not without-contrast; the contrast check has not run on ds-marked yet.",
       "**None** \u2014 no T1 scan in ds-marked has its headers marking contrast as not given. So of the 8 T1 scans there, 3 are marked as given contrast and 0 as not given; the remaining 5 carry no contrast marking at all. Since the post-contrast step hasn't run on ds-marked, how many of those 5 were actually scanned without contrast isn't known yet.",
+      // round 4's final run: "won't be known" said it, and the matcher knew only "not known"
+      "**None** \u2014 no T1 scan in ds-marked is marked as scanned without contrast (document 22). So the headers mark 3 as given and none as not given; the other 5 of the 8 are simply unmarked, and whether they were given contrast won't be known until the post-contrast step runs on ds-marked.",
     ])
       right("marked-post-contrast", 1, text, given("ds-marked"));
     for (const text of [
