@@ -62,7 +62,15 @@ export const PART = v.variant("kind", [
   v.object({ kind: v.literal("handle_ref"), handle: v.number() }),
   v.object({
     kind: v.literal("funnel"),
-    rows: v.array(v.object({ set: v.string(), stage: v.string(), rows: v.number(), subjects: v.number() })),
+    // a count held back at plain is null (record 55 K7, small counts): the desk reads it as fewer than 5
+    rows: v.array(
+      v.object({
+        set: v.string(),
+        stage: v.string(),
+        rows: v.nullable(v.number()),
+        subjects: v.nullable(v.number()),
+      }),
+    ),
   }),
   v.object({ kind: v.literal("status"), phase: v.string(), text: v.string() }),
   // the chat, slice 6: a memory offered, kept or forgotten

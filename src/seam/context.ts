@@ -7,6 +7,8 @@
 // station reads is one short line per item, so the local model reads where
 // the person is without paging for it.
 
+import { HELD_COUNT, HELD_COUNTS_LINE } from "./shaped.ts";
+
 export interface PageContext {
   page: { kind: string; id: string | null };
   document_id?: number;
@@ -14,7 +16,8 @@ export interface PageContext {
   chain?: number[];
   epoch?: number;
   sets?: { name: string; grain: string }[];
-  funnel?: { set: string; rows: number }[];
+  /** Each set's rows; null where the engine held the count back at plain (record 55 K7), read as held, never as none. */
+  funnel?: { set: string; rows: number | null }[];
   pack?: { name: string; version: string };
   handle_id?: number;
   declaration?: Record<string, string | number | boolean | null>;
@@ -69,7 +72,7 @@ export function admit(input: unknown): PageContext {
     out.funnel = src.funnel
       .flatMap((x) => {
         const f = x as { set?: unknown; rows?: unknown } | null;
-        return name(f?.set) && num(f?.rows) ? [{ set: f.set, rows: f.rows }] : [];
+        return name(f?.set) && (num(f?.rows) || f?.rows === null) ? [{ set: f.set, rows: f.rows }] : [];
       })
       .slice(0, MAX_LIST);
   const pack = src.pack as { name?: unknown; version?: unknown } | undefined;
@@ -94,8 +97,13 @@ export function renderContext(c: PageContext | null): string {
     );
   if (c.epoch !== undefined) lines.push(`- epoch: ${c.epoch}`);
   if (c.sets?.length) lines.push(`- its sets: ${c.sets.map((s) => `${s.name} (${s.grain})`).join(", ")}`);
-  if (c.funnel?.length)
-    lines.push(`- rows kept per set: ${c.funnel.map((f) => `${f.set} ${f.rows}`).join(", ")}`);
+  if (c.funnel?.length) {
+    lines.push(
+      `- rows kept per set: ${c.funnel.map((f) => `${f.set} ${f.rows === null ? HELD_COUNT : f.rows}`).join(", ")}`,
+    );
+    // a count held back at plain (record 55 K7) is said as held, never as none and never worked out
+    if (c.funnel.some((f) => f.rows === null)) lines.push(`- ${HELD_COUNTS_LINE}`);
+  }
   if (c.pack) lines.push(`- pack: ${c.pack.name} ${c.pack.version}`);
   if (c.handle_id !== undefined) lines.push(`- the open result: handle ${c.handle_id}`);
   if (c.declaration && Object.keys(c.declaration).length)
