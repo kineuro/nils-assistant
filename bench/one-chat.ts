@@ -209,6 +209,7 @@ export async function runConversation(
   const conversation = `oc-${c.id}-r${run}-${Date.now().toString(36)}`;
   const turns: TurnGrade[] = [];
   let ledgerBefore = 0;
+  const activated: string[] = [];
   for (const t of c.turns) {
     const obs = await oneTurn(e, conversation, await resolveMessage(t.say, e, ctx), ledgerBefore);
     ledgerBefore = obs.ledgerAfter;
@@ -227,12 +228,14 @@ export async function runConversation(
         obs.corrections++;
         document = documentIn(f.events) ?? document;
         obs.goldReached = await doors.reached(document, ctx.golds[gold], goldDocument);
-        followUps.push(gradeTurn({ say: fix }, f, ctx.lexicon, ctx.arm));
+        followUps.push(gradeTurn({ say: fix }, f, ctx.lexicon, ctx.arm, activated));
       }
     }
     // the question the turn left, read as the engine stores it, for the clauses it must carry
     if (t.expect?.query) obs.queryText = await doors.ask(documentIn(obs.events)).catch(() => null);
-    turns.push(gradeTurn(t, obs, ctx.lexicon, ctx.arm), ...followUps);
+    const graded = gradeTurn(t, obs, ctx.lexicon, ctx.arm, activated);
+    turns.push(graded, ...followUps);
+    for (const g of [graded, ...followUps]) activated.push(...g.metrics.skills.map((x) => x.skill));
   }
   return { conversation: c.id, kind: c.kind, run, passed: turns.every((t) => t.passed), turns };
 }

@@ -330,9 +330,16 @@ export async function seed(o: Options): Promise<Record<string, unknown>> {
   }
 
   // the one-chat bench: a run whose input the engine cannot release, dcm2niix not being there, so it fails before
-  // any unit runs (2026-10-12); it exits non-zero by design, and its document is still printed
+  // any unit runs (2026-10-12); it exits non-zero by design, and its document is still printed. Since the engine's
+  // pre-flight refuses a run whose converter it cannot find, the converter named here answers its version once and
+  // is gone when the run releases its input, as a converter removed between the two would be.
   {
     const selection = CONVERTER_MISSING.selection;
+    const gone = join(bin, "gone");
+    mkdirSync(gone, { recursive: true });
+    const converter = join(gone, "dcm2niix");
+    writeFileSync(converter, '#!/bin/sh\nrm -f "$0"\necho "dcm2niiX version v1.0.20241211 (64-bit Linux)"\n');
+    chmodSync(converter, 0o755);
     let out: string;
     try {
       out = nils([
@@ -341,7 +348,7 @@ export async function seed(o: Options): Promise<Record<string, unknown>> {
         "--select",
         `selection:${selection}`,
         "--dcm2niix",
-        join(bin, "no-dcm2niix"),
+        converter,
         ...packs,
         "--json",
       ]);
@@ -420,6 +427,10 @@ export async function seed(o: Options): Promise<Record<string, unknown>> {
   // the registered location, served with --ingest-root
   const inbox = join(o.home, INBOX);
   for (const f of inboxSeries()) writeSeries(join(inbox, f.folder), f.series);
+
+  // the sessions are a cache that questions read: built once everything is in, so no question at grain session
+  // finds it empty (on the engine of 2026-10-12 nothing above builds it)
+  nils(["session", "rebuild"]);
 
   // the operator: one stored question to run
   const drafted = JSON.parse(

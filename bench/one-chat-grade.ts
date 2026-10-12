@@ -564,8 +564,19 @@ export interface TurnGrade {
   corrections: number | null;
 }
 
-/** A turn judged: the four bars, then its own expectations. `arm` is how the find skill must be reached. */
-export function gradeTurn(t: Turn, o: TurnObs, lexicon: Lexicon, arm: "skill" | "subagent"): TurnGrade {
+/**
+ * A turn judged: the four bars, then its own expectations. `arm` is how the find skill must be reached. `earlier`
+ * names the skills the conversation's earlier turns activated: a turn that activates none and works with the one it
+ * expects, already in hand, is routed (round 3, 2026-10-12: back to finding data after a plan, the model drafted the
+ * right question without activating find-data a second time).
+ */
+export function gradeTurn(
+  t: Turn,
+  o: TurnObs,
+  lexicon: Lexicon,
+  arm: "skill" | "subagent",
+  earlier: readonly string[] = [],
+): TurnGrade {
   const m = metricsOf(o, lexicon);
   const misses: string[] = [];
   const e = t.expect ?? {};
@@ -589,6 +600,11 @@ export function gradeTurn(t: Turn, o: TurnObs, lexicon: Lexicon, arm: "skill" | 
           ? right.some((s) => s.via === arm)
           : right.some((s) => s.via === "skill");
       routed = viaRight && names.every((n) => n === e.skill || (e.also ?? []).includes(n));
+      const inHand =
+        names.length === 0 &&
+        earlier.includes(e.skill) &&
+        m.tools.some((n) => n !== "activate_skill" && n !== "task");
+      if (!routed && inHand) routed = true;
     }
     if (!routed)
       misses.push(
@@ -634,8 +650,11 @@ export function gradeTurn(t: Turn, o: TurnObs, lexicon: Lexicon, arm: "skill" | 
             misses.push(`proposal ${path} is ${JSON.stringify(at(near, path))}, not ${JSON.stringify(mm)}`);
     }
   }
+  // what the person reads: the answer's words, and a question the turn asked on a card (round 3: "there is no ALS
+  // cohort" was said on the card that asked which cohort to plan for)
+  const read = m.asked ? `${m.answer}\n${m.asked}` : m.answer;
   for (const s of e.says ?? [])
-    if (!holds(m.answer, s)) misses.push(`the answer does not hold ${JSON.stringify(s)}`);
+    if (!holds(read, s)) misses.push(`the answer does not hold ${JSON.stringify(s)}`);
   if (e.sentences !== undefined && sentencesIn(m.answer) > e.sentences)
     misses.push(`${sentencesIn(m.answer)} sentences, more than ${e.sentences}`);
   for (const name of ["chart", "file"] as const) {
