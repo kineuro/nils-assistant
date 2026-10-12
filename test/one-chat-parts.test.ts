@@ -35,7 +35,16 @@ describe("what a person's grants mount", () => {
 
   it("leaves a person without query:see no tool that looks into the data", () => {
     const m = mountFor({ grants: ["assistant:use"], detail: "plain" });
-    expect(m.tools).toEqual(["registry_summary", "plan_update", "ask_user", "propose_change"]);
+    // their own memory is no look into the data (2026-10-12)
+    expect(m.tools).toEqual([
+      "registry_summary",
+      "plan_update",
+      "ask_user",
+      "propose_change",
+      "remember",
+      "forget",
+      "recall_memory",
+    ]);
     expect(m.skills).toEqual([]);
     expect(grantsLine(m)).toMatch(/may only ask what the registry holds/u);
     expect(grantsLine(m)).toMatch(/an admin can give it/u);

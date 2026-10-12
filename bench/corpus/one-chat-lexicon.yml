@@ -70,6 +70,10 @@ tools:
   - plan_update
   - ask_user
   - propose_change
+  # memory across conversations, the person's own (2026-10-12)
+  - remember
+  - forget
+  - recall_memory
 framework_tools: [activate_skill, read_skill_resource, task]
 
 # Tools that are not step lines on the desk: the plan panel and the cards.

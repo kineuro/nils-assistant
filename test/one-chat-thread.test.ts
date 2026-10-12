@@ -5,6 +5,8 @@
 // unit ran says why and what to do, never that no unit failed.
 
 import { describe, expect, it } from "vitest";
+import { Notes } from "../src/host/notes.ts";
+import { memoryFacts } from "../src/one/memory.ts";
 import { hintLine, routeOf } from "../src/one/route.ts";
 import { fieldLines, runFailureView, runSay, searchCatalog } from "../src/one/tools.ts";
 import type { Seam } from "../src/seam/client.ts";
@@ -213,5 +215,35 @@ describe("a file asked of the chat (2026-10-12)", () => {
     // words about files the registry holds ask for no file
     for (const words of ["Which files did the digest refuse?", "How many subjects are in cohort B?"])
       expect(routeOf(words).file, words).toBeFalsy();
+  });
+});
+
+describe("what a new conversation remembers (2026-10-12)", () => {
+  it("says there is a memory even when nothing is kept yet, and how to add to it", () => {
+    const notes = new Notes(":memory:");
+    const m = memoryFacts(notes, "bo@n", "hello");
+    expect(m.used).toEqual([]);
+    expect(m.text).toMatch(/Memory page of the Assistant/u);
+    expect(m.text).toMatch(
+      /Nothing this person asked you to keep yet: when they ask you to remember something, keep it with remember/u,
+    );
+  });
+
+  it("reads what fits in 3,000 characters, the closest to the first words first, and counts the rest", () => {
+    const notes = new Notes(":memory:");
+    for (let i = 0; i < 14; i++)
+      notes.remember(
+        "bo@n",
+        `note ${i} ${"about the cohorts and their scans ".repeat(7)}`.slice(0, 290),
+        "page",
+      );
+    const kept = notes.remember("bo@n", "Call me Bo & answer in short sentences <please>", "said");
+    const m = memoryFacts(notes, "bo@n", "answer me in short sentences");
+    expect(m.used[0]).toBe(kept.id);
+    expect(m.text).toMatch(
+      new RegExp(`\\[${kept.id}\\] Call me Bo  and  answer in short sentences please`, "u"),
+    );
+    expect(m.text).not.toMatch(/[<>&]/u);
+    expect(m.text).toMatch(/\d+ more are kept and not shown here: find one with recall_memory/u);
   });
 });

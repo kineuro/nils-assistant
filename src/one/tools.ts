@@ -16,7 +16,7 @@ import type { Detail } from "../host/grants.ts";
 import { planFrom, restate } from "../host/ladder.ts";
 import type { Answer, Seam, Station } from "../seam/client.ts";
 import { shorten, toolResult } from "../seam/client.ts";
-import { seamWith, stationList, theLineage } from "../seam/for.ts";
+import { seamWith, stationList, theLineage, theNotes } from "../seam/for.ts";
 import { preflightForDocument } from "../stations/analysis-plan.ts";
 import { compactPreview, unescapeEntities } from "../stations/ask-help.ts";
 import {
@@ -38,6 +38,7 @@ import {
   type Prediction,
   valuesOf,
 } from "../stations/keyword-tune.ts";
+import { forgetFor, type MemoryPart, recallFor, rememberFor } from "../stations/memory.ts";
 import { ladderStore, policyOf } from "../stations/operator.ts";
 import {
   breachDocument,
@@ -88,6 +89,8 @@ export interface Writers {
   }) => void;
   clarification: (p: { question: string; options: { label: string; count: number | null }[] }) => void;
   plan: (items: { text: string; status: string }[]) => void;
+  /** A memory kept, offered or forgotten, which the desk shows in the turn with a way to its Memory page (2026-10-12). */
+  memory: (p: MemoryPart) => void;
 }
 
 export interface ToolCtx {
@@ -1768,6 +1771,66 @@ const proposeChange: OneTool = {
   },
 };
 
+// ------------------------------------------------------------------ memory across conversations
+
+/**
+ * Memory across conversations (2026-10-12): the store the desk's Memory page shows, the person's own and no one
+ * else's. A note is kept when the person asks ("remember that ..."), offered on a card when they did not, and
+ * refused while their memory is paused, past its size, or when it looks like a person's data.
+ */
+const remember: OneTool = {
+  name: "remember",
+  description:
+    "Keep something for this person's later conversations, in at most 300 characters: a preference, a fact about them or their work, or a way they work, such as their name or how they like answers. Set asked to true when they told you to remember it; otherwise they are asked on a card whether to keep it. Never a subject's data: no codes, identifiers, dates of a person or series names.",
+  input: v.object({ text: v.string(), asked: v.boolean() }),
+  salient: ["text"],
+  step: "Noting something to keep",
+  async run(args, ctx) {
+    const outcome = rememberFor(theNotes(), ctx.subject, {
+      text: String(args.text),
+      asked: args.asked === true,
+    });
+    if (outcome.part) ctx.write.memory(outcome.part);
+    const out = outcome.output as Record<string, JsonValue>;
+    return {
+      output: out.kept
+        ? {
+            ...out,
+            next: "Say in one sentence that it is kept for their later conversations, which start with it, and that the Memory page shows it.",
+          }
+        : out.refused
+          ? { ...out, next: "Say in one sentence why it was not kept, in plain words." }
+          : out,
+    };
+  },
+};
+
+const forget: OneTool = {
+  name: "forget",
+  description:
+    "Forget one thing this person asked you to keep, by its number from what you remember or from recall_memory, when they ask you to.",
+  input: v.object({ id: v.number() }),
+  salient: ["id"],
+  step: "Forgetting something kept",
+  async run(args, ctx) {
+    const outcome = forgetFor(theNotes(), ctx.subject, Number(args.id));
+    if (outcome.part) ctx.write.memory(outcome.part);
+    return { output: outcome.output };
+  },
+};
+
+const recallMemory: OneTool = {
+  name: "recall_memory",
+  description:
+    "Find what this person asked you to keep beyond what you were given at the start, by the words that name it, when they refer to something they asked you to keep. Returns at most eight with their numbers.",
+  input: v.object({ words: v.string() }),
+  salient: ["words"],
+  step: "Looking up something kept",
+  async run(args, ctx) {
+    return { output: recallFor(theNotes(), ctx.subject, String(args.words)) };
+  },
+};
+
 /** Every tool, by name, in the mounting order. */
 export const TOOLS: Record<ToolName, OneTool> = {
   registry_summary: registrySummary,
@@ -1781,6 +1844,9 @@ export const TOOLS: Record<ToolName, OneTool> = {
   plan_update: planUpdate,
   ask_user: askUser,
   propose_change: proposeChange,
+  remember,
+  forget,
+  recall_memory: recallMemory,
 };
 
 /** The tools a read-only sub-agent may use: reads and drafts of questions, nothing proposed, no card. */
