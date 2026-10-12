@@ -5,6 +5,7 @@
 // unit ran says why and what to do, never that no unit failed.
 
 import { describe, expect, it } from "vitest";
+import { hintLine, routeOf } from "../src/one/route.ts";
 import { fieldLines, runFailureView, runSay, searchCatalog } from "../src/one/tools.ts";
 import type { Seam } from "../src/seam/client.ts";
 import { readingOf } from "../src/stations/pipelines.ts";
@@ -190,5 +191,27 @@ describe("a run that failed before any unit ran (2026-10-12)", () => {
     expect(runSay(r, 2, false)).toMatch(
       /with 2 of 4 units done; that 2 units failed, by reason; that no unit broke a check/u,
     );
+  });
+});
+
+describe("a file asked of the chat (2026-10-12)", () => {
+  it("is read from a kind of file and something done with it, and answered in words before any question", () => {
+    const r = routeOf("can you make a csv and upload it here?");
+    expect(r).toMatchObject({ file: true, skill: null });
+    const hint = hintLine(r, ["find-data"], ["query_draft"]);
+    expect(hint).toMatch(/cannot make, attach or send a file in this chat yet/u);
+    expect(hint).toMatch(/analysis sandbox, which is coming/u);
+    expect(hint).toMatch(/without asking first/u);
+    expect(hint).toMatch(/nils ask handles export/u);
+    // a person who may not look up data is not offered a question
+    expect(hintLine(r, [], [])).not.toMatch(/Query page/u);
+    for (const words of [
+      "Export the scans of cohort B as a spreadsheet",
+      "Can I download that as an Excel file?",
+    ])
+      expect(routeOf(words).file, words).toBe(true);
+    // words about files the registry holds ask for no file
+    for (const words of ["Which files did the digest refuse?", "How many subjects are in cohort B?"])
+      expect(routeOf(words).file, words).toBeFalsy();
   });
 });

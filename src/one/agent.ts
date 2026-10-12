@@ -36,7 +36,7 @@ import { providerId } from "../providers/kvasir.ts";
 import { engineAuthOff, subjectOfConversation, theLineage } from "../seam/for.ts";
 import { catalogOf, prelude } from "../stations/prelude.ts";
 import { CARD_OF, theChanges } from "./changes.ts";
-import { complaintsOf, sendBack, validator } from "./checks.ts";
+import { complaintsOf, readable, SILENT_BACK, sendBack, validator } from "./checks.ts";
 import {
   carriedHint,
   citesCount,
@@ -104,6 +104,7 @@ How you work
 - Do the work yourself with the fewest tool calls that answer. Never look up again what the facts or an earlier answer in this chat already hold.
 - Changes are proposed, never made: a new version of a question, a plan of work, an analysis, new sorting words, a merge or an identity rule goes through propose_change, and the person approves it on a card. Never say a change was made.
 - When the words leave a real choice open (which cohort, which dataset, which run), ask one short question with ask_user. Otherwise do not ask.
+- A file (a CSV, a spreadsheet, a picture) cannot be made, attached or sent in this chat yet: a file made here needs the analysis sandbox, which is coming. Say so in words, then what you can do now; never only ask which rows.
 - For work of three steps or more, show the steps with plan_update and keep them current.
 - When a tool answers with refused, read its next and do that.
 - Write nothing to the person until your last tool call is done: never say what you are about to do, never narrate a step. Then write the answer once.
@@ -289,7 +290,7 @@ function aboutOf(
   named: readonly DatasetFact[],
   carried: readonly DatasetFact[],
 ): About {
-  if (r.summary || r.jobs) return null;
+  if (r.summary || r.jobs || r.file) return null;
   if (named.length && (r.skill === null || r.skill === "find-data")) return { kind: "named", list: named };
   if (carried.length && m.skills.includes("find-data")) return { kind: "carried", list: carried };
   return null;
@@ -556,7 +557,12 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
         )
       )
         convo.datasets = [];
-      else if (!route.summary && !route.jobs && (route.skill === null || route.skill === "find-data"))
+      else if (
+        !route.summary &&
+        !route.jobs &&
+        !route.file &&
+        (route.skill === null || route.skill === "find-data")
+      )
         carried = list.filter((x) => convo.datasets.includes(x.name));
       const current = turnOf(id);
       current.datasets = [...named, ...carried].map((x) => x.name);
@@ -604,6 +610,12 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
     useAgentFinish(async (ctx) => {
       if (summarizing) return;
       const t = turnOf(id);
+      // a turn never ends with nothing to read (2026-10-12): sent back once, even after a guard stopped its tools
+      if (!readable(t) && t.silent < 1) {
+        t.silent += 1;
+        ctx.append({ kind: "signal", type: "check", body: SILENT_BACK });
+        return;
+      }
       if (t.stopped || t.asked) return;
       if (t.nudges < 1) {
         const complaints = await complaintsOf({

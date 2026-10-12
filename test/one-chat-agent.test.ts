@@ -441,7 +441,7 @@ describe("the one agent", () => {
     expect(appended(seen[0])).toMatch(/this person may not do that here/u);
   }, 60_000);
 
-  it("warns at the third same call, stops at the fifth, and ends the turn at the sixth", async () => {
+  it("warns at the third same call, stops at the fifth, and ends the tools at the sixth", async () => {
     play([
       { tool: "registry_search", args: { words: "mprage" } },
       { tool: "registry_search", args: { words: "mprage" } },
@@ -449,6 +449,7 @@ describe("the one agent", () => {
       { tool: "registry_search", args: { words: "mprage" } },
       { tool: "registry_search", args: { words: "mprage" } },
       { tool: "registry_search", args: { words: "mprage" } },
+      { text: "I could not find MPRAGE scans by that name; try another word." },
       { text: "never reached" },
     ]);
     const h = init(Nils, { id: "oc-loop" });
@@ -457,7 +458,10 @@ describe("the one agent", () => {
     expect(log).toMatch(/called 3 times with the same salient arguments/u);
     expect(log).toMatch(/the same call came five times/u);
     expect(log).toMatch(/Answer the person now/u);
-    expect(calls).toBe(6);
+    // the sixth call ends the tools; a turn that wrote nothing yet is sent back once for its words (2026-10-12)
+    expect(calls).toBe(7);
+    expect(text(seen[6])).toMatch(/you have written nothing the person can read/u);
+    expect(reply.text).toMatch(/could not find MPRAGE scans/u);
     expect(reply.text).not.toMatch(/never reached/u);
   }, 60_000);
 
@@ -578,6 +582,36 @@ describe("the one agent", () => {
     await h.read(await h.dispatch("How many in the cohort?"));
     expect(calls).toBe(1);
     expect(recorded("oc-ask")).toMatch(/"kind":"clarification","question":"Which cohort\?"/u);
+  }, 60_000);
+
+  it("sends back once a turn that wrote nothing the person can read (2026-10-12)", async () => {
+    play([{ text: "" }, { text: "There are two cohorts, ms-cohort-a and ms-cohort-b." }]);
+    const h = init(Nils, { id: "oc-silent" });
+    const reply = await h.read(await h.dispatch("Which cohorts are there?"));
+    expect(calls).toBe(2);
+    expect(text(seen[1])).toMatch(/you have written nothing the person can read/u);
+    expect(reply.text).toMatch(/two cohorts/u);
+    // and only once: a model that still writes nothing ends the turn
+    play([{ text: "" }]);
+    const again = init(Nils, { id: "oc-silent-twice" });
+    await again.read(await again.dispatch("Which cohorts are there?"));
+    expect(calls).toBe(2);
+  }, 60_000);
+
+  it("answers a file asked for in words, with the hint that the chat makes none yet (2026-10-12)", async () => {
+    play([
+      {
+        text: "I can't make or attach a file in this chat yet: that needs the analysis sandbox, which is coming. I can write the question for you now.",
+      },
+    ]);
+    const h = init(Nils, { id: "oc-file" });
+    await h.read(await h.dispatch("can you make a csv of cohort B and upload it here?"));
+    expect(calls).toBe(1);
+    expect(appended(seen[0])).toMatch(/a file is asked for/u);
+    expect(appended(seen[0])).toMatch(/analysis sandbox, which is coming/u);
+    expect(text(seen[0])).toMatch(
+      /A file \(a CSV, a spreadsheet, a picture\) cannot be made, attached or sent in this chat yet/u,
+    );
   }, 60_000);
 
   it("proposes an analysis with the engine's own check, and runs nothing", async () => {
