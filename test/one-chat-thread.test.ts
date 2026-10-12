@@ -205,10 +205,17 @@ describe("a file asked of the chat (2026-10-12)", () => {
       /saved as a CSV with Download CSV on the answer's card in this chat, at the person's own detail/u,
     );
     expect(hint).toMatch(/Draft the question the words ask for/u);
-    expect(hint).toMatch(
-      /Any other file \(a chart, a picture, an analysis's output\)[^.]*: it needs the analysis sandbox, which is coming/u,
-    );
     expect(hint).toMatch(/without asking first/u);
+    // a file of something worked out is made in the workspace, whose skill the person has beside finding data
+    expect(hint).not.toMatch(/analysis's output\)[^.]* cannot be made|which is coming/u);
+    expect(hint).not.toMatch(/analyse-table/u);
+    const both = hintLine(r, ["find-data", "analyse-table"], ["query_draft", "analysis_table"]);
+    expect(both).toMatch(
+      /A file of something worked out \(medians, shares, a table you computed\) or a chart is made in your workspace: activate the analyse-table skill and write it under \/out/u,
+    );
+    expect(both).toMatch(
+      /Download CSV on the answer's card in this chat, at the person's own detail, its rows as they are/u,
+    );
     expect(hint).not.toMatch(/command line/u);
     // a person who may not look up data has no answer to save
     expect(hintLine(r, [], [])).toMatch(/no answer to save as a file/u);

@@ -54,7 +54,7 @@ import {
 } from "./datasets.ts";
 import { factsOf, factsSummary, TOLD_NOTHING, type Told, toldSince } from "./facts.ts";
 import { memoryFacts } from "./memory.ts";
-import { type Access, grantsLine, type Mounted, mountFor } from "./mount.ts";
+import { type Access, grantsLine, type Mounted, mountFor, SKILL_ORDER } from "./mount.ts";
 import { hintLine, routeOf } from "./route.ts";
 import { bodyFor, findExamples, loadSkills, skillOf } from "./skills.ts";
 import { answerOf, conversationOf, newTurn, turnOf } from "./state.ts";
@@ -462,14 +462,9 @@ function mountTool(t: OneTool, base: Omit<ToolCtx, "toolCallId">): void {
 }
 
 export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & { agentName: string } {
-  const skills = loadSkills(o.stationDirs, [
-    "find-data",
-    "plan-work",
-    "plan-analysis",
-    "read-run",
-    "tune-sorting-words",
-    "check-identities",
-  ]);
+  // every skill a conversation may mount is read, in the mount's own order: a skill mounted and named in the hint
+  // but never read gave the model a miss when it activated it (analyse-table, 2026-10-12)
+  const skills = loadSkills(o.stationDirs, SKILL_ORDER);
   const examples = findExamples(o.stationDirs);
   const head = headOf(o.arm);
   watchTurns();

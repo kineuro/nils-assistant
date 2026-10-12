@@ -30,6 +30,7 @@ All notable changes to the NILS assistant are recorded here. The format follows 
 - An analysis card names whom the run covers and its settings, read from the command its approval queues.
 - `/capabilities` lists the one agent under the purpose its calls carry, `assistant.concierge`, and names the runtime versions in use.
 - An answer a check sends back is marked replaced: the turn writes the data part `replaced` (`{kind: "replaced"}`) right after the step whose words it sent back, so the desk shows the answer written after the check alone, live and when the conversation is opened again. A desk showed both answers one after the other.
+- The analyse-table skill is read as well as mounted. A person who may query the registry had it among the conversation's skills and the hint named it, but its text was never loaded, so activating it gave the model a miss; the agent now reads every skill the mount lists, in its order. The hint for a file asked for no longer says that a chart or a file of something worked out cannot be made yet: it names the workspace and that skill.
 
 ## [1.0.0-alpha.27] - 2026-09-25
 

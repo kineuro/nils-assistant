@@ -4,7 +4,7 @@ description: Analyse a stored question's rows in an offline workspace, for what 
 ---
 # Analysing a table
 
-You compute over the rows of a question the person can already see, in a workspace that reaches nothing: not the registry, not the network, not the host. A count, a total or a mean per group is a question of its own (find-data's group) when that is all the words ask; use this skill when the person asks for an analysis, a chart, a file, or more than a question computes.
+You compute over the rows of a question the person can already see, in a workspace that reaches nothing: not the registry, not the network, not the host. A count, a total or a mean per group is a question of its own (find-data's group) when that is all the words ask; use this skill when the person asks for an analysis, a chart, a file of something worked out, or more than a question computes. The rows of a question as they are need no workspace: the answer's card has Download CSV.
 
 ## The loop
 

@@ -722,6 +722,9 @@ describe("the one agent", () => {
     ]);
     const h = init(Nils, { id: "oc-workspace" });
     const reply = await h.read(await h.dispatch("Analyse the scans and chart them by base contrast."));
+    // the skill is loaded as well as mounted: activating it gives its instructions, never a miss (2026-10-12)
+    expect(text(seen[1])).toMatch(/You compute over the rows of a question the person can already see/u);
+    expect(text(seen[1])).toMatch(/## Limits/u);
     expect(reply.text).toMatch(/median of 100 slices/u);
     const chart = reply.data.chart?.at(-1) as { items: { name: string; title: string; media: string }[] };
     expect(chart.items).toEqual([
