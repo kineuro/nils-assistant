@@ -166,12 +166,13 @@ export async function complaintsOf(c: CheckContext): Promise<string[]> {
   // a question for data answered from memory: the person gets no question to keep, and the number is unchecked
   if (
     c.hinted === "find-data" &&
-    active.size === 0 &&
     !c.turn.asked &&
-    ((/\d/u.test(answer) && !/\b(no|not|none|nothing|isn't|aren't|cannot|can't)\b/iu.test(answer)) ||
-      // asked what the chat would look for, it still drafts the question (round 3); the words alone lost one run
-      // of three in rounds 3 and 4
-      WOULD_LOOK.test(c.turn.message))
+    ((active.size === 0 &&
+      /\d/u.test(answer) &&
+      !/\b(no|not|none|nothing|isn't|aren't|cannot|can't)\b/iu.test(answer)) ||
+      // asked what the chat would look for, it still drafts the question (round 3), with find-data activated or not;
+      // the words alone lost one run of three in rounds 3 and 4 (round 4's: the skill activated, nothing drafted)
+      (WOULD_LOOK.test(c.turn.message) && c.turn.drafted.length === 0 && !c.turn.tools.includes("task")))
   )
     out.push(
       "this asks for data: activate the find-data skill and draft the question, so the number is the registry's and the person gets the question to keep",

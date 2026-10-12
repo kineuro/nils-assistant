@@ -313,6 +313,9 @@ describe("the checks before a turn settles", () => {
     t.texts.push("MEDIC sits under the technique comb-ME-GRE: I would look for stacks sorted to it.");
     const c = { turn: t, convo: conversationOf(id), conversation: id, validate: null, hinted: "find-data" };
     expect((await complaintsOf(c)).join(" ")).toMatch(/activate the find-data skill and draft the question/u);
+    // round 4's final run: the skill activated, the sorting value found, and still nothing drafted
+    t.skills.add("find-data");
+    expect((await complaintsOf(c)).join(" ")).toMatch(/activate the find-data skill and draft the question/u);
     t.drafted.push(7);
     t.texts.splice(
       0,
