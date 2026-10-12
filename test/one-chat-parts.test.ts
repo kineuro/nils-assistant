@@ -267,6 +267,19 @@ describe("the checks before a turn settles", () => {
     expect(await complaintsOf(c)).toEqual([]);
   });
 
+  it("sends back once words written while tools still ran (2026-10-12)", async () => {
+    const t = newTurn("chk-narrate", "Chart the scans by base.");
+    t.tools.push("analysis_table");
+    t.texts.push("I'll start by putting the rows in.", "The chart is below: 69 T1w and 67 T2w scans.");
+    const c = { turn: t, convo: conversationOf("chk-narrate"), conversation: "chk-narrate", validate: null };
+    expect((await complaintsOf(c)).join(" ")).toMatch(
+      /words were written before the last tool call was done/u,
+    );
+    process.env.ONE_CHAT_NARRATION_CHECK = "0";
+    expect(await complaintsOf(c)).toEqual([]);
+    delete process.env.ONE_CHAT_NARRATION_CHECK;
+  });
+
   it("holds a found document to the engine's validation", async () => {
     const t = newTurn("chk-2", "How many?");
     t.drafted.push(5);

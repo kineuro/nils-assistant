@@ -501,6 +501,26 @@ describe("the graders", () => {
     expect(gradeTurn(t(["find-data"]), findOnly, lexicon, "skill").routed).toBe(false);
   });
 
+  it("count the steps a person sees from the answer a check left (2026-10-12)", () => {
+    const settled = { kind: "settled" as const, submission: "s", outcome: "completed" };
+    const call = (id: string) => [
+      { kind: "tool_start" as const, id, name: "registry_search", args: {} },
+      { kind: "tool" as const, id, name: "registry_search", isError: false, result: {}, error: null },
+    ];
+    const narrated = [{ kind: "text" as const, text: "I'll look first." }, ...call("a"), ...call("b")];
+    expect(
+      gradeTurn({ say: "q" }, turn([...narrated, { kind: "text", text: "Two." }, settled]), lexicon, "skill")
+        .misses,
+    ).toEqual(["2 step line(s) after the answer"]);
+    const back = [
+      ...narrated,
+      { kind: "replaced" as const },
+      { kind: "text" as const, text: "Two cohorts." },
+      settled,
+    ];
+    expect(gradeTurn({ say: "q" }, turn(back), lexicon, "skill").misses).toEqual([]);
+  });
+
   it("read a typographic apostrophe as a plain one (2026-10-12)", () => {
     const settled = { kind: "settled" as const, submission: "s", outcome: "completed" };
     const g = gradeTurn(

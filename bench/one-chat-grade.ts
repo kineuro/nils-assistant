@@ -493,6 +493,11 @@ export function metricsOf(o: TurnObs, lexicon: Lexicon): TurnMetrics {
   let shown = false;
   let late = 0;
   for (const e of o.events) {
+    if (e.kind === "replaced") {
+      // the words so far gave way to the answer written after the mark: what the person reads starts there
+      shown = false;
+      late = 0;
+    }
     if (e.kind === "text" && e.text.trim()) shown = true;
     // words a check sent back are not the answer the person reads: what follows the mark comes before it
     if (e.kind === "replaced") shown = false;
