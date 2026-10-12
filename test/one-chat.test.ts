@@ -35,7 +35,7 @@ import {
   type TurnObs,
 } from "../bench/one-chat-grade.ts";
 import { type Fault, STUB_RUNS, stub, stubInputs } from "../bench/one-chat-stub.ts";
-import { type Series, writeSeries } from "../bench/planted.ts";
+import { CONVERTER_MISSING, type Series, writeSeries } from "../bench/planted.ts";
 import { finalOf, verdictsOfTurn } from "../bench/turns.ts";
 
 const vectors = join("test", "vectors", "one-chat");
@@ -109,6 +109,32 @@ describe("the one-chat corpus", () => {
       "unknown-post-contrast",
       "marked-post-contrast",
     ]);
+  });
+
+  it("holds the thread of 2026-10-12: memory kept and forgotten, a file answered in words, fields past kvp, a run stopped before any unit", () => {
+    const by = (id: string) => conversations.find((c) => c.id === id);
+    const memory = conversations.filter((c) => c.kind === "memory");
+    expect(memory.map((c) => c.id)).toEqual(["memory-name"]);
+    expect(memory[0].turns[0].expect?.tools?.some).toContain("remember");
+    expect(memory[0].turns.at(-1)?.expect?.tools?.some).toContain("forget");
+    for (const t of memory[0].turns.slice(0, 2))
+      expect(t.expect?.says?.some((m) => typeof m === "object" && m !== null && "not" in m)).toBe(true);
+    expect(by("file-csv")?.turns[0].expect?.tools?.none).toContain("ask_user");
+    expect(JSON.stringify(by("file-csv")?.turns[0].expect?.says)).toMatch(/sandbox/u);
+    expect(JSON.stringify(by("fields-past-kvp")?.turns[0].expect?.says)).toMatch(/repetition\[_ \]time/u);
+    expect(
+      conversations
+        .filter((c) => c.kind === "vocabulary")
+        .map((c) => c.id)
+        .sort(),
+    ).toEqual(["vocabulary-dual-echo", "vocabulary-medic-space", "vocabulary-symri"]);
+    // the run that stopped before any unit is one the seed plants, and its answer says why and what to do
+    const run = by("run-converter-missing");
+    expect(run?.registry).toBe("seeded");
+    expect(run?.turns[0].say).toMatch(/\{run:converter-missing\}/u);
+    expect(JSON.stringify(run?.turns[0].expect?.says)).toMatch(/dcm2niix[\s\S]*install/u);
+    expect(CONVERTER_MISSING.case).toBe("converter-missing");
+    expect(Object.keys(STUB_RUNS)).toContain(CONVERTER_MISSING.case);
   });
 
   it("asks of the seed's datasets what their headers mark: none of ds-sorted's scans, three of ds-marked's eight", () => {
@@ -685,6 +711,57 @@ describe("what is true, 2026-10-10: the headers mark the scans given contrast", 
   });
 });
 
+describe("what the person read (2026-10-12)", () => {
+  const settled = { type: "submission-settled", submissionId: "s1", outcome: "completed" };
+  const said = (delta: string) => ({ type: "message-delta", messageId: "m", kind: "text", delta });
+  const part = (data: unknown) => ({ type: "data-part", messageId: "m", name: "x", data });
+  const obs = (chunks: Record<string, unknown>[]): TurnObs => ({
+    events: fromChunks(chunks, "s1"),
+    ledger: [],
+    ledgerBefore: 0,
+    seconds: 1,
+  });
+
+  it("grades the answer a check's mark replaced by, never the draft it sent back", () => {
+    const g = gradeTurn(
+      { say: "magnitude and phase?", expect: { says: [{ match: "\\bphase image\\b" }] } },
+      obs([
+        said("The station says the phase is a draft."),
+        part({ kind: "replaced" }),
+        { type: "tool-input", messageId: "m", toolCallId: "c1", toolName: "registry_search", input: {} },
+        { type: "tool-output", toolCallId: "c1", output: {} },
+        said("The magnitude image is the signal's strength; the phase image is its shift."),
+        settled,
+      ]),
+      lexicon,
+      "skill",
+    );
+    expect(g.metrics.answer).toBe(
+      "The magnitude image is the signal's strength; the phase image is its shift.",
+    );
+    // the draft's engine word and the call after it are not the answer the person read
+    expect(g.metrics.engine_words).toEqual([]);
+    expect(g.metrics.steps_after_answer).toBe(0);
+    expect(g.passed).toBe(true);
+  });
+
+  it("counts a question asked on a card as something to read, and a turn with nothing as a miss", () => {
+    const asked = gradeTurn(
+      { say: "which cohort?" },
+      obs([part({ kind: "clarification", question: "Which cohort?", options: [] }), settled]),
+      lexicon,
+      "skill",
+    );
+    expect(asked.metrics).toMatchObject({ answer: "", asked: "Which cohort?", readable: true });
+    expect(asked.passed).toBe(true);
+    const silent = gradeTurn({ say: "can you make a csv?" }, obs([settled]), lexicon, "skill");
+    expect(silent.metrics.readable).toBe(false);
+    expect(silent.misses).toEqual(["the turn ended with nothing the person can read"]);
+    const rows = summarize([{ conversation: "c", kind: "file", run: 1, passed: false, turns: [silent] }], 1);
+    expect(rows.at(-1)?.silent).toBe(1);
+  });
+});
+
 describe("pass@1 and pass^k", () => {
   const ok = {
     passed: true,
@@ -898,6 +975,12 @@ describe("the harness over HTTP, against the stand-in agent", () => {
       { fault: "wrong-skill", ids: ["plan-erase"], registry: "seeded", miss: /^routed to find-data/u },
       { fault: "miss", ids: ["find-cohort-b-size"], registry: "gold", miss: /missed cohort-b-size/u },
       { fault: "miss", ids: ["summary-dataset"], registry: "seeded", miss: /^question \d+ does not hold/u },
+      {
+        fault: "silent",
+        ids: ["summary-scores"],
+        registry: "gold",
+        miss: /^the turn ended with nothing the person can read$/u,
+      },
     ];
     for (const c of cases) {
       const url = await start("skill", { [c.ids[0]]: [c.fault] });

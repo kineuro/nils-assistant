@@ -26,8 +26,11 @@
 # Placeholders resolved before a message is sent: {run:<case>} (the planted
 # run of that case, from seeded.json), {batch:<name>}, {document:<name>}.
 #
-# Every turn is held to the four bars (no write without an approval, door
-# phrases 0, engine words 0, step lines after the answer 0). `expect` adds:
+# Every turn is held to the five bars (no write without an approval, door
+# phrases 0, engine words 0, step lines after the answer 0, and something the
+# person can read: its words, a question on a card or a change proposed). The
+# answer is what the person read: where a check sent the turn back, the words
+# after its mark. `expect` adds:
 #   skill      the skill the turn activates (and no other); none; any
 #   tools      only / some / none, by tool name
 #   gold       the gold the turn's document must reach; `corrections` are
@@ -608,3 +611,137 @@ conversations:
           skill: any
           proposal: false
           tools: {none: [plan_update]}
+
+  # --- a thread of 2026-10-12, on a small registry of two datasets. Its
+  #     faults: asked to remember the person's name, the chat said twice it
+  #     had nowhere to keep a note, beside a Memory page that held one; asked
+  #     for a CSV, it put a question on a card and wrote nothing; it said the
+  #     list of a stack's fields it could read was cut off at kvp; and two
+  #     runs that stopped before any unit, dcm2niix missing, read as runs in
+  #     which no unit failed. Its good answers must keep passing: the
+  #     scanner makers' words for kinds of scan (MEDIC, SPACE), what SyMRI
+  #     makes, its magnitude and phase images (a check once sent the right
+  #     answer back for the word phase), dual-echo PD and T2, and counts
+  #     that name the question they were stored as. The name is made up.
+  - id: memory-name
+    kind: memory
+    registry: gold
+    from: the thread of 2026-10-12, the name to remember
+    turns:
+      - say: Remember that my name is Alva, so you have it in my other chats too.
+        expect:
+          skill: none
+          tools: {some: [remember]}
+          proposal: false
+          document: none
+          says:
+            - {match: "\\b(kept|keep|keeping|remember|remembered|noted|saved)\\b"}
+            - {not: {match: "\\b(can't|cannot|can not|unable to|not able to|no way to|nowhere to)\\b[^.]{0,40}\\b(remember|keep|store|write|save|carry|note|memory)\\b|\\bno (persistent |long-term )?memory\\b|\\bonly (lasts|holds) as long as\\b"}}
+      - say: So you can put things into your memory?
+        expect:
+          proposal: false
+          document: none
+          says:
+            - {match: "\\bmemory\\b|\\bMemory page\\b|\\bremember\\b"}
+            - {match: "\\b(new|next|later|other) (conversations?|chats?)\\b|\\bstart of each\\b|\\beach new\\b"}
+            - {not: {match: "\\b(can't|cannot|can not|unable to|not able to|no way to|nowhere to)\\b[^.]{0,40}\\b(remember|keep|store|write|save|carry|note|memory)\\b|\\bno (persistent |long-term )?memory\\b|\\bonly (lasts|holds) as long as\\b"}}
+      - say: Thanks. Forget my name again, please.
+        expect:
+          tools: {some: [forget]}
+          proposal: false
+          document: none
+
+  - id: file-csv
+    kind: file
+    registry: gold
+    from: the thread of 2026-10-12, a CSV asked for
+    turns:
+      - say: Can you make a CSV of the subjects in cohort B and upload it here?
+        expect:
+          tools: {none: [ask_user]}
+          proposal: false
+          says:
+            - {match: "\\bsandbox\\b"}
+            - {match: "\\b(can't|cannot|can not|not yet|unable to|no way to)\\b[^.]{0,60}\\b(files?|csv|attach|upload|make|create|send)\\b"}
+
+  - id: fields-past-kvp
+    kind: fields
+    registry: gold
+    from: the thread of 2026-10-12, a stack's fields past the first page
+    turns:
+      - say: Which fields does a stack have for the repetition time, the slice thickness and the series description?
+        expect:
+          proposal: false
+          says:
+            - {match: "\\brepetition[_ ]time\\b"}
+            - {match: "\\bslice[_ ]thickness\\b"}
+            - {match: "\\bseries[_ ]description\\b"}
+            - {not: {match: "\\bcut (off|short)\\b|\\b(can't|cannot|can not) (see|read) the (rest|whole|full)\\b|\\blist (I can read|is cut)\\b"}}
+
+  - id: vocabulary-medic-space
+    kind: vocabulary
+    registry: gold
+    from: the thread of 2026-10-12, a maker's word for a kind of scan
+    turns:
+      - say: If I ask you for MEDIC stacks, what would you look for?
+        expect:
+          skill: find-data
+          proposal: false
+          query: [{match: "\"technique\"\\],\\[?\"comb-ME-GRE\""}]
+          says:
+            - {match: "\\bmulti-?echo\\b|\\bcomb-ME-GRE\\b"}
+            - {match: "\\b(\\d+|no|none)\\b"}
+            - {match: "\\bdocument \\d+\\b"}
+      - say: How about SPACE, what is that?
+        expect:
+          proposal: false
+          says: [{match: "\\b3D[- ]?TSE\\b|\\b(3D|three-dimensional) (turbo|fast) spin[- ]echo\\b"}]
+
+  - id: vocabulary-symri
+    kind: vocabulary
+    registry: gold
+    from: the thread of 2026-10-12, what SyMRI makes
+    turns:
+      - say: How many different types of SyMRI images can we potentially have?
+        expect:
+          proposal: false
+          says:
+            - {match: "\\bSynthetic ?T1w?\\b|\\bsynthetic T1"}
+            - {match: "\\bT1 ?map\\b|\\bquantitative\\b"}
+      - say: Then what are their magnitude and phase images in SyMRI?
+        expect:
+          proposal: false
+          document: none
+          says:
+            - {match: "\\bmagnitude\\b"}
+            - {match: "\\bphase\\b"}
+            - {match: "\\b(raw|reconstruct\\w*|scanner)\\b"}
+
+  - id: vocabulary-dual-echo
+    kind: vocabulary
+    registry: gold
+    from: the thread of 2026-10-12, dual-echo PD and T2
+    turns:
+      - say: Do we have dual echo PD T2 scans?
+        expect:
+          skill: find-data
+          proposal: false
+          query: [{match: "intermediate_PD_T2|\"ME-SE\""}]
+          says:
+            - {match: "\\b(\\d+|no|none)\\b"}
+            - {match: "\\bdocument \\d+\\b"}
+
+  - id: run-converter-missing
+    kind: run
+    registry: seeded
+    from: the thread of 2026-10-12, bench/planted.ts CONVERTER_MISSING
+    turns:
+      - say: How did run {run:converter-missing} go, and why?
+        expect:
+          skill: read-run
+          proposal: false
+          says:
+            - {match: "\\bdcm2niix\\b"}
+            - {match: "\\binstall\\w*\\b"}
+            - {match: "\\bbefore any\\b|\\bnever (started|reached|ran|got)\\b|\\b(no|none of the|0) (units?|scans?|subjects?|sessions?)\\b[^.]{0,40}\\b(ran|run|started|tried|reached|looked)\\b"}
+            - {not: {match: "\\bno unit failed\\b|\\bnone of the units failed\\b"}}

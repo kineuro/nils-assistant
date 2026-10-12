@@ -223,6 +223,20 @@ export const PLANTED: Planted[] = [
   },
 ];
 
+/**
+ * The one-chat bench's run that fails before any unit for a missing converter (2026-10-12), as two runs of a
+ * person's thread did: a starter whose input is a BIDS tree, which the engine releases with dcm2niix before any unit
+ * runs, given a dcm2niix that is not there. Nothing is pulled or run; the run's own error says why, and the answer
+ * must say why and what to do.
+ */
+export const CONVERTER_MISSING = {
+  case: "converter-missing",
+  pipeline: "n4-bias-correction",
+  // the planted stacks of clean-mriqc, saved by then: a selection over synth's stacks is empty before the seed
+  // classifies them
+  selection: "planted-mriqc-units@1",
+} as const;
+
 /** The planted people in all: one stack each, so one unit each. */
 export const PLANTED_PEOPLE = PLANTED.reduce((n, p) => n + p.units.length, 0);
 

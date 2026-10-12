@@ -20,6 +20,8 @@ The update chunks of Flue's streaming protocol, in order:
 | `tool-input` of `task` | a sub-agent's task: `input.agent`, `input.prompt` | `task_start` |
 | `tool-output` of `task` | the task's final text | `task` |
 | `submission-settled` | the end of the turn: `outcome` | `submission_settled` |
+| `data-part` of kind `replaced` | a check sent the turn back: the answer is the words after it, once there are any | (a relayed `message_data_write`) |
+| `data-part` of kind `clarification` | a question asked on a card, which the person reads | (a relayed `message_data_write`) |
 
 A host may relay the runtime events (`observe()`, v3) instead; `fromRuntime` in `bench/one-chat-grade.ts` reads them into the same shape, and leaves out events that carry a `taskId` (a sub-agent's own calls are not the parent's steps).
 
