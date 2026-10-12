@@ -5,7 +5,7 @@
 // is closest to the conversation's first words), and a few notes their work
 // left. It is read when a conversation starts and held for its life, as the
 // stations hold it (a conversation already open keeps what it started
-// with), and told with the turn's facts. Asked to remember Nima's name, the
+// with), and told with the turn's facts. Asked to remember the person's name, the
 // chat once said twice that it had nowhere to write a note, while the page
 // beside it held one from that same night.
 
