@@ -33,6 +33,8 @@ import { plainly, unplainWords } from "../src/one/words.ts";
 import { withoutTask } from "../src/providers/kvasir.ts";
 import { GrantKeeper } from "../src/seam/grant.ts";
 import { Ledger } from "../src/seam/ledger.ts";
+import { cohortsOf, cohortsText } from "../src/stations/pipelines.ts";
+import { renderCatalog } from "../src/stations/prelude.ts";
 import { seamOf, stubEngine } from "./child/stub-engine.ts";
 
 describe("what a person's grants mount", () => {
@@ -65,7 +67,14 @@ describe("what a person's grants mount", () => {
     expect(m.tools).toContain("analysis_table");
     expect(m.tools).toContain("query_draft");
     expect(m.tools).not.toContain("run_read");
-    expect(grantsLine(m)).toMatch(/counts and plain fields only/u);
+    expect(grantsLine(m)).toMatch(/counts and plain fields/u);
+    // a group's mean or spread of an age at plain, 5 subjects or more (record 55 K7, round 4)
+    expect(grantsLine(m)).toMatch(/a group's mean or spread \(its standard deviation\) of an age/u);
+    expect(grantsLine(m)).toMatch(/where the group holds 5 subjects or more/u);
+    // round 4: told only the line above, the chat rebuilt a cohort's ages from counts of age bands
+    expect(grantsLine(m)).toMatch(
+      /never one person's value, the youngest or the oldest, or the ages broken into bands/u,
+    );
   });
 
   it("names every tool the bench's lexicon names, and no other", () => {
@@ -168,6 +177,14 @@ describe("plain words", () => {
       expect.arrayContaining(["station", "is working on it", "catalog", "closed to me"]),
     );
     expect(unplainWords("Cohort B has 24 subjects.")).toEqual([]);
+    // a measure's upper bound is the everyday ceiling; the engine's ceiling of what may be seen is not (round 4)
+    expect(
+      unplainWords(
+        "1 came in under the intracranial floor (900,000 mm³) and 1 over the ceiling (2,300,000 mm³).",
+      ),
+    ).toEqual([]);
+    expect(unplainWords("Its volume has a ceiling of 2,300,000 mm³.")).toEqual([]);
+    expect(unplainWords("Your account's ceiling is plain detail.")).toEqual(["ceiling"]);
   });
 
   it("matches the bench's lexicon word for word", async () => {
@@ -287,6 +304,25 @@ describe("the checks before a turn settles", () => {
     process.env.ONE_CHAT_NARRATION_CHECK = "0";
     expect(await complaintsOf(c)).toEqual([]);
     delete process.env.ONE_CHAT_NARRATION_CHECK;
+  });
+
+  it("sends back what it would look for answered from words alone, with no question drafted (round 4)", async () => {
+    const id = "chk-would";
+    const t = newTurn(id, "If I ask you for MEDIC stacks, what would you look for?");
+    t.tools.push("registry_search");
+    t.texts.push("MEDIC sits under the technique comb-ME-GRE: I would look for stacks sorted to it.");
+    const c = { turn: t, convo: conversationOf(id), conversation: id, validate: null, hinted: "find-data" };
+    expect((await complaintsOf(c)).join(" ")).toMatch(/activate the find-data skill and draft the question/u);
+    // round 4's final run: the skill activated, the sorting value found, and still nothing drafted
+    t.skills.add("find-data");
+    expect((await complaintsOf(c)).join(" ")).toMatch(/activate the find-data skill and draft the question/u);
+    t.drafted.push(7);
+    t.texts.splice(
+      0,
+      t.texts.length,
+      "MEDIC is the technique comb-ME-GRE: none of the stacks here (document 7).",
+    );
+    expect(await complaintsOf(c)).toEqual([]);
   });
 
   it("holds a found document to the engine's validation", async () => {
@@ -424,6 +460,36 @@ describe("searching the registry's names", () => {
         "event kind EDSS",
         "cohort ms-cohort-b (24 members)",
       ]),
+    );
+  });
+
+  it("says when each cohort was made, in the summary, the search and the cohorts' list (round 4, 2026-10-12)", () => {
+    const cohorts = [
+      { name: "nmosd", members: 9, created_at: "2026-10-12T08:01:09Z" },
+      { name: "ms-cohort-a", members: 24, created_at: "2026-10-12T08:01:02Z" },
+      { name: "ms-cohort-b", members: 24, created_at: "2026-10-12T08:01:02Z" },
+    ];
+    const text = renderCatalog({ cohorts } as never);
+    expect(text).toContain(
+      "Cohorts (by name): nmosd (9 members), ms-cohort-a (24 members), ms-cohort-b (24 members)",
+    );
+    // oldest first, a tie in the catalog's order
+    expect(text).toContain(
+      "Cohorts in the order they were made: ms-cohort-a (made 2026-10-12 08:01:02), ms-cohort-b (made 2026-10-12 08:01:02), nmosd (made 2026-10-12 08:01:09)",
+    );
+    // an engine that does not say it: no such line
+    expect(renderCatalog({ cohorts: [{ name: "a", members: 1 }] } as never)).not.toContain(
+      "order they were made",
+    );
+    expect(searchCatalog({ cohorts } as never, "nmosd")).toContain(
+      "cohort nmosd (9 members, made 2026-10-12 08:01:09)",
+    );
+    const listed = cohortsOf([
+      { name: "nmosd", subjects: 9, sessions: 34, created_at: "2026-10-12T08:01:09Z" },
+    ]);
+    expect(listed).toEqual([{ name: "nmosd", subjects: 9, sessions: 34, made: "2026-10-12 08:01:09" }]);
+    expect(cohortsText(listed)).toBe(
+      "The cohorts: nmosd (9 subjects, 34 sessions, made 2026-10-12 08:01:09).",
     );
   });
 

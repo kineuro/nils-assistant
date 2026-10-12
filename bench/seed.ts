@@ -431,6 +431,10 @@ export async function seed(o: Options): Promise<Record<string, unknown>> {
   // the sessions are a cache that questions read: built once everything is in, so no question at grain session
   // finds it empty (on the engine of 2026-10-12 nothing above builds it)
   nils(["session", "rebuild"]);
+  // the picks: which stack stands for each visit's role (its main T1w, FLAIR and T2w), as a sort's pipeline ends.
+  // On wave7a an analysis runs over the picked scans, so without them every plan's check said 0 of 0 units ready
+  // (round 3, 2026-10-12)
+  nils(["pick", "run", ...packs]);
 
   // the operator: one stored question to run
   const drafted = JSON.parse(

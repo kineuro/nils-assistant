@@ -39,7 +39,7 @@ const { probeEngineAuth, registerStation, theLedger, theLineage, theNotes } = aw
 const { loadManifests } = await import("../src/stations/manifest.ts");
 const { ChangeStore, theChanges, useChangeStore } = await import("../src/one/changes.ts");
 const { oneAgent, notePerson } = await import("../src/one/agent.ts");
-const { TURN_BUDGET, answerOf, turnOf } = await import("../src/one/state.ts");
+const { TURN_BUDGET, answerOf, keptDocument, turnOf } = await import("../src/one/state.ts");
 
 const CATALOG = {
   epoch: 3,
@@ -197,6 +197,24 @@ const engine = await stubEngine((c) => {
         rows: [["99", "99", 24]],
         truncated: false,
         shaped: ["youngest", "oldest"],
+      },
+    };
+  // a group's spread of the age, a measure the preview leaves out and a run computes (round 4)
+  if (p === "/api/ask/draft" && JSON.stringify(c.body).includes("stddev"))
+    return { body: { document: 815, hash: "h", diagnosis: [{ set: "first", rows: 38 }] } };
+  if (p === "/api/ask/preview" && (c.body as { document_id?: number } | null)?.document_id === 815)
+    return {
+      body: { level: "aggregate", columns: ["mean_age", "_subjects"], rows: [[40.76, 38]], truncated: false },
+    };
+  if (p === "/api/ask/run" && (c.body as { document_id?: number } | null)?.document_id === 815)
+    return {
+      body: {
+        handle: 815,
+        columns: ["_key", "mean_age", "_subjects", "stddev.age"],
+        rows: [[1, 40.76, 38, 4.76]],
+        truncated: false,
+        shaped: [],
+        held_back: [],
       },
     };
   if (p === "/api/ask/draft")
@@ -402,6 +420,46 @@ describe("the one agent", () => {
         .map((r) => r.operation),
     ).toEqual(expect.arrayContaining(["draft", "preview", "validate"]));
   }, 60_000);
+
+  it("reads a measure the question declares from a run, which the preview leaves out (round 4, 2026-10-12)", async () => {
+    play([
+      {
+        tool: "query_draft",
+        args: {
+          text: "ast_version: 1\nname: spread\nout:\n  set: whole\n  measures:\n    - {stddev: {of: age}}\n",
+        },
+      },
+      { text: "The mean age is 40.8 years, with a standard deviation of 4.8 years (document 815)." },
+    ]);
+    const h = init(Nils, { id: "oc-measure" });
+    await h.read(await h.dispatch("What is the spread of the age at the first scan in ms-cohort-a?"));
+    const out = lastResult(seen[1]);
+    expect(out.document).toBe(815);
+    expect((out.measures as { registry_data: unknown }).registry_data).toEqual({
+      columns: ["stddev.age"],
+      rows: [[4.76]],
+    });
+  }, 60_000);
+
+  it("offers the question the answer names, not a nearby one drafted after it (round 4, 2026-10-12)", async () => {
+    play([
+      { tool: "activate_skill", args: { name: "find-data" } },
+      { tool: "query_draft", args: { text: "ast_version: 1\nname: cohort b\n" } },
+      { tool: "query_draft", args: { text: "ast_version: 1\nname: youngest and oldest\n" } },
+      { text: "Cohort B has 24 subjects (document 812); document 813 shows their ages as shapes." },
+    ]);
+    const h = init(Nils, { id: "oc-kept" });
+    await h.read(await h.dispatch("How many subjects are in cohort B?"));
+    expect(turnOf("oc-kept").drafted).toEqual([812, 813]);
+    const log = recorded("oc-kept");
+    expect(log).toMatch(/"change":"query_version"[^}]*"ref":\{"document":812,"parent":null\}/u);
+    expect(log).not.toMatch(/"ref":\{"document":813/u);
+    // naming none, the last drafted stays the one offered
+    expect(keptDocument([812, 813], "Cohort B has 24 subjects.")).toBe(813);
+    // a document the turn did not draft is never the one offered
+    expect(keptDocument([813], "Document 812 still holds; document 813 counts them.")).toBe(813);
+    expect(keptDocument([], "document 812")).toBeUndefined();
+  });
 
   it("answers how much a dataset holds from its own counts, and sends back an answer that says it is not there", async () => {
     play([
@@ -865,7 +923,11 @@ describe("the one agent tells what is true now (2026-10-09)", () => {
     const h = init(Nils, { id: "oc-run-stopped" });
     await h.read(await h.dispatch("How did run 2 go?"));
     const out = lastResult(seen[1]);
-    expect(out).toMatchObject({ run: 2, status: "failed", units: { total: 0 } });
+    // no zeros to read back as "no unit failed" (round 4): the units are said as none tried, and no count is given
+    expect(out).toMatchObject({ run: 2, status: "failed" });
+    expect(String(out.units)).toMatch(/^none: the run stopped before its first unit/u);
+    expect(out.failed_units).toBeUndefined();
+    expect(out.failed_by_reason).toBeUndefined();
     expect(String((out.run_failure as { error?: unknown }).error)).toMatch(/dcm2niix is not runnable/u);
     expect(String(out.say)).toMatch(/failed before any unit ran/u);
     expect(String(out.say)).toMatch(/what to do about it, as its error says/u);

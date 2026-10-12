@@ -8,6 +8,7 @@
 // rehearsed, the identity probes). Held in the process like the stations'
 // own readings; a restart forgets them, and the next turn reads again.
 
+import type { HeldBack } from "../seam/shaped.ts";
 import type { HeldShape, ProbeCandidate } from "../stations/identity-check.ts";
 import type { Prediction } from "../stations/keyword-tune.ts";
 import { initialState, Machine } from "../stations/machine.ts";
@@ -61,6 +62,11 @@ export interface TurnState {
    * the answer may state no value of them, and says their detail does not show them.
    */
   shaped: string[];
+  /**
+   * The columns the last answer the turn read held values back in (record 55 K7, the ruling on aggregates of
+   * 2026-10-12): the answer says which and why, and states no value of them.
+   */
+  heldBack: HeldBack[];
 }
 
 export interface Rehearsal {
@@ -118,6 +124,7 @@ export function newTurn(conversation: string, message: string, now = Date.now())
     datasets: [],
     outputs: { charts: [], files: [], seen: new Map() },
     shaped: [],
+    heldBack: [],
   };
   turns.set(conversation, t);
   return t;
@@ -151,6 +158,20 @@ export function conversationOf(id: string): ConversationState {
 export function answerOf(t: TurnState): string {
   for (let i = t.texts.length - 1; i >= 0; i--) if (t.texts[i].trim()) return t.texts[i].trim();
   return "";
+}
+
+/**
+ * The question the turn keeps (round 4, 2026-10-12): the first the answer names ("document 41", "question 41") of
+ * those the turn drafted, else the last it drafted. The model sometimes drafts a nearby question after the one that
+ * answers (a breakdown, a check) and names the answering one; the card offered the last drafted, and the person kept
+ * a question the answer was not about. A skill line ("once a question answers, draft no other") did not hold it.
+ */
+export function keptDocument(drafted: readonly number[], answer: string): number | undefined {
+  for (const m of answer.matchAll(/\b(?:document|question)s?\s+(?:#\s*)?(\d+)\b/giu)) {
+    const n = Number(m[1]);
+    if (drafted.includes(n)) return n;
+  }
+  return drafted.at(-1);
 }
 
 export function forgetConversation(id: string): void {

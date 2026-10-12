@@ -9,6 +9,8 @@
 // carries is the engine's, never the model's. Nothing here starts a run or
 // makes a campaign: those are a person's acts (record 49 R5, D47).
 
+import { madeOn } from "./prelude.ts";
+
 /** A parameter as the descriptor declares it (Boutiques' inputs). */
 export interface Param {
   id: string;
@@ -203,19 +205,25 @@ export function catalogText(entries: Entry[]): string {
 /** The cohorts as names with their counts, for choosing whom to run over. */
 export function cohortsOf(
   body: unknown,
-): { name: string; subjects: number | null; sessions: number | null }[] {
+): { name: string; subjects: number | null; sessions: number | null; made: string | null }[] {
   const rows = (Array.isArray(body) ? body : ((body as { cohorts?: unknown })?.cohorts ?? [])) as Record<
     string,
     unknown
   >[];
   return rows
     .filter((c) => typeof c?.name === "string" && !c.retired_at)
-    .map((c) => ({ name: String(c.name), subjects: num(c.subjects), sessions: num(c.sessions) }));
+    .map((c) => ({
+      name: String(c.name),
+      subjects: num(c.subjects),
+      sessions: num(c.sessions),
+      // when it was made (round 4, 2026-10-12): `GET /api/cohorts` says it, and it was dropped here
+      made: madeOn(c.created_at),
+    }));
 }
 
 export function cohortsText(cohorts: ReturnType<typeof cohortsOf>): string {
   if (cohorts.length === 0) return "No cohort is readable here; a run goes over a saved selection.";
-  return `The cohorts: ${cohorts.map((c) => `${c.name} (${c.subjects ?? "?"} subjects, ${c.sessions ?? "?"} sessions)`).join("; ")}.`;
+  return `The cohorts: ${cohorts.map((c) => `${c.name} (${c.subjects ?? "?"} subjects, ${c.sessions ?? "?"} sessions${c.made ? `, made ${c.made}` : ""})`).join("; ")}.`;
 }
 
 const TRUE = new Set(["true", "on", "yes", "1"]);

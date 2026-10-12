@@ -107,7 +107,12 @@ const SKILL_WORDS: Record<SkillId, string> = {
 };
 
 const DETAIL_WORDS: Record<Detail, string> = {
-  plain: "counts and plain fields only (no age, sex or other quasi-identifying detail)",
+  // since the engine's ruling on aggregates (record 55 K7, round 4): a group's mean and spread of an age are answered
+  // at plain for 5 subjects or more and held back below; a plain reader once was told they could not see it at all.
+  // Told only that, the chat rebuilt the ages of a cohort from counts of age bands (one band held one subject), which
+  // filters allow at plain: the line says it never does
+  plain:
+    "counts and plain fields; of age, sex and other quasi-identifying detail only a group's mean or spread (its standard deviation) of an age as the registry answers it, where the group holds 5 subjects or more (it holds it back below, and says so); never one person's value, the youngest or the oldest, or the ages broken into bands or ranges",
   quasi: "quasi-identifying detail such as age and sex, but nothing sensitive",
   sensitive: "every detail",
 };

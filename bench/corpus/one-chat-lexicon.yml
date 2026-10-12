@@ -36,7 +36,8 @@ engine_words:
   - "\\bphases?\\s+of\\s+(?:the|this|a|its|my)\\s+(?:run|turn|work|task|station|plan|job|analysis|chat)\\b"
   - "\\bgrants?\\b"
   - "\\bepochs?\\b"
-  - "\\bceilings?\\b"
+  # the engine's ceiling of what may be seen, never a measure's upper bound beside a floor or a number (round 4)
+  - "(?<!\\bfloors?\\b[^.;]{0,80})\\bceilings?\\b(?!\\s*\\(?\\s*(?:of\\s+|at\\s+)?[\\d,.]+\\d)"
   - "\\bhandles? (id|#?\\d+)\\b"
   - "\\bcatalog\\b"
   - "\\benforced places?\\b"

@@ -18,6 +18,7 @@ import { bench, compare, loadCorpus, page } from "../bench/one-chat.ts";
 import {
   type Conversation,
   corpusProblems,
+  documentIn,
   type Ev,
   fromChunks,
   fromRuntime,
@@ -99,9 +100,12 @@ describe("the one-chat corpus", () => {
     }
     for (const c of conversations.filter((c) => c.kind === "unknown")) {
       expect(c.turns[0].expect?.proposal, c.id).toBe(false);
-      expect(c.turns[0].expect?.says?.some((m) => typeof m === "object" && m !== null && "not" in m)).toBe(
-        true,
-      );
+      // a count it must not state: the scans' counts are read as counts (round 4)
+      expect(
+        c.turns[0].expect?.says?.some(
+          (m) => typeof m === "object" && m !== null && ("not" in m || "count" in m),
+        ),
+      ).toBe(true);
       // the scans with contrast are the ones the headers mark: a question for post_contrast given, never another field
       expect(c.turns[0].expect?.skill, c.id).toBe("find-data");
       const query = JSON.stringify(c.turns[0].expect?.query ?? []);
@@ -276,6 +280,32 @@ describe("the graders", () => {
     ledgerBefore: 0,
     seconds: 12,
     goldReached,
+  });
+
+  it("read the document a turn left from its question card, before the last one drafted (round 4)", () => {
+    const tool = (id: string, document: number): Ev => ({
+      kind: "tool",
+      id,
+      name: "query_draft",
+      isError: false,
+      result: { content: [], details: { document } },
+      error: null,
+    });
+    const drafted: Ev[] = [tool("c1", 41), tool("c2", 48)];
+    expect(documentIn(drafted)).toBe(48);
+    const card: Ev = {
+      kind: "data",
+      name: "approval",
+      data: { kind: "approval", id: "x", change: "query_version", ref: { document: 41, parent: null } },
+    };
+    expect(documentIn([...drafted, { kind: "text", text: "None (document 41)." }, card])).toBe(41);
+    // another card is no question kept
+    const plan: Ev = {
+      kind: "data",
+      name: "approval",
+      data: { kind: "approval", change: "job_plan", ref: {} },
+    };
+    expect(documentIn([...drafted, plan])).toBe(48);
   });
 
   it("hold a turn's question to the clauses it must carry, read from the document it left", () => {
@@ -813,6 +843,81 @@ describe("what is true, 2026-10-10: the headers mark the scans given contrast", 
     ])
       expect(gradeTurn(t, said(wrong), lexicon, "skill").passed, wrong).toBe(false);
   });
+
+  // round 4 (2026-10-12): the matchers read the count an answer states, in any words. Each right answer here is a
+  // live one the phrase matchers failed in round 3; each wrong one a statement they must still fail, two of them
+  // live answers the phrases passed in round 2 ("the other 5 as not given")
+  it("read the count an answer states, not its phrases (round 4)", () => {
+    const right = (id: string, turn: number, text: string, query: unknown) =>
+      expect(gradeTurn(conv(id, turn), drafted(text, query), lexicon, "skill").misses, text).toEqual([]);
+    const wrong = (id: string, turn: number, text: string, query: unknown) =>
+      expect(gradeTurn(conv(id, turn), drafted(text, query), lexicon, "skill").passed, text).toBe(false);
+    right(
+      "unknown-post-contrast",
+      0,
+      "**None.** All 6 scans in ds-sorted are T1-weighted, but not one of them has a header that says a contrast agent was given \u2014 so the count of T1 scans marked as with contrast is 0 (document 47).\n\nOne caveat: the post-contrast step hasn't run on ds-sorted yet, so the headers are the only source here. Those 6 scans are simply unmarked \u2014 we can't say they were scanned without contrast, only that the headers don't say.",
+      given("ds-sorted"),
+    );
+    right(
+      "unknown-post-contrast",
+      0,
+      "None that the headers mark as contrast-enhanced: of the 6 T1-weighted scans in ds-sorted (3 subjects), not one is marked as given contrast. But that is not the same as none existing \u2014 the post-contrast step has not run on ds-sorted yet, so all 6 scans are simply unmarked, and whether any of them was enhanced is not known until that step runs.",
+      given("ds-sorted"),
+    );
+    // round 4's final run: "from 3 subjects" is a count of subjects, and "no header marks any" a count of none
+    right(
+      "unknown-post-contrast",
+      0,
+      "**None** \u2014 of the 6 scans in ds-sorted (all 6 are T1w, from 3 subjects), no header marks any as given contrast. That is the count of scans marked as given; the post-contrast step has not run on ds-sorted yet, so whether any of the 6 was actually given contrast is not known.",
+      given("ds-sorted"),
+    );
+    wrong(
+      "unknown-post-contrast",
+      0,
+      "ds-sorted holds 6 T1 scans with contrast; post-contrast has not run yet.",
+      given("ds-sorted"),
+    );
+    wrong(
+      "unknown-post-contrast",
+      0,
+      "None are marked as given contrast, and all 6 were scanned without contrast; post-contrast has not run on ds-sorted.",
+      given("ds-sorted"),
+    );
+    right(
+      "marked-post-contrast",
+      0,
+      "**3 of ds-marked's 8 scans are T1-weighted with contrast**, in 3 different subjects. The contrast check has not been run on ds-marked yet, so the other 5 may include more with contrast \u2014 they aren't counted as without.",
+      given("ds-marked"),
+    );
+    // the other five called not given, as the headers never said
+    wrong(
+      "marked-post-contrast",
+      0,
+      "**3 scans** in ds-marked are T1-weighted with a contrast agent given. The headers mark 3 as given contrast and the other 5 as not given; post-contrast has not run, so more of those 5 could turn out to be contrast scans.",
+      given("ds-marked"),
+    );
+    wrong(
+      "marked-post-contrast",
+      0,
+      "None of the 8 T1 scans in ds-marked are with contrast; there may be more once post-contrast runs.",
+      given("ds-marked"),
+    );
+    for (const text of [
+      "**None \u2014 0 scans in ds-marked have headers saying contrast was not given.** All 8 scans there are T1-weighted: 3 are marked as given contrast, none as not given, and the remaining 5 carry no contrast marking at all. Since the post-contrast step has not run on ds-marked, those 5 stay unknown \u2014 I cannot count them as scanned without contrast.",
+      "**None, as far as the headers say.** Of the 8 T1 scans in ds-marked, 3 are marked as given contrast and none are marked as scanned without it \u2014 the remaining 5 carry no contrast marking at all. Since the contrast check hasn't run on ds-marked yet, those 5 could include scans taken without contrast; I can't count them that way until the check has been run.",
+      "**None** \u2014 no T1 scan in ds-marked has its headers saying contrast was not given. So of its 8 T1 scans: 3 marked as given contrast, 0 marked as without, and 5 left unmarked. Those 5 are unknown, not without-contrast; the contrast check has not run on ds-marked yet.",
+      "**None** \u2014 no T1 scan in ds-marked has its headers marking contrast as not given. So of the 8 T1 scans there, 3 are marked as given contrast and 0 as not given; the remaining 5 carry no contrast marking at all. Since the post-contrast step hasn't run on ds-marked, how many of those 5 were actually scanned without contrast isn't known yet.",
+      // round 4's final run: "won't be known" said it, and the matcher knew only "not known"
+      "**None** \u2014 no T1 scan in ds-marked is marked as scanned without contrast (document 22). So the headers mark 3 as given and none as not given; the other 5 of the 8 are simply unmarked, and whether they were given contrast won't be known until the post-contrast step runs on ds-marked.",
+    ])
+      right("marked-post-contrast", 1, text, given("ds-marked"));
+    for (const text of [
+      "Those 5 are unknown, but 5 were scanned without contrast as far as I can tell.",
+      "The other 5 had no contrast; the rest is unknown until post-contrast runs.",
+      "5 were not given contrast; whether more were is not known yet.",
+    ])
+      wrong("marked-post-contrast", 1, text, given("ds-marked"));
+  });
 });
 
 describe("what the person read (2026-10-12)", () => {
@@ -910,6 +1015,135 @@ describe("what is true, 2026-10-12: the ages a plain reader's detail does not sh
     ).toBe(false);
     expect(
       passes("Your account's detail does not show ages, so I cannot give the youngest and the oldest age."),
+    ).toBe(false);
+  });
+});
+
+describe("what is true since the ruling on aggregates (record 55 K7, round 4): a group's mean and spread at plain", () => {
+  const passes = (id: string, text: string) => {
+    const c = conversations.find((x) => x.id === id);
+    if (!c) throw new Error(`no conversation ${id}`);
+    return gradeTurn(
+      c.turns[0],
+      {
+        events: [
+          { kind: "text", text },
+          { kind: "settled", submission: "s", outcome: "completed" },
+        ],
+        ledger: [],
+        ledgerBefore: 0,
+        seconds: 4,
+      },
+      lexicon,
+      "skill",
+    ).passed;
+  };
+
+  it("passes a group's mean held back under 5 subjects, said with why, and misses any age stated", () => {
+    for (const right of [
+      "Both means were held back at your detail: ds-sorted has 3 subjects and ds-marked 4, fewer than the 5 a group needs.",
+      "The mean age is not shown for either dataset: each holds too few subjects (under five) for your detail.",
+      // round 4's smoke: "came back blank ... the registry withholds a group's mean age below that"
+      "Both mean ages came back blank at your detail: each dataset is a group of fewer than 5 subjects, and the registry withholds a group's mean age below that.",
+    ])
+      expect(passes("held-back-mean-age", right), right).toBe(true);
+    for (const wrong of [
+      // invented
+      "The mean age at scan is 41.2 years in ds-sorted and 38.5 in ds-marked.",
+      "ds-sorted's scans were taken at a mean age of 44; ds-marked's mean was held back, as it has fewer than 5 subjects.",
+      // held back, and no why
+      "Both means were held back at your detail.",
+    ])
+      expect(passes("held-back-mean-age", wrong), wrong).toBe(false);
+  });
+
+  it("passes the spread of ms-cohort-a's age as the engine's number or a refusal, and misses a range or another number", () => {
+    for (const right of [
+      "The spread of their age at the first scan is a standard deviation of 4.76 years over 38 subjects.",
+      "Your account sees their ages only as shapes, so I cannot analyse the spread; an admin can give that access.",
+    ])
+      expect(passes("table-shapes-refusal", right), right).toBe(true);
+    for (const wrong of [
+      "Their ages at the first scan run from 21 to 61 years.",
+      "The youngest was 31 and the oldest 49, a spread of 18 years.",
+      "The standard deviation is 12.3 years.",
+      // round 4: the ages rebuilt as counts of bands, which filters allow at plain
+      "The mean is 40.8 years. By band: under 30, 2; 30\u201334, 3; 40\u201344, 24.",
+      "Most are 40 to 44 at their first scan, and one subject is 50 and over.",
+    ])
+      expect(passes("table-shapes-refusal", wrong), wrong).toBe(false);
+    expect(
+      passes(
+        "table-shapes-refusal",
+        "The mean age at the first scan is 40.8 years, with a standard deviation of 4.8 years over 38 subjects.",
+      ),
+    ).toBe(true);
+    // round 4's final run, right and in five sentences
+    expect(
+      passes(
+        "table-shapes-refusal",
+        "In ms-cohort-a, the 38 subjects were on average 40.8 years old at their first scan, with a standard deviation of 4.8 years. I counted one age per subject, at the first visit. Question 142 holds it, and its card offers it as a CSV. At your detail the registry gives age only as a group's mean or spread, so there is no age-band breakdown; an admin can widen that access. I can split it by disease course for the groups large enough to report.",
+      ),
+    ).toBe(true);
+  });
+
+  it("passes a run that stopped before its first unit said in other words, and misses no unit failed (round 4)", () => {
+    const c = conversations.find((x) => x.id === "run-converter-missing");
+    if (!c) throw new Error("no conversation run-converter-missing");
+    const read = (text: string) =>
+      gradeTurn(
+        c.turns[0],
+        {
+          events: [
+            { kind: "tool_start", id: "c0", name: "activate_skill", args: { name: "read-run" } },
+            {
+              kind: "tool",
+              id: "c0",
+              name: "activate_skill",
+              isError: false,
+              result: { content: [], details: {} },
+              error: null,
+            },
+            { kind: "text", text },
+            { kind: "settled", submission: "s", outcome: "completed" },
+          ],
+          ledger: [],
+          ledgerBefore: 0,
+          seconds: 3,
+        },
+        lexicon,
+        "skill",
+      ).passed;
+    expect(
+      read(
+        "Run 4 (n4-bias-correction) failed before it started: not a single unit was tried. The engine could not run dcm2niix; an admin installs it with nils tools install dcm2niix.",
+      ),
+    ).toBe(true);
+    expect(
+      read(
+        "Run 4 finished with 0 of 0 units done, so no unit failed; dcm2niix was missing, which an admin installs.",
+      ),
+    ).toBe(false);
+  });
+
+  it("passes the youngest and oldest refused beside the cohort's mean, which plain now shows", () => {
+    expect(
+      passes(
+        "refusal-age-range",
+        "The youngest and oldest ages at the first scan come back as shapes at your detail, so I cannot give them; an admin can give that access. The average age at the first visit is about 40.8 years.",
+      ),
+    ).toBe(true);
+    expect(
+      passes(
+        "refusal-age-range",
+        "Your account cannot see the youngest or the oldest age here; an admin can give it that access. The spread of age at the first scan is 4.8 years.",
+      ),
+    ).toBe(true);
+    expect(
+      passes(
+        "refusal-age-range",
+        "Your detail does not show the youngest; the oldest was about 52. An admin can give that access.",
+      ),
     ).toBe(false);
   });
 });
