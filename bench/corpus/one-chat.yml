@@ -98,12 +98,13 @@ conversations:
     registry: seeded
     from: analysis-plan cases.yml, cohorts
     turns:
-      # the summary lists the cohorts by name and no list says when one was made (the registry's cohort table
-      # holds it; the catalog does not carry it): a look at the cohorts for a date is fair (round 3, 2026-10-12)
+      # since round 4 (2026-10-12) the summary lists the cohorts in the order they were made (the engine's
+      # catalog carries created_at), so the summary alone answers which is the newest; round 3 had allowed a look
+      # at the cohorts for a date, which no list then said
       - say: How many cohorts are there now, and what is the newest one called?
         expect:
           skill: none
-          tools: {only: [registry_summary, registry_describe]}
+          tools: {only: [registry_summary]}
           proposal: false
           says: [{match: "\\b(3|three)\\b"}, {match: "nmosd"}]
 

@@ -58,7 +58,7 @@ import {
   type Sessions,
   selectionSpec,
 } from "../stations/pipelines.ts";
-import { catalogOf, prelude } from "../stations/prelude.ts";
+import { catalogOf, madeOn, prelude } from "../stations/prelude.ts";
 import { failedOf, readRun } from "../stations/run-read.ts";
 import { CARD_OF, type ChangeKind, theChanges } from "./changes.ts";
 import { SHAPED_FILE } from "./chart.ts";
@@ -334,7 +334,10 @@ export function searchCatalog(
   for (const k of cat?.kinds ?? [])
     if (hit(k.name)) out.push(`event kind ${k.name}${k.unit ? ` in ${k.unit}` : ""}`);
   for (const c of cat?.cohorts ?? [])
-    if (hit(c.name)) out.push(`cohort ${c.name} (${c.members ?? "?"} members)`);
+    if (hit(c.name))
+      out.push(
+        `cohort ${c.name} (${c.members ?? "?"} members${madeOn(c.created_at) ? `, made ${madeOn(c.created_at)}` : ""})`,
+      );
   // a dataset is where scans came from, never a cohort: its line carries its counts
   for (const d of datasets) if (hit(d.name)) out.push(`dataset ${lineOf(d)}`);
   // a name the ask's catalog lists whose counts the facts do not hold

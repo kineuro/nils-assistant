@@ -40,7 +40,8 @@ export interface Catalog {
   }[];
   diseases?: { name: string; courses?: string[] }[];
   namespaces?: string[];
-  cohorts?: { name: string; owner?: string; members?: number }[];
+  /** Since the engine's catalog of 2026-10-12, when each was made (`YYYY-MM-DDTHH:MM:SSZ`). */
+  cohorts?: { name: string; owner?: string; members?: number; created_at?: string }[];
   /** Wave 7a: the datasets in force, by name, that the ask's `dataset` field compares with. */
   datasets?: string[];
   schemes?: { name: string; digest?: string; window_days?: number; anchor?: string }[];
@@ -114,6 +115,24 @@ export async function wholeLevels(
   );
 }
 
+/** A cohort's made date as a person reads it, UTC to the second: `2026-10-12 08:01:02`; null when not given. */
+export function madeOn(at: unknown): string | null {
+  if (typeof at !== "string" || !at.trim()) return null;
+  const m = /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})/u.exec(at.trim());
+  return m ? `${m[1]} ${m[2]}` : at.trim();
+}
+
+/** The cohorts that say when they were made, oldest first (a tie keeps the catalog's order). */
+export function cohortsByMade(
+  cohorts: readonly { name: string; created_at?: string }[],
+): { name: string; made: string }[] {
+  return cohorts
+    .map((x, i) => ({ name: x.name, made: madeOn(x.created_at), i }))
+    .filter((x): x is { name: string; made: string; i: number } => x.made !== null)
+    .sort((a, b) => (a.made < b.made ? -1 : a.made > b.made ? 1 : a.i - b.i))
+    .map(({ name, made }) => ({ name, made }));
+}
+
 /** The catalog as text a small model reads once: grains and how they nest, the fields per level, the axes and their values, the kinds, the cohorts, the schemes, the derived fields, the functions. */
 export function renderCatalog(c: Catalog): string {
   const out: string[] = [];
@@ -159,10 +178,17 @@ export function renderCatalog(c: Catalog): string {
     out.push(
       `Diseases and courses: ${c.diseases.map((d) => `${d.name} [${(d.courses ?? []).join(", ")}]`).join("; ")}`,
     );
-  if (c.cohorts?.length)
+  if (c.cohorts?.length) {
     out.push(
       `Cohorts (by name): ${c.cohorts.map((x) => `${x.name} (${x.members ?? "?"} members)`).join(", ")}`,
     );
+    // when each was made (round 4, 2026-10-12): "which cohort was made third" had no list to read
+    const made = cohortsByMade(c.cohorts);
+    if (made.length)
+      out.push(
+        `Cohorts in the order they were made: ${made.map((x) => `${x.name} (made ${x.made})`).join(", ")}`,
+      );
+  }
   if (c.schemes?.length)
     out.push(`Session schemes: ${c.schemes.map((s) => s.name).join(", ")} (write \`scheme: default\`)`);
   if (c.roles?.length)

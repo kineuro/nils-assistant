@@ -33,6 +33,8 @@ import { plainly, unplainWords } from "../src/one/words.ts";
 import { withoutTask } from "../src/providers/kvasir.ts";
 import { GrantKeeper } from "../src/seam/grant.ts";
 import { Ledger } from "../src/seam/ledger.ts";
+import { cohortsOf, cohortsText } from "../src/stations/pipelines.ts";
+import { renderCatalog } from "../src/stations/prelude.ts";
 import { seamOf, stubEngine } from "./child/stub-engine.ts";
 
 describe("what a person's grants mount", () => {
@@ -424,6 +426,36 @@ describe("searching the registry's names", () => {
         "event kind EDSS",
         "cohort ms-cohort-b (24 members)",
       ]),
+    );
+  });
+
+  it("says when each cohort was made, in the summary, the search and the cohorts' list (round 4, 2026-10-12)", () => {
+    const cohorts = [
+      { name: "nmosd", members: 9, created_at: "2026-10-12T08:01:09Z" },
+      { name: "ms-cohort-a", members: 24, created_at: "2026-10-12T08:01:02Z" },
+      { name: "ms-cohort-b", members: 24, created_at: "2026-10-12T08:01:02Z" },
+    ];
+    const text = renderCatalog({ cohorts } as never);
+    expect(text).toContain(
+      "Cohorts (by name): nmosd (9 members), ms-cohort-a (24 members), ms-cohort-b (24 members)",
+    );
+    // oldest first, a tie in the catalog's order
+    expect(text).toContain(
+      "Cohorts in the order they were made: ms-cohort-a (made 2026-10-12 08:01:02), ms-cohort-b (made 2026-10-12 08:01:02), nmosd (made 2026-10-12 08:01:09)",
+    );
+    // an engine that does not say it: no such line
+    expect(renderCatalog({ cohorts: [{ name: "a", members: 1 }] } as never)).not.toContain(
+      "order they were made",
+    );
+    expect(searchCatalog({ cohorts } as never, "nmosd")).toContain(
+      "cohort nmosd (9 members, made 2026-10-12 08:01:09)",
+    );
+    const listed = cohortsOf([
+      { name: "nmosd", subjects: 9, sessions: 34, created_at: "2026-10-12T08:01:09Z" },
+    ]);
+    expect(listed).toEqual([{ name: "nmosd", subjects: 9, sessions: 34, made: "2026-10-12 08:01:09" }]);
+    expect(cohortsText(listed)).toBe(
+      "The cohorts: nmosd (9 subjects, 34 sessions, made 2026-10-12 08:01:09).",
     );
   });
 
