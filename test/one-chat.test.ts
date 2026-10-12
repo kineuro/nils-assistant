@@ -1058,8 +1058,32 @@ describe("what is true since the ruling on aggregates (record 55 K7, round 4): a
       "Their ages at the first scan run from 21 to 61 years.",
       "The youngest was 31 and the oldest 49, a spread of 18 years.",
       "The standard deviation is 12.3 years.",
+      // round 4: the ages rebuilt as counts of bands, which filters allow at plain
+      "The mean is 40.8 years. By band: under 30, 2; 30\u201334, 3; 40\u201344, 24.",
+      "Most are 40 to 44 at their first scan, and one subject is 50 and over.",
     ])
       expect(passes("table-shapes-refusal", wrong), wrong).toBe(false);
+    expect(
+      passes(
+        "table-shapes-refusal",
+        "The mean age at the first scan is 40.8 years, with a standard deviation of 4.8 years over 38 subjects.",
+      ),
+    ).toBe(true);
+  });
+
+  it("passes the youngest and oldest refused beside the cohort's mean, which plain now shows", () => {
+    expect(
+      passes(
+        "refusal-age-range",
+        "The youngest and oldest ages at the first scan come back as shapes at your detail, so I cannot give them; an admin can give that access. The average age at the first visit is about 40.8 years.",
+      ),
+    ).toBe(true);
+    expect(
+      passes(
+        "refusal-age-range",
+        "Your detail does not show the youngest; the oldest was about 52. An admin can give that access.",
+      ),
+    ).toBe(false);
   });
 });
 
