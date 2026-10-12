@@ -40,7 +40,7 @@ answers:
   "memory-name#1": "Kept: your name is Alva, and your later conversations start with it. You see it on the Memory page."
   "memory-name#2": "Yes: I keep what you ask me to remember, and each new conversation starts with it; you see, edit or delete it on the Memory page."
   "memory-name#3": "Forgotten: your name is no longer kept."
-  "file-csv#1": "I can't make or attach a file in this chat yet: that needs the analysis sandbox, which is coming. I can write the question of cohort B's subjects now; the Query page shows its count and first rows."
+  "file-csv#1": "Here is the question of cohort B's subjects: its card has Download CSV, which saves its rows as a file."
   "fields-past-kvp#1": "A stack has repetition_time for the repetition time, slice_thickness for the slice thickness and text_series_description for the series description."
   "vocabulary-medic-space#1": "MEDIC is Siemens' combined multi-echo gradient echo, which the sorting files under the technique comb-ME-GRE; no stack here has it, stored as document 501."
   "vocabulary-medic-space#2": "SPACE is Siemens' 3D turbo spin echo, which the sorting files under the technique 3D-TSE."

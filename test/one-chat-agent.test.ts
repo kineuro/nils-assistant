@@ -607,20 +607,25 @@ describe("the one agent", () => {
     expect(calls).toBe(2);
   }, 60_000);
 
-  it("answers a file asked for in words, with the hint that the chat makes none yet (2026-10-12)", async () => {
+  it("answers a file asked for in words: the answer's card has Download CSV (2026-10-12)", async () => {
     play([
+      { tool: "activate_skill", args: { name: "find-data" } },
+      { tool: "query_draft", args: { text: "ast_version: 1\nname: subjects of cohort b\n" } },
       {
-        text: "I can't make or attach a file in this chat yet: that needs the analysis sandbox, which is coming. I can write the question for you now.",
+        text: "Here is the question of cohort B's subjects; its card has Download CSV, which saves its rows as a file.",
       },
     ]);
     const h = init(Nils, { id: "oc-file" });
-    await h.read(await h.dispatch("can you make a csv of cohort B and upload it here?"));
-    expect(calls).toBe(1);
+    const reply = await h.read(await h.dispatch("can you make a csv of cohort B and upload it here?"));
+    expect(reply.text).toMatch(/Download CSV/u);
     expect(appended(seen[0])).toMatch(/a file is asked for/u);
-    expect(appended(seen[0])).toMatch(/analysis sandbox, which is coming/u);
+    expect(appended(seen[0])).toMatch(/Download CSV on the answer's card in this chat/u);
     expect(text(seen[0])).toMatch(
-      /A file \(a CSV, a spreadsheet, a picture\) cannot be made, attached or sent in this chat yet/u,
+      /A file of a question's answer is saved as a CSV with Download CSV on the answer's card/u,
     );
+    // the question is drafted, so the card the answer names is there, offered as the conversation's version
+    expect(turnOf("oc-file").drafted).toEqual([812]);
+    expect(recorded("oc-file")).toMatch(/"change":"query_version"/u);
   }, 60_000);
 
   it("proposes an analysis with the engine's own check, and runs nothing", async () => {

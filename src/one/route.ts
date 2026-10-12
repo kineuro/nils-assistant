@@ -63,7 +63,7 @@ const FIND =
   /\b(how many|which|list|show|count|give me|who|what is the|what are the|latest|mean|average|subjects?|sessions?|stacks?|scans?|series|edss|sdmt|cohort)\b/iu;
 
 // a file asked of the chat: a kind of file and something done with it ("can you make a csv and upload it here?",
-// 2026-10-12, where the chat asked which rows and wrote nothing else)
+// 2026-10-12, where the chat asked which rows and wrote nothing else); a question's answer has Download CSV on its card
 const FILE_KIND = /\b(csv|tsv|excel|spreadsheets?|xlsx?|files?|downloads?)\b/iu;
 const FILE_ACT = /\b(make|create|give|send|upload|attach|download|export|save|produce|generate|write)\b/iu;
 
@@ -83,7 +83,9 @@ export function routeOf(message: string): Route {
 /** The hint as the turn's facts carry it: one line the model may overrule. `tools` are the tools mounted. */
 export function hintLine(r: Route, mounted: readonly string[], tools: readonly string[] = []): string {
   if (r.file)
-    return `Hint from the words (${r.because}): you cannot make, attach or send a file in this chat yet; a file made here needs the analysis sandbox, which is coming. Answer in words, without asking first: say that plainly, then what you can do now${mounted.includes("find-data") ? ": write the question, whose count and first rows the Query page shows, and whose rows anyone who runs the registry's command line saves as a CSV with nils ask handles export" : ""}. Overrule it when the words mean otherwise.`;
+    return mounted.includes("find-data")
+      ? `Hint from the words (${r.because}): a question's answer is saved as a CSV with Download CSV on the answer's card in this chat, at the person's own detail. Draft the question the words ask for, or name the one drafted before, then say in plain words that its card has Download CSV. Any other file (a chart, a picture, an analysis's output) cannot be made here yet: it needs the analysis sandbox, which is coming. Answer in words, without asking first. Overrule it when the words mean otherwise.`
+      : `Hint from the words (${r.because}): this person may not look up data here, so there is no answer to save as a file; say so in one sentence, and that an admin can give it.`;
   if (r.jobs)
     return tools.includes("jobs_read")
       ? `Hint from the words (${r.because}): jobs_read answers this, the newest first; no skill is needed.`

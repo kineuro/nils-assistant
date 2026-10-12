@@ -111,7 +111,7 @@ describe("the one-chat corpus", () => {
     ]);
   });
 
-  it("holds the thread of 2026-10-12: memory kept and forgotten, a file answered in words, fields past kvp, a run stopped before any unit", () => {
+  it("holds the thread of 2026-10-12: memory kept and forgotten, a file on the answer's card, fields past kvp, a run stopped before any unit", () => {
     const by = (id: string) => conversations.find((c) => c.id === id);
     const memory = conversations.filter((c) => c.kind === "memory");
     expect(memory.map((c) => c.id)).toEqual(["memory-name"]);
@@ -120,7 +120,8 @@ describe("the one-chat corpus", () => {
     for (const t of memory[0].turns.slice(0, 2))
       expect(t.expect?.says?.some((m) => typeof m === "object" && m !== null && "not" in m)).toBe(true);
     expect(by("file-csv")?.turns[0].expect?.tools?.none).toContain("ask_user");
-    expect(JSON.stringify(by("file-csv")?.turns[0].expect?.says)).toMatch(/sandbox/u);
+    expect(by("file-csv")?.turns[0].expect?.skill).toBe("find-data");
+    expect(JSON.stringify(by("file-csv")?.turns[0].expect?.says)).toMatch(/Download CSV/u);
     expect(JSON.stringify(by("fields-past-kvp")?.turns[0].expect?.says)).toMatch(/repetition\[_ \]time/u);
     expect(
       conversations

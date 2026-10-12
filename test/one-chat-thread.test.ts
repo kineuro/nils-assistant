@@ -197,16 +197,21 @@ describe("a run that failed before any unit ran (2026-10-12)", () => {
 });
 
 describe("a file asked of the chat (2026-10-12)", () => {
-  it("is read from a kind of file and something done with it, and answered in words before any question", () => {
+  it("is read from a kind of file and something done with it, and answered with the card's Download CSV, before any question", () => {
     const r = routeOf("can you make a csv and upload it here?");
     expect(r).toMatchObject({ file: true, skill: null });
     const hint = hintLine(r, ["find-data"], ["query_draft"]);
-    expect(hint).toMatch(/cannot make, attach or send a file in this chat yet/u);
-    expect(hint).toMatch(/analysis sandbox, which is coming/u);
+    expect(hint).toMatch(
+      /saved as a CSV with Download CSV on the answer's card in this chat, at the person's own detail/u,
+    );
+    expect(hint).toMatch(/Draft the question the words ask for/u);
+    expect(hint).toMatch(
+      /Any other file \(a chart, a picture, an analysis's output\)[^.]*: it needs the analysis sandbox, which is coming/u,
+    );
     expect(hint).toMatch(/without asking first/u);
-    expect(hint).toMatch(/nils ask handles export/u);
-    // a person who may not look up data is not offered a question
-    expect(hintLine(r, [], [])).not.toMatch(/Query page/u);
+    expect(hint).not.toMatch(/command line/u);
+    // a person who may not look up data has no answer to save
+    expect(hintLine(r, [], [])).toMatch(/no answer to save as a file/u);
     for (const words of [
       "Export the scans of cohort B as a spreadsheet",
       "Can I download that as an Excel file?",

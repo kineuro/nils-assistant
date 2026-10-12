@@ -654,15 +654,16 @@ conversations:
   - id: file-csv
     kind: file
     registry: gold
-    from: the thread of 2026-10-12, a CSV asked for
+    from: the thread of 2026-10-12, a CSV asked for; the answer's card has Download CSV since
     turns:
       - say: Can you make a CSV of the subjects in cohort B and upload it here?
         expect:
+          skill: find-data
           tools: {none: [ask_user]}
           proposal: false
           says:
-            - {match: "\\bsandbox\\b"}
-            - {match: "\\b(can't|cannot|can not|not yet|unable to|no way to)\\b[^.]{0,60}\\b(files?|csv|attach|upload|make|create|send)\\b"}
+            - {match: "\\bDownload CSV\\b"}
+            - {match: "\\bcard\\b"}
 
   - id: fields-past-kvp
     kind: fields
