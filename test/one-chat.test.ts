@@ -1036,6 +1036,8 @@ describe("what is true since the ruling on aggregates (record 55 K7, round 4): a
     for (const right of [
       "Both means were held back at your detail: ds-sorted has 3 subjects and ds-marked 4, fewer than the 5 a group needs.",
       "The mean age is not shown for either dataset: each holds too few subjects (under five) for your detail.",
+      // round 4's smoke: "came back blank ... the registry withholds a group's mean age below that"
+      "Both mean ages came back blank at your detail: each dataset is a group of fewer than 5 subjects, and the registry withholds a group's mean age below that.",
     ])
       expect(passes("held-back-mean-age", right), right).toBe(true);
     for (const wrong of [
@@ -1076,6 +1078,12 @@ describe("what is true since the ruling on aggregates (record 55 K7, round 4): a
       passes(
         "refusal-age-range",
         "The youngest and oldest ages at the first scan come back as shapes at your detail, so I cannot give them; an admin can give that access. The average age at the first visit is about 40.8 years.",
+      ),
+    ).toBe(true);
+    expect(
+      passes(
+        "refusal-age-range",
+        "Your account cannot see the youngest or the oldest age here; an admin can give it that access. The spread of age at the first scan is 4.8 years.",
       ),
     ).toBe(true);
     expect(

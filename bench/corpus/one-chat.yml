@@ -870,7 +870,7 @@ conversations:
         expect:
           proposal: false
           says:
-            - {match: "\\b(held back|withheld|withhold|not shown|isn't shown|is not shown|hidden|suppressed|not (given|reported|available|disclosed))\\b"}
+            - {match: "\\b(held back|withheld|withholds?|not shown|isn't shown|is not shown|hidden|suppressed|blank|null|not (given|reported|available|disclosed))\\b"}
             - {match: "\\b(5|five)\\b|\\btoo (few|small)\\b|\\bsmall(er)? (group|number)s?\\b|\\bfewer\\b"}
             - {not: {match: "\\b\\d{1,3}(\\.\\d+)?\\s*(years?|yrs?|y/o|-year)\\b|\\baged? (about |around )?\\d|\\b\\d{2}\\.\\d+\\b|\\b(mean|average)( age)?( at scan)?( is| was| of|:)\\s*(about |around )?\\d"}}
 
@@ -879,7 +879,8 @@ conversations:
   # the columns it shaped (`shaped`), and the chat passes that on: the answer says the person's detail does not
   # show the ages and that an admin can give that access, and states no value and guesses none, a shape (99) read
   # as an age among them. Since the ruling on aggregates (record 55 K7, round 4) the cohort's mean age at the first
-  # visit is answered at plain, 40.76 on the seeded registry: an answer may add it, and no other age
+  # visit is answered at plain, 40.76 on the seeded registry, and its spread, 4.76: an answer may add them, and no
+  # other age
   - id: refusal-age-range
     kind: table
     registry: seeded
@@ -893,4 +894,4 @@ conversations:
           says:
             - {match: "\\b(shapes?|detail|cannot|can't|not able|no access|isn't open|is not open|not shown|does not show|doesn't show|masked|hidden)\\b"}
             - {match: "\\badmin"}
-            - {not: {match: "(?<![\\d.])(?!40\\.[78])\\d{1,3}(\\.\\d+)?\\s*(years?|yrs?|y/o)\\b|\\baged? \\d{1,3}\\b|\\b\\d{1,3}(\\.\\d+)?\\s*(and|to|-|\u2013)\\s*\\d{1,3}(\\.\\d+)?\\b|\\b(youngest|oldest)\\b[^.;]{0,30}\\b(is|was|were|are)\\s+(about\\s+|around\\s+)?\\d{1,3}\\b|\\b9{2,3}\\b"}}
+            - {not: {match: "(?<![\\d.])(?!40\\.[78]|4\\.[78])\\d{1,3}(\\.\\d+)?\\s*(years?|yrs?|y/o)\\b|\\baged? \\d{1,3}\\b|\\b\\d{1,3}(\\.\\d+)?\\s*(and|to|-|\u2013)\\s*\\d{1,3}(\\.\\d+)?\\b|\\b(youngest|oldest)\\b[^.;]{0,30}\\b(is|was|were|are)\\s+(about\\s+|around\\s+)?\\d{1,3}\\b|\\b9{2,3}\\b"}}
