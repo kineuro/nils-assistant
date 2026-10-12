@@ -61,6 +61,8 @@ export function withNote(result: Record<string, unknown>, conversation: string):
       status: r.status,
       units: r.units,
       detail: r.detail,
+      // why the run failed as a whole, where its answer says; the error's words only at detail quasi and above
+      failure: r.failure,
       // below detail quasi the fields that would hold a unit, a value or an error's words are left out, not blanked
       failed: r.detail === "plain" ? r.failed.map(({ units: _u, example: _e, ...rest }) => rest) : r.failed,
       breaches:

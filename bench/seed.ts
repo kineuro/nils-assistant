@@ -11,7 +11,10 @@
 // - run-read (stations/run-read/evals/runs.json): the three planted runs of
 //   bench/planted.ts over a small synthetic DICOM tree, run by the engine
 //   through a stand-in container runtime, and their run ids written as the
-//   `RUNS` the measure takes.
+//   `RUNS` the measure takes. Beside them the one-chat bench's run that fails
+//   before any unit for a missing converter: the starter n4-bias-correction
+//   over the planted stacks of clean-mriqc, given a dcm2niix that is not
+//   there.
 // - keyword-tune, identity-check and the operator (stations/<id>/evals/
 //   cases.yml, bench/fixtures.ts): the batch `keyword-bench` with two site
 //   words, classified; five datasets that arrive identified, each with its
@@ -59,7 +62,15 @@ import {
   SORTED,
   sortedSeries,
 } from "./fixtures.ts";
-import { descriptor, PLANTED, PLANTED_PEOPLE, STAND_IN_RUNTIME, writeSeries, writeTree } from "./planted.ts";
+import {
+  CONVERTER_MISSING,
+  descriptor,
+  PLANTED,
+  PLANTED_PEOPLE,
+  STAND_IN_RUNTIME,
+  writeSeries,
+  writeTree,
+} from "./planted.ts";
 
 /** The batch name the planted tree is digested under; with synth's own, the only batches a seeded home holds. */
 export const PLANTED_BATCH = "planted-bench";
@@ -314,6 +325,37 @@ export async function seed(o: Options): Promise<Record<string, unknown>> {
       run: run.id,
       pipeline: p.pipeline,
       selection: `${name}@1`,
+      status: run.status,
+    });
+  }
+
+  // the one-chat bench: a run whose input the engine cannot release, dcm2niix not being there, so it fails before
+  // any unit runs (2026-10-12); it exits non-zero by design, and its document is still printed
+  {
+    const selection = CONVERTER_MISSING.selection;
+    let out: string;
+    try {
+      out = nils([
+        "run",
+        CONVERTER_MISSING.pipeline,
+        "--select",
+        `selection:${selection}`,
+        "--dcm2niix",
+        join(bin, "no-dcm2niix"),
+        ...packs,
+        "--json",
+      ]);
+    } catch (e) {
+      out = String((e as { stdout?: string }).stdout ?? "");
+    }
+    const run = JSON.parse(out) as { id: number; status: unknown; error?: unknown };
+    if (run.status !== "failed" || !String(run.error ?? "").includes("dcm2niix"))
+      throw new Error(`the converter's run did not fail for dcm2niix: ${String(run.status)}`);
+    runs.push({
+      case: CONVERTER_MISSING.case,
+      run: run.id,
+      pipeline: CONVERTER_MISSING.pipeline,
+      selection,
       status: run.status,
     });
   }

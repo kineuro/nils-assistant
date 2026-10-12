@@ -19,6 +19,10 @@ interface Field {
 interface Level {
   level: string;
   fields: Field[];
+  /** Where the engine paged the level's fields: the path the next page begins after; absent or null once every field is here. */
+  next?: string | null;
+  /** How many fields the level has in all, as the engine counts them. */
+  total?: number;
 }
 export interface Catalog {
   epoch?: number;
@@ -56,7 +60,7 @@ export interface Guide {
 
 const HIDE = new Set(["id"]);
 
-/** One level as one line per field, the technical ids left out, a quasi-identifying class marked. */
+/** One level as one line per field, the technical ids left out, a quasi-identifying class marked; the fields a page left unread counted. */
 function renderLevel(l: Level): string {
   const fields = l.fields
     .filter((f) => !HIDE.has(f.path))
@@ -65,7 +69,49 @@ function renderLevel(l: Level): string {
         `${f.path} (${f.type}${f.class === "quasi_identifying" ? ", quasi-identifying" : ""}${f.dated ? ", dated" : ""})`,
     )
     .join(", ");
-  return `- ${l.level}: ${fields}`;
+  const unread = l.next ? Math.max(0, (l.total ?? 0) - l.fields.length) : 0;
+  return `- ${l.level}: ${fields}${unread > 0 ? `; and ${unread} more not listed here, found by their names` : ""}`;
+}
+
+/** The most pages of one level's fields the prelude reads after the first: 8 KB a page, far more than any level holds. */
+export const LEVEL_PAGES = 20;
+
+/**
+ * Every field of every level (2026-10-12). The catalog door answers each level's fields in pages of 8 KB and names
+ * the path the next page begins after; the level's own door answers the rest with `?after=`. Only the first page
+ * was read, so a stack's fields stopped at `kvp` (its slice thickness, repetition time and series description
+ * among those left out) and the chat said its list was cut off. A page that cannot be read leaves the level as far
+ * as it got, with where it stopped and how many it has, and the rendering counts what is missing.
+ */
+export async function wholeLevels(
+  seam: Seam,
+  levels: readonly Level[],
+  ctx: { toolCallId: string; phase: string },
+): Promise<Level[]> {
+  return Promise.all(
+    levels.map(async (l) => {
+      const fields = [...l.fields];
+      let next = l.next ?? null;
+      for (let page = 1; next && page <= LEVEL_PAGES; page++) {
+        const a = await seam.call({
+          method: "GET",
+          path: `/api/ask/catalog/${encodeURIComponent(l.level)}?after=${encodeURIComponent(next)}`,
+          toolCallId: `${ctx.toolCallId}-catalog-${l.level}-${page}`,
+          phase: ctx.phase,
+        });
+        if (a.kind !== "ok") break;
+        const body = (a.body ?? {}) as { fields?: Field[]; next?: string | null };
+        const more = (body.fields ?? []).filter((f) => !fields.some((x) => x.path === f.path));
+        // a page that brings nothing new would be read again and again
+        if (more.length === 0) break;
+        fields.push(...more);
+        next = body.next ?? null;
+      }
+      return next
+        ? { level: l.level, fields, next, total: l.total ?? fields.length }
+        : { level: l.level, fields };
+    }),
+  );
 }
 
 /** The catalog as text a small model reads once: grains and how they nest, the fields per level, the axes and their values, the kinds, the cohorts, the schemes, the derived fields, the functions. */
@@ -153,9 +199,9 @@ export function preludeOf(key: string): string | null {
 }
 
 /**
- * The prelude of one run: the catalog and the guide through the seam, cached
- * per epoch and person for the process's life. Two calls of the grant on
- * the first run of an epoch, none after.
+ * The prelude of one run: the catalog, every page of its levels' fields, and the guide through the seam, cached
+ * per epoch and person for the process's life. Two calls of the grant on the first run of an epoch, and one for
+ * each further page of a level's fields; none after.
  */
 export async function prelude(
   seam: Seam,
@@ -178,13 +224,19 @@ export async function prelude(
       phase: ctx.phase,
     }),
   ]);
+  let catalog: Catalog | null = null;
+  if (cat.kind === "ok") {
+    catalog = (cat.body ?? {}) as Catalog;
+    if (catalog.levels?.some((l) => l.next))
+      catalog = { ...catalog, levels: await wholeLevels(seam, catalog.levels, ctx) };
+  }
   const parts: string[] = [];
-  if (cat.kind === "ok") parts.push(renderCatalog(cat.body as Catalog));
+  if (catalog) parts.push(renderCatalog(catalog));
   if (guide.kind === "ok") parts.push(renderGuide(guide.body as Guide));
   const text = parts.join("\n\n");
-  if (cat.kind === "ok") {
+  if (catalog) {
     cache.set(key, text);
-    catalogs.set(key, cat.body as Catalog);
+    catalogs.set(key, catalog);
   }
   return text;
 }

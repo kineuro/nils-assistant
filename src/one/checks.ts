@@ -161,6 +161,18 @@ export function validator(seam: () => Seam): (document: number) => Promise<strin
   };
 }
 
+/**
+ * Whether a turn would end with something the person can read: its words, a question it asked, or a change it
+ * proposed on a card (2026-10-12). A turn once ended with its steps and nothing else.
+ */
+export function readable(t: TurnState): boolean {
+  return answerOf(t) !== "" || t.asked || t.proposed.length > 0;
+}
+
+/** The signal that sends back a turn that wrote nothing the person can read. */
+export const SILENT_BACK =
+  "Before you finish: you have written nothing the person can read. Answer them now, in plain words, with what you have; if something is missing or cannot be done here, say what and what they can do instead.";
+
 /** The signal that sends a turn back: what to fix, and that the new answer replaces the old. */
 export function sendBack(complaints: string[]): string {
   return `Before you finish: ${complaints.join("; ")}. Then give the person the whole answer again in plain words; it replaces the one before.`;

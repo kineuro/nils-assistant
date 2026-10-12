@@ -33,7 +33,9 @@ process.env.ASSISTANT_LADDER = join(dir, "ladder.sqlite");
 
 const { stubEngine } = await import("./child/stub-engine.ts");
 const { scriptedProvider } = await import("./child/loop-provider.ts");
-const { probeEngineAuth, registerStation, theLedger, theLineage } = await import("../src/seam/for.ts");
+const { probeEngineAuth, registerStation, theLedger, theLineage, theNotes } = await import(
+  "../src/seam/for.ts"
+);
 const { loadManifests } = await import("../src/stations/manifest.ts");
 const { ChangeStore, theChanges, useChangeStore } = await import("../src/one/changes.ts");
 const { oneAgent, notePerson } = await import("../src/one/agent.ts");
@@ -149,7 +151,24 @@ const SUMMARY = {
 
 const engine = await stubEngine((c) => {
   const p = c.path.split("?")[0];
-  if (p === "/api/capabilities") return { body: { auth: "off", policy: [] } };
+  // the person's detail as the engine answers it: run_read reads a run's error words at quasi and above
+  if (p === "/api/capabilities") return { body: { auth: "off", policy: [], detail: "sensitive" } };
+  // a run that stopped before any unit ran, as two runs did on 2026-10-12: its input could not be released
+  if (p === "/api/pipeline-runs/2")
+    return {
+      body: {
+        id: 2,
+        pipeline_id: 5,
+        pipeline: "n4-bias-correction@1",
+        status: "failed",
+        error:
+          "run 2 the release of the input failed: dcm2niix is not runnable (No such file or directory (os error 2)). dcm2niix is a prerequisite of a deployment: install a current build from rordenlab/dcm2niix, which a distribution's package lags, and pass --dcm2niix if it is not on the path.",
+        summary: { units: { total: 0, succeeded: 0, failed: 0, skipped: 0, unreported: 0 } },
+      },
+    };
+  if (p === "/api/pipelines/5")
+    return { body: { id: 5, name: "n4-bias-correction", version: 1, level: "session", parameters: [] } };
+  if (p === "/api/review") return { body: { items: [] } };
   if (p === "/api/jobs") {
     const q = new URL(c.path, "http://stub").searchParams;
     const all = q.get("all") === "1";
@@ -323,6 +342,9 @@ describe("the one agent", () => {
       "plan_update",
       "ask_user",
       "propose_change",
+      "remember",
+      "forget",
+      "recall_memory",
     ]);
     expect(text(seen[0])).toMatch(/You are NILS/u);
     // the skill's body, with the worked examples closest to the words
@@ -414,17 +436,21 @@ describe("the one agent", () => {
     play([{ text: "Your account cannot look up data here; an admin can give it." }]);
     const h = init(Nils, { id: "oc-refuse" });
     await h.read(await h.dispatch("How many subjects are in cohort B?"));
+    // what a person keeps across conversations is their own: no grant opens it (2026-10-12)
     expect(toolNames(seen[0]).filter((n) => n !== "task")).toEqual([
       "registry_summary",
       "plan_update",
       "ask_user",
       "propose_change",
+      "remember",
+      "forget",
+      "recall_memory",
     ]);
     expect(appended(seen[0])).toMatch(/may only ask what the registry holds/u);
     expect(appended(seen[0])).toMatch(/this person may not do that here/u);
   }, 60_000);
 
-  it("warns at the third same call, stops at the fifth, and ends the turn at the sixth", async () => {
+  it("warns at the third same call, stops at the fifth, and ends the tools at the sixth", async () => {
     play([
       { tool: "registry_search", args: { words: "mprage" } },
       { tool: "registry_search", args: { words: "mprage" } },
@@ -432,6 +458,7 @@ describe("the one agent", () => {
       { tool: "registry_search", args: { words: "mprage" } },
       { tool: "registry_search", args: { words: "mprage" } },
       { tool: "registry_search", args: { words: "mprage" } },
+      { text: "I could not find MPRAGE scans by that name; try another word." },
       { text: "never reached" },
     ]);
     const h = init(Nils, { id: "oc-loop" });
@@ -440,7 +467,10 @@ describe("the one agent", () => {
     expect(log).toMatch(/called 3 times with the same salient arguments/u);
     expect(log).toMatch(/the same call came five times/u);
     expect(log).toMatch(/Answer the person now/u);
-    expect(calls).toBe(6);
+    // the sixth call ends the tools; a turn that wrote nothing yet is sent back once for its words (2026-10-12)
+    expect(calls).toBe(7);
+    expect(text(seen[6])).toMatch(/you have written nothing the person can read/u);
+    expect(reply.text).toMatch(/could not find MPRAGE scans/u);
     expect(reply.text).not.toMatch(/never reached/u);
   }, 60_000);
 
@@ -563,6 +593,41 @@ describe("the one agent", () => {
     expect(recorded("oc-ask")).toMatch(/"kind":"clarification","question":"Which cohort\?"/u);
   }, 60_000);
 
+  it("sends back once a turn that wrote nothing the person can read (2026-10-12)", async () => {
+    play([{ text: "" }, { text: "There are two cohorts, ms-cohort-a and ms-cohort-b." }]);
+    const h = init(Nils, { id: "oc-silent" });
+    const reply = await h.read(await h.dispatch("Which cohorts are there?"));
+    expect(calls).toBe(2);
+    expect(text(seen[1])).toMatch(/you have written nothing the person can read/u);
+    expect(reply.text).toMatch(/two cohorts/u);
+    // and only once: a model that still writes nothing ends the turn
+    play([{ text: "" }]);
+    const again = init(Nils, { id: "oc-silent-twice" });
+    await again.read(await again.dispatch("Which cohorts are there?"));
+    expect(calls).toBe(2);
+  }, 60_000);
+
+  it("answers a file asked for in words: the answer's card has Download CSV (2026-10-12)", async () => {
+    play([
+      { tool: "activate_skill", args: { name: "find-data" } },
+      { tool: "query_draft", args: { text: "ast_version: 1\nname: subjects of cohort b\n" } },
+      {
+        text: "Here is the question of cohort B's subjects; its card has Download CSV, which saves its rows as a file.",
+      },
+    ]);
+    const h = init(Nils, { id: "oc-file" });
+    const reply = await h.read(await h.dispatch("can you make a csv of cohort B and upload it here?"));
+    expect(reply.text).toMatch(/Download CSV/u);
+    expect(appended(seen[0])).toMatch(/a file is asked for/u);
+    expect(appended(seen[0])).toMatch(/Download CSV on the answer's card in this chat/u);
+    expect(text(seen[0])).toMatch(
+      /A file of a question's answer is saved as a CSV with Download CSV on the answer's card/u,
+    );
+    // the question is drafted, so the card the answer names is there, offered as the conversation's version
+    expect(turnOf("oc-file").drafted).toEqual([812]);
+    expect(recorded("oc-file")).toMatch(/"change":"query_version"/u);
+  }, 60_000);
+
   it("proposes an analysis with the engine's own check, and runs nothing", async () => {
     play([
       { tool: "activate_skill", args: { name: "plan-analysis" } },
@@ -677,6 +742,23 @@ describe("the one agent tells what is true now (2026-10-09)", () => {
     });
   }, 60_000);
 
+  it("says why a run failed before any unit ran, and what to do, from the run's own error (2026-10-12)", async () => {
+    play([
+      { tool: "run_read", args: { run: 2 } },
+      {
+        text: "Run 2 stopped before any scan was looked at: dcm2niix is not installed. Install it, then run it again.",
+      },
+    ]);
+    const h = init(Nils, { id: "oc-run-stopped" });
+    await h.read(await h.dispatch("How did run 2 go?"));
+    const out = lastResult(seen[1]);
+    expect(out).toMatchObject({ run: 2, status: "failed", units: { total: 0 } });
+    expect(String((out.run_failure as { error?: unknown }).error)).toMatch(/dcm2niix is not runnable/u);
+    expect(String(out.say)).toMatch(/failed before any unit ran/u);
+    expect(String(out.say)).toMatch(/what to do about it, as its error says/u);
+    expect(String(out.say)).not.toMatch(/that no unit failed/u);
+  }, 60_000);
+
   it("says which steps have run on a dataset the words name, and what the headers answer until they have", async () => {
     // asked for the T1 scans with contrast, the chat counted the scans whose header weighting reads T1 and called
     // them contrast-enhanced; then the facts said nothing was known of contrast until post-contrast ran, which was
@@ -736,5 +818,114 @@ describe("the one agent tells what is true now (2026-10-09)", () => {
     );
     expect(out).not.toMatch(/not_known|whether a scan was given contrast are not known/u);
     expect(engine.seen.filter((x) => x.path === "/api/datasets/study-a/summary").length).toBe(before + 1);
+  }, 60_000);
+});
+
+describe("the one agent remembers across conversations (2026-10-12)", () => {
+  const who = "alva@n";
+  /** A conversation of this person, as the host opens it before its first turn. */
+  const conversation = (id: string) => {
+    theLineage().open({ id, station: "nils", subject: who, owner: who });
+    return init(Nils, { id });
+  };
+
+  it("keeps what the person asks it to remember, in the store the Memory page shows", async () => {
+    play([
+      { tool: "remember", args: { text: "My name is Alva", asked: true } },
+      { text: "Kept: your later conversations start with it, and the Memory page shows it." },
+    ]);
+    const h = conversation("oc-remember");
+    const reply = await h.read(
+      await h.dispatch("Remember that my name is Alva, so you have it in other chats."),
+    );
+    expect(reply.text).toMatch(/Kept/u);
+    expect(
+      theNotes()
+        .people(who)
+        .map((n) => [n.text, n.source]),
+    ).toEqual([["My name is Alva", "said"]]);
+    // the desk shows it in the turn, with a way to the Memory page
+    expect(recorded("oc-remember")).toMatch(/"kind":"memory","state":"saved","text":"My name is Alva"/u);
+    expect(lastResult(seen[1])).toMatchObject({ kept: true, next: expect.stringMatching(/Memory page/u) });
+    // the head says what it remembers and how, never that it has no memory
+    expect(text(seen[0])).toMatch(/You have a memory across conversations, the person's own/u);
+    expect(text(seen[0])).toMatch(/Memory page of the Assistant/u);
+    expect(text(seen[0])).not.toMatch(/nowhere to write|cannot write to (my|any) memory/u);
+  }, 60_000);
+
+  it("starts a new conversation with what was kept, the install's instructions and the notes of the work", async () => {
+    theNotes().writeInstructions("Cohort A means the MS patients scanned from 2019 to 2021.", "admin@n");
+    theNotes().add({
+      subject: who,
+      kind: "correction",
+      station: "desk",
+      text: "rejected document 9: a count of all stacks",
+    });
+    play([{ text: "Yes: your name is Alva." }]);
+    const h = conversation("oc-remembers");
+    await h.read(await h.dispatch("Do you know my name?"));
+    const facts = appended(seen[0]);
+    expect(facts).toMatch(
+      /What you remember across this person's conversations, read when this one started/u,
+    );
+    expect(facts).toMatch(/\[\d+\] My name is Alva/u);
+    expect(facts).toMatch(
+      /The install's instructions, from its admin \(version \d+\):\\nCohort A means the MS patients/u,
+    );
+    expect(facts).toMatch(/rejected document 9: a count of all stacks/u);
+    // read once and held: the next turn is told nothing of it again, and a memory kept since does not change it
+    theNotes().remember(who, "I count subjects by cohort", "page");
+    play([{ text: "Alva." }]);
+    await h.read(await h.dispatch("And again?"));
+    expect(appended(seen[0])).not.toMatch(/I count subjects by cohort/u);
+    expect(JSON.stringify(seen[0].messages.at(-1))).not.toMatch(/What you remember/u);
+    // the memories read are marked as used, as the Memory page shows
+    expect(
+      theNotes()
+        .people(who)
+        .find((n) => n.text === "My name is Alva")?.used_at,
+    ).not.toBeNull();
+  }, 60_000);
+
+  it("forgets one by its number, keeps nothing while paused, and refuses a subject's data", async () => {
+    const id = theNotes()
+      .people(who)
+      .find((n) => n.text === "My name is Alva")?.id;
+    play([{ tool: "forget", args: { id } }, { text: "Forgotten." }]);
+    const h = conversation("oc-forget");
+    await h.read(await h.dispatch("Forget my name."));
+    expect(
+      theNotes()
+        .people(who)
+        .map((n) => n.text),
+    ).not.toContain("My name is Alva");
+    expect(recorded("oc-forget")).toMatch(/"kind":"memory","state":"forgotten"/u);
+    // a subject code is a person's data: refused, and nothing is kept
+    play([
+      { tool: "remember", args: { text: "S-0001 is the index case", asked: true } },
+      { text: "Not kept." },
+    ]);
+    const s = conversation("oc-remember-code");
+    await s.read(await s.dispatch("Remember that S-0001 is the index case."));
+    expect(lastResult(seen[1])).toMatchObject({ refused: true, why: expect.stringMatching(/subject code/u) });
+    // paused: the facts say so, and nothing is kept
+    theNotes().pause(who, true);
+    try {
+      play([
+        { tool: "remember", args: { text: "I like short answers", asked: true } },
+        { text: "Memory is paused." },
+      ]);
+      const p = conversation("oc-remember-paused");
+      await p.read(await p.dispatch("Remember that I like short answers."));
+      expect(appended(seen[0])).toMatch(/This person paused memory/u);
+      expect(lastResult(seen[1])).toMatchObject({ refused: true, why: expect.stringMatching(/paused/u) });
+      expect(
+        theNotes()
+          .people(who)
+          .map((n) => n.text),
+      ).not.toContain("I like short answers");
+    } finally {
+      theNotes().pause(who, false);
+    }
   }, 60_000);
 });

@@ -13,7 +13,8 @@
 // catch: a door phrase, an engine word, a step after the answer, a write
 // with no approval, a proposal where none belongs, the wrong skill, a run
 // that fails only the third time, a document that misses its gold or the
-// clauses its question must carry, a malformed or refused call.
+// clauses its question must carry, a malformed or refused call, a turn that
+// leaves nothing to read.
 //
 // It knows which conversation and turn a message belongs to from the
 // conversation id the bench gives (`oc-<id>-r<run>-<stamp>`) and the turns
@@ -43,6 +44,7 @@ export const FAULTS = [
   "miss-until-corrected",
   "malformed",
   "refused",
+  "silent",
 ] as const;
 export type Fault = (typeof FAULTS)[number];
 
@@ -51,6 +53,7 @@ export const STUB_RUNS: Record<string, number> = {
   "planted-synthseg": 12,
   "samseg-both-sides": 13,
   "clean-mriqc": 14,
+  "converter-missing": 15,
 };
 const BATCHES = [
   { id: 31, name: "keyword-bench" },
@@ -244,13 +247,16 @@ export function stub(o: StubOptions): Server {
     let text = (c && o.answers[`${c.id}#${seen.turn}`]) ?? (isCorrection ? "Changed." : "Here it is.");
     if (has("door")) text += " That door is closed to me.";
     if (has("engine")) text += " The epoch moved on.";
-    chunks.push({
-      type: "message-delta",
-      conversationId: conversation,
-      messageId: "m",
-      kind: "text",
-      delta: text,
-    });
+    // a turn that ends with its steps and nothing to read (2026-10-12)
+    if (has("silent")) text = "";
+    if (text)
+      chunks.push({
+        type: "message-delta",
+        conversationId: conversation,
+        messageId: "m",
+        kind: "text",
+        delta: text,
+      });
     if (has("late-step")) tool("registry_search", { text: "more" }, { content: [], details: {} });
     chunks.push({ type: "message-completed", conversationId: conversation, messageId: "m" });
     return { chunks, ledger };

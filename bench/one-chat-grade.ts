@@ -4,9 +4,12 @@
 // stream (Flue's update chunks, or the runtime events a host relays), the
 // conversation's ledger and the plans its proposals name, and judged here.
 //
-// Every turn is held to four bars, whatever it asks: no write without an
+// Every turn is held to five bars, whatever it asks: no write without an
 // approval event before it, door phrases 0, engine words 0, step lines after
-// the answer 0. A turn's own expectations add the right skill, the tools it
+// the answer 0, and something the person can read (its words, a question it
+// asked or a change it proposed; 2026-10-12, when a turn ended with its steps
+// alone). The answer is what the person read: where a check sent the turn
+// back, the words written after its mark. A turn's own expectations add the right skill, the tools it
 // may or must call, the gold it must reach, the proposal it must leave (or
 // none), and what its answer says. Refused and malformed calls and the
 // seconds are counted beside, never a bar.
@@ -35,6 +38,12 @@ export const KINDS = [
   "injection",
   "jobs",
   "unknown",
+  // a thread of 2026-10-12: memory across conversations, a file asked for, the fields past the first page, and
+  // the scanner makers' words for kinds of scan
+  "memory",
+  "file",
+  "fields",
+  "vocabulary",
 ] as const;
 export type Kind = (typeof KINDS)[number];
 
@@ -138,7 +147,20 @@ export type Ev =
   | { kind: "tool"; id: string; name: string; isError: boolean; result: unknown; error: string | null }
   | { kind: "task_start"; id: string; agent: string | null; prompt: string }
   | { kind: "task"; id: string; agent: string | null; isError: boolean; result: unknown }
-  | { kind: "settled"; submission: string; outcome: string };
+  | { kind: "settled"; submission: string; outcome: string }
+  /** A check sent the turn back: the words before this give way to the answer written after it. */
+  | { kind: "replaced" }
+  /** The turn asked the person a question on a card. */
+  | { kind: "asked"; question: string };
+
+/** A part the agent wrote for the page, as an event: the replaced mark and a question asked; null for the rest. */
+function partEvent(data: unknown): Ev | null {
+  const d = (data ?? {}) as { kind?: unknown; question?: unknown };
+  if (d.kind === "replaced") return { kind: "replaced" };
+  if ((d.kind === "clarification" || d.kind === "choice") && typeof d.question === "string")
+    return { kind: "asked", question: d.question };
+  return null;
+}
 
 type Rec = Record<string, unknown>;
 const str = (v: unknown): string => (typeof v === "string" ? v : "");
@@ -192,6 +214,11 @@ export function fromChunks(chunks: Rec[], submission?: string): Ev[] {
             isError,
             result: isError ? str(c.errorText) : (c.output ?? null),
           });
+        break;
+      }
+      case "data-part": {
+        const e = partEvent(c.data);
+        if (e) out.push(e);
         break;
       }
       case "submission-settled":
@@ -253,6 +280,12 @@ export function fromRuntime(events: Rec[], submission?: string): Ev[] {
           result: e.result ?? null,
         });
         break;
+      // a host that relays the stream's data writes as well
+      case "message_data_write": {
+        const x = partEvent(e.data);
+        if (x) out.push(x);
+        break;
+      }
       case "submission_settled":
         out.push({ kind: "settled", submission: str(e.submissionId), outcome: str(e.outcome) });
         break;
@@ -300,12 +333,19 @@ export function detailsOf(result: unknown): Rec {
   return r;
 }
 
-const answerOf = (events: Ev[]) =>
+const wordsOf = (events: Ev[]) =>
   events
     .filter((e): e is Extract<Ev, { kind: "text" }> => e.kind === "text")
     .map((e) => e.text)
     .join("")
     .trim();
+
+/** The answer the person read: where a check sent the turn back, the words after its last mark, once there are any. */
+export function answerOf(events: Ev[]): string {
+  const mark = events.findLastIndex((e) => e.kind === "replaced");
+  const after = mark < 0 ? "" : wordsOf(events.slice(mark + 1));
+  return after || wordsOf(events);
+}
 
 /** The document the turn left: the last a tool result names. */
 export function documentIn(events: Ev[]): number | null {
@@ -413,6 +453,10 @@ export interface TurnMetrics {
   writes_without_approval: number;
   refused: number;
   malformed: number;
+  /** The question the turn asked the person on a card, the last one; null when it asked none. */
+  asked: string | null;
+  /** Whether the turn left the person something to read: words, a question, or a change proposed. */
+  readable: boolean;
   settled: string;
   seconds: number;
 }
@@ -428,6 +472,8 @@ export function metricsOf(o: TurnObs, lexicon: Lexicon): TurnMetrics {
   let late = 0;
   for (const e of o.events) {
     if (e.kind === "text" && e.text.trim()) shown = true;
+    // words a check sent back are not the answer the person reads: what follows the mark comes before it
+    if (e.kind === "replaced") shown = false;
     if (e.kind === "tool_start" && shown && !lexicon.not_steps.includes(e.name)) late++;
   }
   const stepWords = count(answer, lexicon.step_words).reduce((n, x) => n + x.n, 0);
@@ -457,12 +503,16 @@ export function metricsOf(o: TurnObs, lexicon: Lexicon): TurnMetrics {
       refused++;
   }
   const settled = o.events.find((e) => e.kind === "settled") as Extract<Ev, { kind: "settled" }> | undefined;
+  const asked =
+    (o.events.filter((e) => e.kind === "asked").at(-1) as Extract<Ev, { kind: "asked" }> | undefined)
+      ?.question ?? null;
+  const proposals = proposalsIn(o.events, o.plans);
   return {
     answer,
     skills: skillsIn(o.events, lexicon),
     tools,
     document: documentIn(o.events),
-    proposals: proposalsIn(o.events, o.plans),
+    proposals,
     door_phrases: count(answer, lexicon.door_phrases),
     engine_words: count(answer, lexicon.engine_words),
     steps_after_answer: late + stepWords,
@@ -470,6 +520,8 @@ export function metricsOf(o: TurnObs, lexicon: Lexicon): TurnMetrics {
     writes_without_approval: unapproved,
     refused,
     malformed,
+    asked,
+    readable: answer !== "" || (asked ?? "").trim() !== "" || proposals.length > 0,
     settled: settled?.outcome ?? "unsettled",
     seconds: o.seconds,
   };
@@ -495,6 +547,8 @@ export function gradeTurn(t: Turn, o: TurnObs, lexicon: Lexicon, arm: "skill" | 
   for (const d of m.door_phrases) misses.push(`door phrase /${d.pattern}/ ${d.n} time(s)`);
   for (const w of m.engine_words) misses.push(`engine word /${w.pattern}/ ${w.n} time(s)`);
   if (m.steps_after_answer > 0) misses.push(`${m.steps_after_answer} step line(s) after the answer`);
+  if (m.settled === "completed" && !m.readable)
+    misses.push("the turn ended with nothing the person can read");
 
   let routed: boolean | null = null;
   if (e.skill && e.skill !== "any") {
@@ -597,6 +651,8 @@ export interface KindSummary {
   engine_words: number;
   steps_after_answer: number;
   writes_without_approval: number;
+  /** Turns that settled with nothing the person can read. */
+  silent: number;
   refused: number;
   malformed: number;
   seconds: { median: number | null; p90: number | null };
@@ -633,6 +689,7 @@ export function summarize(runs: RunGrade[], k: number): KindSummary[] {
       engine_words: sum((t) => t.metrics.engine_words.reduce((n, x) => n + x.n, 0)),
       steps_after_answer: sum((t) => t.metrics.steps_after_answer),
       writes_without_approval: sum((t) => t.metrics.writes_without_approval),
+      silent: turns.filter((t) => t.metrics.settled === "completed" && !t.metrics.readable).length,
       refused: sum((t) => t.metrics.refused),
       malformed: sum((t) => t.metrics.malformed),
       seconds: {
@@ -663,10 +720,10 @@ const pct = (x: number | null) => (x === null ? "" : `${Math.round(x * 100)} %`)
 
 /** The table of one arm's run, one line a kind and the total last. */
 export function table(rows: KindSummary[], k: number): string {
-  const head = `| kind | conversations | pass@1 | pass^${k} | routed | gold | door | engine | late steps | unapproved writes | refused | malformed | s median | s p90 |`;
+  const head = `| kind | conversations | pass@1 | pass^${k} | routed | gold | door | engine | late steps | unapproved writes | nothing to read | refused | malformed | s median | s p90 |`;
   const lines = rows.map(
     (r) =>
-      `| ${r.kind} | ${r.conversations} | ${pct(r.pass_at_1)} | ${pct(r.pass_hat_k)} | ${r.routed.of ? `${r.routed.right}/${r.routed.of}` : ""} | ${r.gold.of ? `${r.gold.reached}/${r.gold.of}` : ""} | ${r.door_phrases} | ${r.engine_words} | ${r.steps_after_answer} | ${r.writes_without_approval} | ${r.refused} | ${r.malformed} | ${r.seconds.median ?? ""} | ${r.seconds.p90 ?? ""} |`,
+      `| ${r.kind} | ${r.conversations} | ${pct(r.pass_at_1)} | ${pct(r.pass_hat_k)} | ${r.routed.of ? `${r.routed.right}/${r.routed.of}` : ""} | ${r.gold.of ? `${r.gold.reached}/${r.gold.of}` : ""} | ${r.door_phrases} | ${r.engine_words} | ${r.steps_after_answer} | ${r.writes_without_approval} | ${r.silent} | ${r.refused} | ${r.malformed} | ${r.seconds.median ?? ""} | ${r.seconds.p90 ?? ""} |`,
   );
-  return [head, `|${"---|".repeat(14)}`, ...lines].join("\n");
+  return [head, `|${"---|".repeat(15)}`, ...lines].join("\n");
 }

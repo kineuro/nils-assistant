@@ -5,7 +5,7 @@
 // before a turn settles, the jobs as jobs_read lists them, and a proposed
 // change decided and applied.
 
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -35,7 +35,16 @@ describe("what a person's grants mount", () => {
 
   it("leaves a person without query:see no tool that looks into the data", () => {
     const m = mountFor({ grants: ["assistant:use"], detail: "plain" });
-    expect(m.tools).toEqual(["registry_summary", "plan_update", "ask_user", "propose_change"]);
+    // their own memory is no look into the data (2026-10-12)
+    expect(m.tools).toEqual([
+      "registry_summary",
+      "plan_update",
+      "ask_user",
+      "propose_change",
+      "remember",
+      "forget",
+      "recall_memory",
+    ]);
     expect(m.skills).toEqual([]);
     expect(grantsLine(m)).toMatch(/may only ask what the registry holds/u);
     expect(grantsLine(m)).toMatch(/an admin can give it/u);
@@ -156,6 +165,29 @@ describe("plain words", () => {
     const yml = `door_phrases:\n${DOOR_PHRASES.map((p) => `  - ${JSON.stringify(p)}`).join("\n")}\nengine_words:\n${ENGINE_WORDS.map((p) => `  - ${JSON.stringify(p)}`).join("\n")}\n`;
     const back = parse(yml) as { door_phrases: string[]; engine_words: string[] };
     expect(back.door_phrases).toEqual([...DOOR_PHRASES]);
+    // the lexicon the bench reads holds the same lists (2026-10-12)
+    const lexicon = parse(readFileSync("bench/corpus/one-chat-lexicon.yml", "utf8")) as typeof back;
+    expect(lexicon.door_phrases).toEqual([...DOOR_PHRASES]);
+    expect(lexicon.engine_words).toEqual([...ENGINE_WORDS]);
+  });
+
+  it("leaves the field's own words alone: an image's phase, the person the chat talks to (2026-10-12)", () => {
+    for (const plain of [
+      "The magnitude image is how bright the tissue came out; the phase image stores how far the signal was shifted.",
+      "Magnitude and phase are the scanner's own pictures; the phase is mostly an input, and phase data may be kept.",
+      "Magnitude and phase: two images of each echo, and a phase map for the field.",
+      "Nice to meet you: I have your name now, the person I am talking to.",
+      "Phase-contrast angiography and phase encoding are kinds of scan words.",
+    ])
+      expect(unplainWords(plain), plain).toEqual([]);
+    for (const [engine, word] of [
+      ["I am in the draft phase now.", "draft phase"],
+      ["status phase: finish", "phase: finish"],
+      ["In the next phase I will count them.", "next phase"],
+      ["That ends the phase of the run.", "phase of the run"],
+      ["I am talking to the registry about it.", "talking to the registry"],
+    ])
+      expect(unplainWords(engine), engine).toContain(word);
   });
 
   it("puts a seam's refusal in plain words before the model reads it", () => {

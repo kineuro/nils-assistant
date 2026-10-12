@@ -16,7 +16,7 @@ import type { Detail } from "../host/grants.ts";
 import { planFrom, restate } from "../host/ladder.ts";
 import type { Answer, Seam, Station } from "../seam/client.ts";
 import { shorten, toolResult } from "../seam/client.ts";
-import { seamWith, stationList, theLineage } from "../seam/for.ts";
+import { seamWith, stationList, theLineage, theNotes } from "../seam/for.ts";
 import { preflightForDocument } from "../stations/analysis-plan.ts";
 import { compactPreview, unescapeEntities } from "../stations/ask-help.ts";
 import {
@@ -38,6 +38,7 @@ import {
   type Prediction,
   valuesOf,
 } from "../stations/keyword-tune.ts";
+import { forgetFor, type MemoryPart, recallFor, rememberFor } from "../stations/memory.ts";
 import { ladderStore, policyOf } from "../stations/operator.ts";
 import {
   breachDocument,
@@ -49,6 +50,8 @@ import {
   newest,
   paramsFor,
   preflightOf,
+  type Reading,
+  type RunFailure,
   resolve,
   runCommand,
   type Sessions,
@@ -86,6 +89,8 @@ export interface Writers {
   }) => void;
   clarification: (p: { question: string; options: { label: string; count: number | null }[] }) => void;
   plan: (items: { text: string; status: string }[]) => void;
+  /** A memory kept, offered or forgotten, which the desk shows in the turn with a way to its Memory page (2026-10-12). */
+  memory: (p: MemoryPart) => void;
 }
 
 export interface ToolCtx {
@@ -209,14 +214,34 @@ const PARTS: Record<string, RegExp> = {
   cohorts: /cohort/iu,
   scores: /kind|score|disease|course/iu,
   scans: /ax[ie]s|stack|derived/iu,
-  fields: /field|level|grain|- /iu,
 };
+
+/**
+ * The summary's fields (2026-10-12): the heading and one line per level, every field of it; with `level`, that
+ * level's line alone. The lines of other parts that also begin with a dash (the axes, the grains) are not fields.
+ */
+export function fieldLines(text: string, level: string | null = null): string[] {
+  const lines = text.split("\n");
+  const at = lines.findIndex((l) => /^Fields per level/u.test(l));
+  if (at < 0) return [];
+  const block: string[] = [];
+  for (const l of lines.slice(at + 1)) {
+    if (!l.startsWith("- ")) break;
+    block.push(l);
+  }
+  if (level === null) return [lines[at], ...block];
+  return block.filter((l) => l.startsWith(`- ${level}:`));
+}
 
 const registrySummary: OneTool = {
   name: "registry_summary",
   description:
-    "What the registry holds: the cohorts with their sizes, the clinical scores and event kinds, the disease courses, the kinds of scans (their sorting values), the fields of each level. The turn's facts already carry it; call this only when they say it could not be read, or to see one part again (part: cohorts, scores, scans or fields).",
-  input: v.object({ part: v.optional(v.picklist(["all", "cohorts", "scores", "scans", "fields"])) }),
+    "What the registry holds: the cohorts with their sizes, the clinical scores and event kinds, the disease courses, the kinds of scans (their sorting values), every field of each level. The turn's facts already carry it; call this only when they say it could not be read, or to see one part again (part: cohorts, scores, scans or fields; with fields, `level` for one level's fields, such as stack).",
+  input: v.object({
+    part: v.optional(v.picklist(["all", "cohorts", "scores", "scans", "fields"])),
+    level: v.optional(v.string()),
+  }),
+  salient: ["part", "level"],
   step: "Looking in the registry",
   async run(args, ctx) {
     const text = await summaryText(ctx);
@@ -226,6 +251,17 @@ const registrySummary: OneTool = {
         "Say in one sentence that their account cannot look into the registry here, and that an admin can give it.",
       );
     const part = str(args.part);
+    if (part === "fields") {
+      const level = str(args.level);
+      const lines = fieldLines(text, level);
+      if (level && lines.length === 0) {
+        const levels = fieldLines(text)
+          .slice(1)
+          .map((l) => l.slice(2, l.indexOf(":")));
+        return refuse(`no level named ${level}`, `Name one of ${levels.join(", ") || "none"}.`);
+      }
+      return { output: data(lines.join("\n"), "ask for the fields of one level, such as stack") };
+    }
     const re = part && part !== "all" ? PARTS[part] : null;
     const lines = re ? text.split("\n").filter((l) => re.test(l)) : text.split("\n");
     return { output: data(lines.join("\n"), "ask for one part: cohorts, scores, scans or fields") };
@@ -1128,6 +1164,48 @@ const jobsRead: OneTool = {
   },
 };
 
+/** A run's failure as run_read gives it: why, and what to do, each where the run's answer says. */
+export function runFailureView(f: RunFailure): Record<string, JsonValue> {
+  return {
+    ...(f.kind ? { kind: f.kind } : {}),
+    ...(f.cause ? { cause: f.cause } : {}),
+    ...(f.error ? { error: plainly(f.error) } : {}),
+    ...(f.withheld ? { error: "withheld: its words are shown to a person who may see more detail" } : {}),
+    ...(f.advice ? { what_to_do: plainly(f.advice) } : {}),
+    ...(f.command ? { command: f.command } : {}),
+  };
+}
+
+/** Why a run failed as a whole, and what to do, as the model is told to say it. */
+function failureWords(f: RunFailure): string {
+  const why = f.error
+    ? "why it failed, in plain words, from its error"
+    : f.kind || f.cause
+      ? `why it failed: ${[f.kind, f.cause].filter(Boolean).join(", ")}`
+      : "that it failed, and that why is shown to a person who may see more detail";
+  const todo = f.advice
+    ? `what to do about it: ${plainly(f.advice)}${f.command ? ` (${f.command})` : ""}`
+    : f.command
+      ? `what to do about it: ${f.command}`
+      : f.error
+        ? "what to do about it, as its error says"
+        : null;
+  return todo ? `${why}, and ${todo}` : why;
+}
+
+/**
+ * What run_read tells the model to say of a run (2026-10-12): how it ended, why it failed as a whole and what to do
+ * where its answer says, then its units and checks. A run that failed before any unit ran is said as that, never as
+ * a run in which no unit failed: the chat once said so of two runs dcm2niix stopped, and gave no reason.
+ */
+export function runSay(r: Reading, failed: number, campaign: boolean): string {
+  const head = `Say run ${r.run} of ${r.name} ended ${r.status} with ${r.units.succeeded} of ${r.units.total} units done`;
+  const why = r.failure ? failureWords(r.failure) : null;
+  if (why && r.units.total === 0)
+    return `${head}: it failed before any unit ran, so no unit was done or failed and no check was taken; say ${why}. Numbers from here only.`;
+  return `${head}; ${why ? `${why}; ` : ""}${failed ? `that ${failed} units failed, by reason` : "that no unit failed"}; ${r.breaches.length ? "each check broken, by its metric, with its count and what it means" : "that no unit broke a check"}; ${campaign ? "and that a campaign over those units is drafted for a person to make" : "and that nothing needs a campaign"}. Numbers from here only.`;
+}
+
 const runRead: OneTool = {
   name: "run_read",
   description:
@@ -1188,6 +1266,7 @@ const runRead: OneTool = {
       analysis: reading.name,
       status: reading.status,
       units: reading.units,
+      ...(reading.failure ? { run_failure: runFailureView(reading.failure) } : {}),
       failed_units: failed,
       failed_by_reason: reading.failed.map((f) => ({ reason: f.reason, count: said(f) })),
       checks_broken: reading.breaches.map((b) => ({
@@ -1197,7 +1276,7 @@ const runRead: OneTool = {
         count: said(b),
       })),
       campaign: campaign ? { name: String(campaign.name), over_document: document } : null,
-      say: `Say run ${reading.run} of ${reading.name} ended ${reading.status} with ${reading.units.succeeded} of ${reading.units.total} units done; ${failed ? `that ${failed} units failed, by reason` : "that no unit failed"}; ${reading.breaches.length ? "each check broken, by its metric, with its count and what it means" : "that no unit broke a check"}; ${campaign ? "and that a campaign over those units is drafted for a person to make" : "and that nothing needs a campaign"}. Numbers from here only.`,
+      say: runSay(reading, failed, campaign !== null),
     };
     return { output: output as unknown as JsonValue };
   },
@@ -1692,6 +1771,66 @@ const proposeChange: OneTool = {
   },
 };
 
+// ------------------------------------------------------------------ memory across conversations
+
+/**
+ * Memory across conversations (2026-10-12): the store the desk's Memory page shows, the person's own and no one
+ * else's. A note is kept when the person asks ("remember that ..."), offered on a card when they did not, and
+ * refused while their memory is paused, past its size, or when it looks like a person's data.
+ */
+const remember: OneTool = {
+  name: "remember",
+  description:
+    "Keep something for this person's later conversations, in at most 300 characters: a preference, a fact about them or their work, or a way they work, such as their name or how they like answers. Set asked to true when they told you to remember it; otherwise they are asked on a card whether to keep it. Never a subject's data: no codes, identifiers, dates of a person or series names.",
+  input: v.object({ text: v.string(), asked: v.boolean() }),
+  salient: ["text"],
+  step: "Noting something to keep",
+  async run(args, ctx) {
+    const outcome = rememberFor(theNotes(), ctx.subject, {
+      text: String(args.text),
+      asked: args.asked === true,
+    });
+    if (outcome.part) ctx.write.memory(outcome.part);
+    const out = outcome.output as Record<string, JsonValue>;
+    return {
+      output: out.kept
+        ? {
+            ...out,
+            next: "Say in one sentence that it is kept for their later conversations, which start with it, and that the Memory page shows it.",
+          }
+        : out.refused
+          ? { ...out, next: "Say in one sentence why it was not kept, in plain words." }
+          : out,
+    };
+  },
+};
+
+const forget: OneTool = {
+  name: "forget",
+  description:
+    "Forget one thing this person asked you to keep, by its number from what you remember or from recall_memory, when they ask you to.",
+  input: v.object({ id: v.number() }),
+  salient: ["id"],
+  step: "Forgetting something kept",
+  async run(args, ctx) {
+    const outcome = forgetFor(theNotes(), ctx.subject, Number(args.id));
+    if (outcome.part) ctx.write.memory(outcome.part);
+    return { output: outcome.output };
+  },
+};
+
+const recallMemory: OneTool = {
+  name: "recall_memory",
+  description:
+    "Find what this person asked you to keep beyond what you were given at the start, by the words that name it, when they refer to something they asked you to keep. Returns at most eight with their numbers.",
+  input: v.object({ words: v.string() }),
+  salient: ["words"],
+  step: "Looking up something kept",
+  async run(args, ctx) {
+    return { output: recallFor(theNotes(), ctx.subject, String(args.words)) };
+  },
+};
+
 /** Every tool, by name, in the mounting order. */
 export const TOOLS: Record<ToolName, OneTool> = {
   registry_summary: registrySummary,
@@ -1705,6 +1844,9 @@ export const TOOLS: Record<ToolName, OneTool> = {
   plan_update: planUpdate,
   ask_user: askUser,
   propose_change: proposeChange,
+  remember,
+  forget,
+  recall_memory: recallMemory,
 };
 
 /** The tools a read-only sub-agent may use: reads and drafts of questions, nothing proposed, no card. */

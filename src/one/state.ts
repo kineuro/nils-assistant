@@ -44,6 +44,8 @@ export interface TurnState {
   texts: string[];
   /** How many times the checks sent the turn back. */
   nudges: number;
+  /** How many times the turn was sent back for ending with nothing the person can read (2026-10-12). */
+  silent: number;
   /** A guard stopped the tools: the model is to answer now; another tool call ends the turn. */
   stopped: string | null;
   asked: boolean;
@@ -101,6 +103,7 @@ export function newTurn(conversation: string, message: string, now = Date.now())
     runs: [],
     texts: [],
     nudges: 0,
+    silent: 0,
     stopped: null,
     asked: false,
     offered: false,

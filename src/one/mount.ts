@@ -21,6 +21,9 @@ export const TOOL_ORDER = [
   "plan_update",
   "ask_user",
   "propose_change",
+  "remember",
+  "forget",
+  "recall_memory",
 ] as const;
 export type ToolName = (typeof TOOL_ORDER)[number];
 
@@ -61,7 +64,7 @@ export function skillsFor(grants: readonly string[]): SkillId[] {
   return SKILL_ORDER.filter((s) => open[s]);
 }
 
-/** The tools a person's grants open; the plan panel, the question card and proposals are everyone's. */
+/** The tools a person's grants open; the plan panel, the question card, proposals and their own memory are everyone's. */
 export function toolsFor(grants: readonly string[]): ToolName[] {
   const query = any(grants, "query:see");
   const open: Record<ToolName, boolean> = {
@@ -77,6 +80,10 @@ export function toolsFor(grants: readonly string[]): ToolName[] {
     plan_update: true,
     ask_user: true,
     propose_change: true,
+    // what a person keeps across conversations is their own (2026-10-12)
+    remember: true,
+    forget: true,
+    recall_memory: true,
   };
   return TOOL_ORDER.filter((t) => open[t]);
 }

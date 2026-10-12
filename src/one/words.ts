@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Plain words (one chat, 2026-10-09): what a person never reads in an
-// answer. The door phrases are what a person heard when the chat said it
+// answer. A word the field uses in its own sense is no engine word: an image's
+// phase, the person the chat is talking to (2026-10-12, when the check sent
+// back a right answer about magnitude and phase, and the model rewrote it as
+// "the timing-shift ones"). The door phrases are what a person heard when the chat said it
 // could not reach something or handed the work on; the engine words are the
 // engine's and the harness's vocabulary. The lists mirror the one-chat
 // bench's lexicon (bench/corpus/one-chat-lexicon.yml), so the check before a
@@ -19,13 +22,18 @@ export const DOOR_PHRASES: readonly string[] = [
   "\\bhanded (it|the question|the task|this) (on|over|to)\\b",
   "\\banother station\\b",
   "\\bdelegat(e|ed|ing|ion)\\b",
-  "\\btalking to\\b",
+  // the chat narrating its insides ("talking to the registry"), never the person it talks to (2026-10-12)
+  "\\btalking to (?:the |an? |another )?(?:engine|registry|stations?|servers?|services?|backend|database|tools?|agents?|models?|find agent|operator)\\b",
 ];
 
 export const ENGINE_WORDS: readonly string[] = [
   "\\bdoors?\\b",
   "\\bstations?\\b",
-  "\\bphases?\\b",
+  // a phase of the work, never an image's phase: magnitude and phase are words of the field (2026-10-12)
+  "\\b(?:read|finish|propose|plan|survey|resolve|hold|shape|rehearse|refine|hypothesi[sz]e|diagnose|settle|draft|turn|check)\\s+phases?\\b(?!\\s*(?:images?|maps?|data|encod\\w*|contrast|difference|shift|offset|unwrap\\w*|correction|angle))",
+  "\\bphases?\\s*[:=]\\s*(?:read|finish|propose|plan|survey|resolve|hold|shape|rehearse|refine|hypothesi[sz]e|diagnose|settle|draft|turn|check)\\b",
+  "\\b(?:this|next|current|previous|later|earlier|final|a new|another)\\s+phases?\\b(?!\\s*(?:images?|maps?|data|encod\\w*|contrast|difference|shift|offset|unwrap\\w*|correction|angle))",
+  "\\bphases?\\s+of\\s+(?:the|this|a|its|my)\\s+(?:run|turn|work|task|station|plan|job|analysis|chat)\\b",
   "\\bgrants?\\b",
   "\\bepochs?\\b",
   "\\bceilings?\\b",

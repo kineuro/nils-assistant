@@ -27,6 +27,19 @@ const WORDS: Record<string, string> = {
   forget: "forgot something kept",
   search_conversations: "searched earlier conversations",
   recall_memory: "looked up something kept",
+  // the one agent's tools, as the desk's step lines say them (2026-10-12)
+  activate_skill: "got ready",
+  registry_summary: "looked in the registry",
+  registry_search: "looked in the registry",
+  registry_describe: "looked in the registry",
+  query_draft: "drafted the query",
+  query_run_readonly: "tried the query",
+  query_read_rows: "read rows of an answer",
+  jobs_read: "read the jobs",
+  run_read: "read a run",
+  plan_update: "planned the work",
+  ask_user: "asked you",
+  propose_change: "prepared a change for you",
 };
 
 /** A step as a person reads it: known tools by what they do, others by name. */

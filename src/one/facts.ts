@@ -52,12 +52,14 @@ export interface Told {
   grants: string | null;
   /** The datasets told last; absent in a conversation from before they were. */
   datasets?: string | null;
+  /** What the conversation remembers, told last; absent in a conversation from before it was (2026-10-12). */
+  memory?: string | null;
   /** How many times the runtime had summarized the conversation's earlier turns when the facts were told; absent before 2026-10-10. */
   compactions?: number;
 }
 
 /** Nothing told: the facts are sent whole on the next turn. */
-export const TOLD_NOTHING: Told = { summary: null, grants: null, datasets: null };
+export const TOLD_NOTHING: Told = { summary: null, grants: null, datasets: null, memory: null };
 
 /**
  * What the conversation still holds of the facts it was told (2026-10-10, review of the one chat): a summary of its
@@ -76,6 +78,8 @@ export function factsOf(o: {
   /** The datasets as the facts carry them (src/one/datasets.ts); null where this person's facts carry none. */
   datasets?: string | null;
   grants: string;
+  /** What the conversation remembers across conversations (src/one/memory.ts); null where none is read. */
+  memory?: string | null;
   hint: string;
   document: number | null;
   /** The conversation's summaries so far, kept with what it was told. */
@@ -104,6 +108,13 @@ export function factsOf(o: {
   if (told.grants !== g) {
     parts.push(o.grants);
     told.grants = g;
+  }
+  if (o.memory) {
+    const h = hashOf(o.memory);
+    if (told.memory !== h) {
+      parts.push(o.memory);
+      told.memory = h;
+    }
   }
   if (o.document !== null) parts.push(`The question open on the person's page is document ${o.document}.`);
   parts.push(o.hint);
