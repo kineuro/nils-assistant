@@ -471,6 +471,66 @@ describe("the graders", () => {
     const g = gradeTurn({ say: "q" }, turn([{ kind: "text", text: "Half" }]), lexicon, "skill");
     expect(g.misses).toEqual(["the turn ended unsettled"]);
   });
+
+  it("let an analysis draft its question with find-data beside its own skill (2026-10-12)", () => {
+    const settled = { kind: "settled" as const, submission: "s", outcome: "completed" };
+    const skill = (name: string) => [
+      { kind: "tool_start" as const, id: name, name: "activate_skill", args: { name } },
+      {
+        kind: "tool" as const,
+        id: name,
+        name: "activate_skill",
+        isError: false,
+        result: { details: { skill: name } },
+        error: null,
+      },
+    ];
+    const both = turn([
+      ...skill("find-data"),
+      ...skill("analyse-table"),
+      { kind: "text", text: "Done." },
+      settled,
+    ]);
+    const t = (also?: string[]) => ({
+      say: "q",
+      expect: { skill: "analyse-table", ...(also ? { also } : {}) },
+    });
+    expect(gradeTurn(t(["find-data"]), both, lexicon, "skill").routed).toBe(true);
+    expect(gradeTurn(t(), both, lexicon, "skill").routed).toBe(false);
+    const findOnly = turn([...skill("find-data"), { kind: "text", text: "Done." }, settled]);
+    expect(gradeTurn(t(["find-data"]), findOnly, lexicon, "skill").routed).toBe(false);
+  });
+
+  it("read a typographic apostrophe as a plain one (2026-10-12)", () => {
+    const settled = { kind: "settled" as const, submission: "s", outcome: "completed" };
+    const g = gradeTurn(
+      { say: "q", expect: { says: [{ match: "\\b(cannot|can't)\\b" }] } },
+      turn([{ kind: "text", text: "Your account can\u2019t look into the registry." }, settled]),
+      lexicon,
+      "skill",
+    );
+    expect(g.misses).toEqual([]);
+  });
+
+  it("read the charts and files a turn handed the person (2026-10-12)", () => {
+    const settled = { kind: "settled" as const, submission: "s", outcome: "completed" };
+    const chart = {
+      kind: "data" as const,
+      name: "chart",
+      data: { kind: "chart", items: [{ name: "a.svg" }] },
+    };
+    const t = { say: "q", expect: { outputs: { chart: true, file: false } } };
+    expect(
+      gradeTurn(t, turn([chart, { kind: "text", text: "Here." }, settled]), lexicon, "skill").misses,
+    ).toEqual([]);
+    expect(gradeTurn(t, turn([{ kind: "text", text: "Here." }, settled]), lexicon, "skill").misses).toEqual([
+      "no chart reached the person",
+    ]);
+    const file = { kind: "data" as const, name: "file", data: { kind: "file", items: [{ name: "a.csv" }] } };
+    expect(
+      gradeTurn(t, turn([chart, file, { kind: "text", text: "Here." }, settled]), lexicon, "skill").misses,
+    ).toEqual(["a file reached the person where none belongs"]);
+  });
 });
 
 describe("what was true, 2026-10-09", () => {
@@ -906,7 +966,7 @@ describe("the harness over HTTP, against the stand-in agent", () => {
   };
   const ctx = (
     arm: "skill" | "subagent",
-    tokens: Record<string, string> = { default: "t", "no-query-see": "u" },
+    tokens: Record<string, string> = { default: "t", "no-query-see": "u", "plain-reader": "p" },
   ) => ({
     lexicon,
     golds,

@@ -232,6 +232,22 @@ const engine = await stubEngine((c) => {
         ],
       },
     };
+  // question 77: rows for the analysis workspace
+  if (p === "/api/ask/run" && (c.body as { document_id?: number } | null)?.document_id === 77)
+    return {
+      body: {
+        handle: 77,
+        columns: ["base", "n_slices"],
+        rows: [
+          ["T1w", 176],
+          ["T2w", 30],
+          ["T1w", 160],
+          ["FLAIR", 40],
+        ],
+        pages: 1,
+        truncated: false,
+      },
+    };
   if (p === "/api/ask/run") return { body: { handle: 55, truncated: false } };
   if (p.startsWith("/api/pipelines/") && p.endsWith("/preflight"))
     return {
@@ -330,13 +346,18 @@ describe("the one agent", () => {
     expect(toolNames(seen[0])).toEqual(
       expect.arrayContaining(["registry_summary", "query_draft", "propose_change", "activate_skill"]),
     );
+    // the analysis workspace's three of Flue's own tools come first, then the agent's, in their fixed order
     expect(toolNames(seen[0]).filter((n) => !["task", "activate_skill"].includes(n))).toEqual([
+      "bash",
+      "read",
+      "write",
       "registry_summary",
       "registry_search",
       "registry_describe",
       "query_draft",
       "query_run_readonly",
       "query_read_rows",
+      "analysis_table",
       "jobs_read",
       "run_read",
       "plan_update",
@@ -626,6 +647,37 @@ describe("the one agent", () => {
     // the question is drafted, so the card the answer names is there, offered as the conversation's version
     expect(turnOf("oc-file").drafted).toEqual([812]);
     expect(recorded("oc-file")).toMatch(/"change":"query_version"/u);
+  });
+
+  it("analyses in its workspace: the rows put in, Python and the chart command run, a chart and a file handed over", async () => {
+    play([
+      { tool: "activate_skill", args: { name: "analyse-table" } },
+      { tool: "analysis_table", args: { document: 77, name: "scans" } },
+      {
+        tool: "bash",
+        args: {
+          command:
+            "chart bar /data/scans.csv --x base --title 'Scans by base' --out /out/scans-by-base.svg && python3 -c \"import csv,statistics as s; r=list(csv.DictReader(open('/data/scans.csv'))); open('/out/median.csv','w').write('median\\n%s\\n' % s.median(int(x['n_slices']) for x in r))\"",
+        },
+      },
+      { text: "The 4 scans have a median of 100 slices; the chart and the table are below." },
+    ]);
+    const h = init(Nils, { id: "oc-workspace" });
+    const reply = await h.read(await h.dispatch("Analyse the scans and chart them by base contrast."));
+    expect(reply.text).toMatch(/median of 100 slices/u);
+    const chart = reply.data.chart?.at(-1) as { items: { name: string; title: string; media: string }[] };
+    expect(chart.items).toEqual([
+      expect.objectContaining({ name: "scans-by-base.svg", title: "Scans by base", media: "image/svg+xml" }),
+    ]);
+    const file = reply.data.file?.at(-1) as { items: { name: string; data: string; rows: number | null }[] };
+    expect(file.items).toEqual([
+      expect.objectContaining({ name: "median.csv", data: "median\n100.0\n", rows: 1 }),
+    ]);
+    // the rows went to the workspace, and the model read only the file's name and shape
+    const read = JSON.stringify(seen.at(-1));
+    expect(read).toContain("/data/scans.csv");
+    expect(read).not.toContain("FLAIR,40");
+    expect(turnOf("oc-workspace").tools).toEqual(["analysis_table", "bash"]);
   }, 60_000);
 
   it("proposes an analysis with the engine's own check, and runs nothing", async () => {

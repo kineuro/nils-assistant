@@ -52,6 +52,7 @@ engine_words:
   - "\\bregistry_(summary|search|describe)\\b"
   - "\\bquery_(draft|run_readonly|read_rows)\\b"
   - "\\bpropose_change\\b"
+  - "\\banalysis_table\\b"
 
 step_words:
   - "\\bmoved on\\b"
@@ -70,6 +71,7 @@ tools:
   - query_draft
   - query_run_readonly
   - query_read_rows
+  - analysis_table
   - jobs_read
   - run_read
   - plan_update
@@ -79,13 +81,14 @@ tools:
   - remember
   - forget
   - recall_memory
-framework_tools: [activate_skill, read_skill_resource, task]
+# bash, read and write are Flue's own, in the analysis workspace (2026-10-12).
+framework_tools: [activate_skill, read_skill_resource, task, bash, read, write]
 
 # Tools that are not step lines on the desk: the plan panel and the cards.
 not_steps: [plan_update, ask_user, propose_change]
 
 # The skills (decision.md, "Skills from today's stations").
-skills: [find-data, plan-work, plan-analysis, read-run, tune-sorting-words, check-identities]
+skills: [find-data, analyse-table, plan-work, plan-analysis, read-run, tune-sorting-words, check-identities]
 
 # The find arm as a read-only sub-agent: the `task` tool with this agent
 # stands for the find-data skill when the host serves ONE_CHAT_FIND=subagent.

@@ -13,6 +13,7 @@ import type { Prediction } from "../stations/keyword-tune.ts";
 import { initialState, Machine } from "../stations/machine.ts";
 import type { Manifest } from "../stations/manifest.ts";
 import type { ChangeKind } from "./changes.ts";
+import type { TurnOutputs } from "./workspace.ts";
 
 /** The guards of one turn: model calls, tool calls, the input tokens over all its model calls, and wall time. */
 export const TURN_BUDGET = { turns: 12, tool_calls: 24, wall_clock_seconds: 600, input_tokens: 400_000 };
@@ -53,6 +54,8 @@ export interface TurnState {
   offered: boolean;
   /** The datasets the turn is about: those its words name, or those named before that a follow-up keeps. */
   datasets: string[];
+  /** What the turn's analysis handed the person from its workspace's /out: charts and files, and what was seen. */
+  outputs: TurnOutputs;
 }
 
 export interface Rehearsal {
@@ -108,6 +111,7 @@ export function newTurn(conversation: string, message: string, now = Date.now())
     asked: false,
     offered: false,
     datasets: [],
+    outputs: { charts: [], files: [], seen: new Map() },
   };
   turns.set(conversation, t);
   return t;

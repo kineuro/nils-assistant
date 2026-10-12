@@ -191,6 +191,32 @@ export function stub(o: StubOptions): Server {
     }
     if (e.tools?.only?.length) tool(e.tools.only[0], {}, { content: [], details: {} });
     for (const n of e.tools?.some ?? []) tool(n, {}, { content: [], details: {} });
+    // what an analysis hands the person: the whole list of the turn's charts or files, as the agent writes it
+    const item = { call: `call-${call}`, encoding: "utf8" };
+    if (e.outputs?.chart)
+      chunks.push({
+        type: "data-part",
+        conversationId: conversation,
+        messageId: "m",
+        name: "chart",
+        data: {
+          kind: "chart",
+          items: [
+            { ...item, name: "chart.svg", title: "Chart", media: "image/svg+xml", data: "<svg/>", bytes: 6 },
+          ],
+        },
+      });
+    if (e.outputs?.file)
+      chunks.push({
+        type: "data-part",
+        conversationId: conversation,
+        messageId: "m",
+        name: "file",
+        data: {
+          kind: "file",
+          items: [{ ...item, name: "table.csv", media: "text/csv", data: "a\n1\n", bytes: 4, rows: 1 }],
+        },
+      });
     if (has("malformed"))
       tool("registry_search", { filter: 3 }, null, "validation failed: must have required property 'text'");
     if (has("refused"))

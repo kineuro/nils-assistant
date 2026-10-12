@@ -24,6 +24,7 @@ import {
   useDelivery,
   useModel,
   usePersistentState,
+  useSandbox,
   useSkill,
   useSubagent,
   useTool,
@@ -69,6 +70,7 @@ import {
   type Writers,
 } from "./tools.ts";
 import { plainly } from "./words.ts";
+import { analysisWorkspace } from "./workspace.ts";
 
 /** The agent's id on the host, and the Kvasir purpose its model calls are filed under (Kvasir and setup need no change). */
 export const AGENT = "nils";
@@ -156,6 +158,42 @@ const APPROVAL = v.object({
     plan: v.optional(v.string()),
   }),
 });
+/** The charts the turn's analysis wrote under /out, the whole list each time; the desk shows each as an image. */
+const CHART = v.object({
+  kind: v.literal("chart"),
+  items: v.array(
+    v.object({
+      call: v.nullable(v.string()),
+      name: v.string(),
+      title: v.string(),
+      media: v.picklist(["image/svg+xml", "image/png"]),
+      encoding: v.picklist(["utf8", "base64"]),
+      data: v.string(),
+      bytes: v.number(),
+    }),
+  ),
+});
+/** The files the turn's analysis wrote under /out, the whole list each time; the desk offers each as a download. */
+const FILE = v.object({
+  kind: v.literal("file"),
+  items: v.array(
+    v.object({
+      call: v.nullable(v.string()),
+      name: v.string(),
+      media: v.picklist([
+        "text/csv",
+        "text/tab-separated-values",
+        "text/plain",
+        "application/json",
+        "text/markdown",
+      ]),
+      encoding: v.literal("utf8"),
+      data: v.string(),
+      bytes: v.number(),
+      rows: v.nullable(v.number()),
+    }),
+  ),
+});
 const CLARIFICATION = v.object({
   kind: v.literal("clarification"),
   question: v.string(),
@@ -178,6 +216,8 @@ const SILENT: Writers = {
   clarification: () => {},
   plan: () => {},
   memory: () => {},
+  chart: () => {},
+  file: () => {},
 };
 
 // ------------------------------------------------------------------ the runtime's events
@@ -363,7 +403,13 @@ function mountTool(t: OneTool, base: Omit<ToolCtx, "toolCallId">): void {
     name: t.name,
     description: t.description,
     input: t.input,
-    async run({ data, toolCallId }): Promise<{ output?: JsonValue; terminate?: boolean }> {
+    // a tool that works in the analysis workspace reaches it through Flue's harness
+    ...(t.workspace ? { harness: true as const } : {}),
+    async run(c): Promise<{ output?: JsonValue; terminate?: boolean }> {
+      const { data, toolCallId } = c;
+      const sandbox = t.workspace
+        ? (c as { harness?: { sandbox?: ToolCtx["sandbox"] } }).harness?.sandbox
+        : undefined;
       const turn = turnOf(base.conversation);
       if (turn.stopped)
         return {
@@ -392,6 +438,7 @@ function mountTool(t: OneTool, base: Omit<ToolCtx, "toolCallId">): void {
           turn,
           toolCallId,
           write: { ...base.write, progress: (text) => base.write.progress(text, toolCallId) },
+          ...(sandbox ? { sandbox } : {}),
         });
       } catch (e) {
         out = refuse(
@@ -458,6 +505,8 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
     const clarificationW = useDataWriter("clarification", { schema: CLARIFICATION });
     const replacedW = useDataWriter("replaced", { schema: REPLACED });
     const memoryW = useDataWriter("memory", { schema: MEMORY });
+    const chartW = useDataWriter("chart", { schema: CHART });
+    const fileW = useDataWriter("file", { schema: FILE });
     const safe = (f: () => void) => {
       try {
         f();
@@ -471,6 +520,8 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
       approval: (p) => safe(() => approvalW({ kind: "approval", ...p })),
       clarification: (p) => safe(() => clarificationW({ kind: "clarification", ...p })),
       memory: (p) => safe(() => memoryW(p)),
+      chart: (items) => safe(() => chartW({ kind: "chart", items })),
+      file: (items) => safe(() => fileW({ kind: "file", items })),
     };
 
     // the skills, in their fixed order; finding data is the sub-agent's in that arm
@@ -526,6 +577,9 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
       );
     }
     for (const name of mounted.tools) mountTool(TOOLS[name], base);
+    // the analysis workspace (2026-10-12): Flue's virtual sandbox, for a person who may read the registry's rows
+    if (mounted.tools.includes("analysis_table"))
+      useSandbox(analysisWorkspace({ conversation: id, writers: () => write }));
 
     // a person's message starts a turn: fresh guards, fresh caps, the turn's facts appended once
     useAgentStart(async (ctx) => {

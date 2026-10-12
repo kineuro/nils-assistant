@@ -52,6 +52,7 @@ export const ENGINE_WORDS: readonly string[] = [
   "\\bregistry_(summary|search|describe)\\b",
   "\\bquery_(draft|run_readonly|read_rows)\\b",
   "\\bpropose_change\\b",
+  "\\banalysis_table\\b",
 ];
 
 /** The words of a text a person should not read, each once, as they were written. */

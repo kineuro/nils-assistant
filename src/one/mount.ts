@@ -16,6 +16,7 @@ export const TOOL_ORDER = [
   "query_draft",
   "query_run_readonly",
   "query_read_rows",
+  "analysis_table",
   "jobs_read",
   "run_read",
   "plan_update",
@@ -29,6 +30,7 @@ export type ToolName = (typeof TOOL_ORDER)[number];
 
 export const SKILL_ORDER: readonly SkillId[] = [
   "find-data",
+  "analyse-table",
   "plan-work",
   "plan-analysis",
   "read-run",
@@ -55,6 +57,7 @@ const any = (grants: readonly string[], ...need: string[]) => need.some((g) => h
 export function skillsFor(grants: readonly string[]): SkillId[] {
   const open: Record<SkillId, boolean> = {
     "find-data": any(grants, "query:see"),
+    "analyse-table": any(grants, "query:see"),
     "plan-work": any(grants, "data:work", "places:work", "release:work"),
     "plan-analysis": any(grants, "pipelines:see"),
     "read-run": any(grants, "pipelines:see"),
@@ -75,6 +78,7 @@ export function toolsFor(grants: readonly string[]): ToolName[] {
     query_draft: query,
     query_run_readonly: query || any(grants, "review:work", "identity:see"),
     query_read_rows: query,
+    analysis_table: query,
     jobs_read: any(grants, "data:see", "identity:see", "pipelines:see", "places:work"),
     run_read: any(grants, "pipelines:see"),
     plan_update: true,
@@ -94,6 +98,7 @@ export function mountFor(a: Access): Mounted {
 
 const SKILL_WORDS: Record<SkillId, string> = {
   "find-data": "look up data and write questions of the registry",
+  "analyse-table": "analyse the rows of a question: medians, spreads, distributions and charts",
   "plan-work": "plan work on the registry (digest, classify, rebuild and the like) for them to confirm",
   "plan-analysis": "plan an analysis of images for them to run",
   "read-run": "read how an analysis run went",
