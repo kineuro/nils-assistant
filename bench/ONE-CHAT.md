@@ -22,13 +22,15 @@ The update chunks of Flue's streaming protocol, in order:
 | `submission-settled` | the end of the turn: `outcome` | `submission_settled` |
 | `data-part` of kind `replaced` | a check sent the turn back: the answer is the words after it, once there are any | (a relayed `message_data_write`) |
 | `data-part` of kind `clarification` | a question asked on a card, which the person reads | (a relayed `message_data_write`) |
+| `data-part` named `chart` or `file` | what an analysis handed the person: the turn's whole list of charts or files | a data write |
 
 A host may relay the runtime events (`observe()`, v3) instead; `fromRuntime` in `bench/one-chat-grade.ts` reads them into the same shape, and leaves out events that carry a `taskId` (a sub-agent's own calls are not the parent's steps).
 
 Names the bench relies on (`bench/corpus/one-chat-lexicon.yml`):
 
-- **Skills** are activated with Flue's `activate_skill` (`input.name`): `find-data`, `plan-work`, `plan-analysis`, `read-run`, `tune-sorting-words`, `check-identities`.
-- **Tools**: `registry_summary`, `registry_search`, `registry_describe`, `query_draft`, `query_run_readonly`, `query_read_rows`, `jobs_read`, `run_read`, `plan_update`, `ask_user`, `propose_change`, and the person's memory across conversations, `remember`, `forget`, `recall_memory`. A call to any other name is counted malformed.
+- **Skills** are activated with Flue's `activate_skill` (`input.name`): `find-data`, `analyse-table`, `plan-work`, `plan-analysis`, `read-run`, `tune-sorting-words`, `check-identities`.
+- **Tools**: `registry_summary`, `registry_search`, `registry_describe`, `query_draft`, `query_run_readonly`, `query_read_rows`, `analysis_table`, `jobs_read`, `run_read`, `plan_update`, `ask_user`, `propose_change`, and the person's memory across conversations, `remember`, `forget`, `recall_memory`. A call to any other name is counted malformed.
+- Flue's own `bash`, `read` and `write` work in the analysis workspace.
 - **A document** a turn leaves is the last `details.document` (a number) among its tool results, from `query_draft` or a `propose_change` of a query version.
 - **A question's clauses**: where a turn expects `query`, the bench reads that document from the engine (`GET /api/ask/documents/:id`) and matches its `ask` as JSON text, so a clause such as the dataset a question names is checked in both find arms.
 - **A proposal** is a `propose_change` call: its input with its result's `details` over it. `details.kind` is one of `query_version`, `job_plan`, `analysis_plan`, `overlay`, `identity_merge`, `identity_rule`. A job plan names its plan by `details.plan_id`; the bench reads it with `GET /plans/:id` (the steps a scheduler runs as `steps`, the acts a person accepts as `proposals`, by rung, as `bench/cases.ts` reads plans today). An analysis plan carries `pipeline`, `cohorts` or `selection`, and `sessions`; an overlay carries `list`; an identity merge carries `subjects`.

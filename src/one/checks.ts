@@ -52,6 +52,15 @@ export async function complaintsOf(c: CheckContext): Promise<string[]> {
       `the answer uses words a person should not need: ${words.join(", ")}. Say it again in everyday words, without them`,
     );
   if (SQL.test(answer)) out.push("the answer carries SQL; say what was counted in words");
+  // words written while tools still ran show as steps after an answer (2026-10-12: a quarter of flash-next's turns)
+  if (
+    process.env.ONE_CHAT_NARRATION_CHECK !== "0" &&
+    c.turn.tools.length > 0 &&
+    c.turn.texts.slice(0, -1).some((x) => x.trim() !== "")
+  )
+    out.push(
+      "words were written before the last tool call was done; write nothing until the work is done, then the whole answer once",
+    );
   if (PERSONAL.test(answer)) out.push("the answer carries an identifier value; leave it out");
   // a dataset the words name and the facts list is there: the chat once said it was not (2026-10-09)
   if (c.turn.datasets.length && saysNotThere(answer, c.turn.datasets))

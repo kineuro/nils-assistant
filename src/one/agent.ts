@@ -24,6 +24,7 @@ import {
   useDelivery,
   useModel,
   usePersistentState,
+  useSandbox,
   useSkill,
   useSubagent,
   useTool,
@@ -69,6 +70,7 @@ import {
   type Writers,
 } from "./tools.ts";
 import { plainly } from "./words.ts";
+import { analysisWorkspace } from "./workspace.ts";
 
 /** The agent's id on the host, and the Kvasir purpose its model calls are filed under (Kvasir and setup need no change). */
 export const AGENT = "nils";
@@ -106,7 +108,8 @@ How you work
 - Do the work yourself with the fewest tool calls that answer. Never look up again what the facts or an earlier answer in this chat already hold.
 - Changes are proposed, never made: a new version of a question, a plan of work, an analysis, new sorting words, a merge or an identity rule goes through propose_change, and the person approves it on a card. Never say a change was made.
 - When the words leave a real choice open (which cohort, which dataset, which run), ask one short question with ask_user. Otherwise do not ask.
-- A file of a question's answer is saved as a CSV with Download CSV on the answer's card in this chat, at the person's own detail: draft the question when there is none, then tell them so. Any other file (a chart, a picture, an analysis's output) cannot be made here yet: that needs the analysis sandbox, which is coming. Say it in words; never only ask which rows.
+- A file of a question's answer is saved as a CSV with Download CSV on the answer's card in this chat, at the person's own detail, its rows as they are: draft the question when there is none, then tell them so. A file of something worked out (medians, shares, a table you computed) or a chart is made in your workspace: draft the question, put its rows in with analysis_table, compute with bash, and write the file to /out/<name>.csv or the chart to /out/<name>.svg; the person gets it in this chat. When a file is asked for, make the file; a table written in words is not one.
+- When this person may not do what they ask, say so in one sentence with the word cannot ("Your account cannot see the sessions' dates here; an admin can give it that access"), and nothing more.
 - For work of three steps or more, show the steps with plan_update and keep them current.
 - When a tool answers with refused, read its next and do that.
 - Write nothing to the person until your last tool call is done: never say what you are about to do, never narrate a step. Then write the answer once.
@@ -124,7 +127,7 @@ What you never do
 
 How you write
 - Lead with the answer: one to three short sentences; a short list only when they asked for a list.
-- Everyday words. Never name your tools or skills or describe how you work inside, and never use these words of how you work: station, grant, door, a phase of the work, catalog, pack, epoch, ceiling, rung, ledger, capabilities, handle, session scheme, delegate. The field's own words stay: an image's phase, as in magnitude and phase, is the right word.
+- Everyday words. Never name your tools or skills or describe how you work inside, and never use these words of how you work: station, grant, door, a phase of the work, catalog, pack, epoch, ceiling, rung, ledger, capabilities, handle, session scheme, delegate. Say instead: what your account may do (not grants), the result or the answer (not a handle), the sorting rules (not packs), the list of fields (not the catalog). The field's own words stay: an image's phase, as in magnitude and phase, is the right word.
 
 Your tools: registry_summary, registry_search and registry_describe look things up in the registry; query_draft, query_run_readonly and query_read_rows write and try questions of the registry, writing nothing else; jobs_read and run_read read jobs and analysis runs; plan_update, ask_user and propose_change are what the person sees: the plan, a question card and an approval card; remember, forget and recall_memory keep, forget and find what this person asked you to keep.`;
 
@@ -156,6 +159,42 @@ const APPROVAL = v.object({
     plan: v.optional(v.string()),
   }),
 });
+/** The charts the turn's analysis wrote under /out, the whole list each time; the desk shows each as an image. */
+const CHART = v.object({
+  kind: v.literal("chart"),
+  items: v.array(
+    v.object({
+      call: v.nullable(v.string()),
+      name: v.string(),
+      title: v.string(),
+      media: v.picklist(["image/svg+xml", "image/png"]),
+      encoding: v.picklist(["utf8", "base64"]),
+      data: v.string(),
+      bytes: v.number(),
+    }),
+  ),
+});
+/** The files the turn's analysis wrote under /out, the whole list each time; the desk offers each as a download. */
+const FILE = v.object({
+  kind: v.literal("file"),
+  items: v.array(
+    v.object({
+      call: v.nullable(v.string()),
+      name: v.string(),
+      media: v.picklist([
+        "text/csv",
+        "text/tab-separated-values",
+        "text/plain",
+        "application/json",
+        "text/markdown",
+      ]),
+      encoding: v.literal("utf8"),
+      data: v.string(),
+      bytes: v.number(),
+      rows: v.nullable(v.number()),
+    }),
+  ),
+});
 const CLARIFICATION = v.object({
   kind: v.literal("clarification"),
   question: v.string(),
@@ -178,6 +217,8 @@ const SILENT: Writers = {
   clarification: () => {},
   plan: () => {},
   memory: () => {},
+  chart: () => {},
+  file: () => {},
 };
 
 // ------------------------------------------------------------------ the runtime's events
@@ -363,7 +404,13 @@ function mountTool(t: OneTool, base: Omit<ToolCtx, "toolCallId">): void {
     name: t.name,
     description: t.description,
     input: t.input,
-    async run({ data, toolCallId }): Promise<{ output?: JsonValue; terminate?: boolean }> {
+    // a tool that works in the analysis workspace reaches it through Flue's harness
+    ...(t.workspace ? { harness: true as const } : {}),
+    async run(c): Promise<{ output?: JsonValue; terminate?: boolean }> {
+      const { data, toolCallId } = c;
+      const sandbox = t.workspace
+        ? (c as { harness?: { sandbox?: ToolCtx["sandbox"] } }).harness?.sandbox
+        : undefined;
       const turn = turnOf(base.conversation);
       if (turn.stopped)
         return {
@@ -392,6 +439,7 @@ function mountTool(t: OneTool, base: Omit<ToolCtx, "toolCallId">): void {
           turn,
           toolCallId,
           write: { ...base.write, progress: (text) => base.write.progress(text, toolCallId) },
+          ...(sandbox ? { sandbox } : {}),
         });
       } catch (e) {
         out = refuse(
@@ -458,6 +506,8 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
     const clarificationW = useDataWriter("clarification", { schema: CLARIFICATION });
     const replacedW = useDataWriter("replaced", { schema: REPLACED });
     const memoryW = useDataWriter("memory", { schema: MEMORY });
+    const chartW = useDataWriter("chart", { schema: CHART });
+    const fileW = useDataWriter("file", { schema: FILE });
     const safe = (f: () => void) => {
       try {
         f();
@@ -471,6 +521,8 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
       approval: (p) => safe(() => approvalW({ kind: "approval", ...p })),
       clarification: (p) => safe(() => clarificationW({ kind: "clarification", ...p })),
       memory: (p) => safe(() => memoryW(p)),
+      chart: (items) => safe(() => chartW({ kind: "chart", items })),
+      file: (items) => safe(() => fileW({ kind: "file", items })),
     };
 
     // the skills, in their fixed order; finding data is the sub-agent's in that arm
@@ -526,6 +578,9 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
       );
     }
     for (const name of mounted.tools) mountTool(TOOLS[name], base);
+    // the analysis workspace (2026-10-12): Flue's virtual sandbox, for a person who may read the registry's rows
+    if (mounted.tools.includes("analysis_table"))
+      useSandbox(analysisWorkspace({ conversation: id, writers: () => write }));
 
     // a person's message starts a turn: fresh guards, fresh caps, the turn's facts appended once
     useAgentStart(async (ctx) => {

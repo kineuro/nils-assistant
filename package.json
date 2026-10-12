@@ -34,6 +34,7 @@
     "@flue/runtime": "2.2.2",
     "@flue/vite": "2.2.2",
     "hono": "^4.13.7",
+    "just-bash": "3.4.2",
     "postgres": "^3.4.9",
     "valibot": "^1.4.2",
     "yaml": "^2.8.0"

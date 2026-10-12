@@ -50,9 +50,10 @@ describe("what a person's grants mount", () => {
     expect(grantsLine(m)).toMatch(/an admin can give it/u);
   });
 
-  it("gives a reader finding data and nothing that plans or changes", () => {
+  it("gives a reader finding data and analysing it, and nothing that plans or changes", () => {
     const m = mountFor(SETS.reader);
-    expect(m.skills).toEqual(["find-data"]);
+    expect(m.skills).toEqual(["find-data", "analyse-table"]);
+    expect(m.tools).toContain("analysis_table");
     expect(m.tools).toContain("query_draft");
     expect(m.tools).not.toContain("run_read");
     expect(grantsLine(m)).toMatch(/counts and plain fields only/u);
@@ -200,7 +201,7 @@ describe("plain words", () => {
 
 describe("the skills", () => {
   const skills = loadSkills(["./stations"], SKILL_ORDER);
-  it("reads all six from disk, each with one catalog line", () => {
+  it("reads all seven from disk, each with one catalog line", () => {
     expect([...skills.keys()]).toEqual([...SKILL_ORDER]);
     for (const s of skills.values()) {
       expect(s.description.length).toBeGreaterThan(40);
@@ -264,6 +265,19 @@ describe("the checks before a turn settles", () => {
     expect((await complaintsOf(c)).join(" ")).toMatch(/station/u);
     t.texts.push("Cohort B has 24 subjects.");
     expect(await complaintsOf(c)).toEqual([]);
+  });
+
+  it("sends back once words written while tools still ran (2026-10-12)", async () => {
+    const t = newTurn("chk-narrate", "Chart the scans by base.");
+    t.tools.push("analysis_table");
+    t.texts.push("I'll start by putting the rows in.", "The chart is below: 69 T1w and 67 T2w scans.");
+    const c = { turn: t, convo: conversationOf("chk-narrate"), conversation: "chk-narrate", validate: null };
+    expect((await complaintsOf(c)).join(" ")).toMatch(
+      /words were written before the last tool call was done/u,
+    );
+    process.env.ONE_CHAT_NARRATION_CHECK = "0";
+    expect(await complaintsOf(c)).toEqual([]);
+    delete process.env.ONE_CHAT_NARRATION_CHECK;
   });
 
   it("holds a found document to the engine's validation", async () => {

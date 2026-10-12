@@ -44,12 +44,15 @@ export const KINDS = [
   "file",
   "fields",
   "vocabulary",
+  "table",
 ] as const;
 export type Kind = (typeof KINDS)[number];
 
 export interface Expect {
   /** The skill the turn must activate (and no other): a name, `none` for no skill, `any` to leave it. */
   skill?: string;
+  /** Skills the turn may activate beside `skill`: an analysis drafts its question with find-data's craft (2026-10-12). */
+  also?: string[];
   tools?: { only?: string[]; some?: string[]; none?: string[] };
   /** A gold under bench/gold/ the turn's document must reach (bench/turns.ts). */
   gold?: string;
@@ -66,6 +69,8 @@ export interface Expect {
   says?: Matcher[];
   /** At most this many sentences in the answer: a plain refusal is one. */
   sentences?: number;
+  /** What the turn's analysis hands the person: true, at least one chart or file part; false, none. */
+  outputs?: { chart?: boolean; file?: boolean };
 }
 
 export interface Turn {
@@ -124,6 +129,8 @@ export function corpusProblems(
       const e = t.expect ?? {};
       if (e.skill && !["none", "any", ...lexicon.skills].includes(e.skill))
         out.push(`${c.id} turn ${i + 1}: no skill ${e.skill}`);
+      for (const a of e.also ?? [])
+        if (!lexicon.skills.includes(a)) out.push(`${c.id} turn ${i + 1}: no skill ${a} beside`);
       for (const n of [...(e.tools?.only ?? []), ...(e.tools?.some ?? []), ...(e.tools?.none ?? [])])
         if (![...lexicon.tools, ...lexicon.framework_tools, ...lexicon.executes].includes(n))
           out.push(`${c.id} turn ${i + 1}: no tool ${n}`);
@@ -151,7 +158,9 @@ export type Ev =
   /** A check sent the turn back: the words before this give way to the answer written after it. */
   | { kind: "replaced" }
   /** The turn asked the person a question on a card. */
-  | { kind: "asked"; question: string };
+  | { kind: "asked"; question: string }
+  /** A data part the turn wrote for the desk (`data-part` chunk): its name and value. */
+  | { kind: "data"; name: string; data: unknown };
 
 /** A part the agent wrote for the page, as an event: the replaced mark and a question asked; null for the rest. */
 function partEvent(data: unknown): Ev | null {
@@ -219,6 +228,7 @@ export function fromChunks(chunks: Rec[], submission?: string): Ev[] {
       case "data-part": {
         const e = partEvent(c.data);
         if (e) out.push(e);
+        out.push({ kind: "data", name: str(c.name), data: c.data ?? null });
         break;
       }
       case "submission-settled":
@@ -228,6 +238,15 @@ export function fromChunks(chunks: Rec[], submission?: string): Ev[] {
     }
   }
   return out;
+}
+
+/** How many items the turn's last data part of a name holds (a chart or file part carries the whole list). */
+export function outputsIn(events: Ev[], name: "chart" | "file"): number {
+  const last = [...events].reverse().find((e) => e.kind === "data" && e.name === name) as
+    | Extract<Ev, { kind: "data" }>
+    | undefined;
+  const items = (last?.data as { items?: unknown } | null | undefined)?.items;
+  return Array.isArray(items) ? items.length : 0;
 }
 
 /**
@@ -333,11 +352,14 @@ export function detailsOf(result: unknown): Rec {
   return r;
 }
 
+/** The answer's words, with typographic quotes read as plain ones, so a matcher on "can't" holds for "can’t" too. */
 const wordsOf = (events: Ev[]) =>
   events
     .filter((e): e is Extract<Ev, { kind: "text" }> => e.kind === "text")
     .map((e) => e.text)
     .join("")
+    .replace(/[\u2018\u2019]/gu, "'")
+    .replace(/[\u201c\u201d]/gu, '"')
     .trim();
 
 /** The answer the person read: where a check sent the turn back, the words after its last mark, once there are any. */
@@ -471,6 +493,11 @@ export function metricsOf(o: TurnObs, lexicon: Lexicon): TurnMetrics {
   let shown = false;
   let late = 0;
   for (const e of o.events) {
+    if (e.kind === "replaced") {
+      // the words so far gave way to the answer written after the mark: what the person reads starts there
+      shown = false;
+      late = 0;
+    }
     if (e.kind === "text" && e.text.trim()) shown = true;
     // words a check sent back are not the answer the person reads: what follows the mark comes before it
     if (e.kind === "replaced") shown = false;
@@ -561,7 +588,7 @@ export function gradeTurn(t: Turn, o: TurnObs, lexicon: Lexicon, arm: "skill" | 
         e.skill === lexicon.find.skill
           ? right.some((s) => s.via === arm)
           : right.some((s) => s.via === "skill");
-      routed = viaRight && names.every((n) => n === e.skill);
+      routed = viaRight && names.every((n) => n === e.skill || (e.also ?? []).includes(n));
     }
     if (!routed)
       misses.push(
@@ -611,6 +638,12 @@ export function gradeTurn(t: Turn, o: TurnObs, lexicon: Lexicon, arm: "skill" | 
     if (!holds(m.answer, s)) misses.push(`the answer does not hold ${JSON.stringify(s)}`);
   if (e.sentences !== undefined && sentencesIn(m.answer) > e.sentences)
     misses.push(`${sentencesIn(m.answer)} sentences, more than ${e.sentences}`);
+  for (const name of ["chart", "file"] as const) {
+    const want = e.outputs?.[name];
+    const n = outputsIn(o.events, name);
+    if (want === true && n === 0) misses.push(`no ${name} reached the person`);
+    if (want === false && n > 0) misses.push(`a ${name} reached the person where none belongs`);
+  }
   return {
     passed: misses.length === 0,
     misses,
