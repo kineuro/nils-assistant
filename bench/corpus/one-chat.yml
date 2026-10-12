@@ -417,8 +417,8 @@ conversations:
             - {match: "\\[\"axis\",\\{\\},\"post_contrast\"\\],\"(given|1)\""}
             - {not: {match: "acquisition_contrast"}}
           says:
-            - {match: "\\b(none|no|zero|0|not one|neither)\\b[^.;]{0,80}\\b(marked|flagged|recorded|tagged|marks?|flags?|tags?)\\b|\\bheaders?\\b[^.;]{0,40}\\b(marks?|flags?|records?|shows?|says?|indicates?)\\s+(none|no)\\b|\\b(don't|do not|doesn't|does not|didn't|did not|isn't|is not|aren't|are not|wasn't|was not|weren't|were not)\\s+(\\w+\\s+){0,2}(marked|flagged|recorded|tagged|mark|flag|record|tag)\\b"}
-            - {match: "post-?contrast[^.]{0,80}(\\bnot\\b|n't\\b|\\bnever\\b|\\byet\\b)|\\bnot (yet )?(known|run)\\b|\\bunknown\\b|\\b(don't|do not|cannot|can't|can not) (yet )?(say|tell|know)\\b"}
+            - {match: "\\bno (scan|series|stack|image)('s)? headers? (says?|shows?|marks?|records?|indicates?)\\b|\\b(none|no|zero|0|not one|neither)\\b[^.;]{0,80}\\b(marked|flagged|recorded|tagged|marks?|flags?|tags?)\\b|\\bheaders?\\b[^.;]{0,40}\\b(marks?|flags?|records?|shows?|says?|indicates?)\\s+(none|no)\\b|\\b(don't|do not|doesn't|does not|didn't|did not|isn't|is not|aren't|are not|wasn't|was not|weren't|were not)\\s+(\\w+\\s+){0,2}(marked|flagged|recorded|tagged|mark|flag|record|tag)\\b"}
+            - {match: "post-?contrast[^.]{0,80}(\\bnot\\b|n't\\b|\\bnever\\b|\\byet\\b)|(\\bnot|n't) (yet )?(been )?(known|run)\\b|\\bunknown\\b|\\b(don't|do not|cannot|can't|can not) (yet )?(say|tell|know)\\b"}
             - {not: {match: "\\b\\d+\\s+(T1[- ]?(weighted\\s+)?)?(scans?|series|stacks?|images?)\\s+(with|after|post)[- ]?contrast\\b|\\b\\d+\\b[^.;]{0,40}\\bcontrast[- ]enhanced\\b|\\b(with|after|post)[- ]?contrast\\b[^.;]{0,20}:\\s*\\d+"}}
 
   # --- the same where the headers mark some: ds-marked holds eight T1 scans,
@@ -455,7 +455,7 @@ conversations:
           proposal: false
           says:
             - {match: "\\b(cannot|can't|can not|could not|couldn't)\\b[^.;]{0,40}\\b(be )?(counted|count|say|tell|know|answer(ed)?)\\b|(\\bnot|n't) (yet )?(known|countable|be counted)\\b|\\bunknown\\b|\\bnot yet\\b"}
-            - {not: {match: "(?<!\\bwhether\\b[^.;]*)(?<!\\b(?:0|zero|none|no)\\s+of\\s+(?:the\\s+|its\\s+)?)(?:\\b(?:5|five)\\b(?![^.;]{0,60}(?:\\bnot|n't|\\bnever)\\s+(?:be\\s+)?(?:counted|called|treated|taken|read|listed|shown)\\s+as\\b)[^.;]{0,60}(?:\\b(?:without|pre|before|non|no)[- ]?contrast\\b|\\bnot given\\b|\\b(?:weren't|wasn't|aren't|isn't) given\\b)|\\b[1-9]\\d*\\s+(?:(?:T1[- ]?(?:weighted\\s+)?)?(?:scans?|series|stacks?|images?)\\s+)?(?:(?:were|are|was|is)\\s+)?(?:(?:scanned|acquired|done|taken)\\s+)?(?:without|before|pre)[- ]?contrast\\b|\\b[1-9]\\d*\\s+(?:were|are|was|is)\\s+not\\s+given\\b|\\b[1-9]\\d*\\s+(?:non|un)[- ]?(?:contrast|enhanced)\\b)|\\b(?:without|before|pre)[- ]?contrast\\b[^.;]{0,20}:\\s*[1-9]"}}
+            - {not: {match: "(?<!\\bwhether\\b[^.;]*)(?<!\\b(?:0|zero|none|no)\\s+of\\s+(?:the\\s+|its\\s+)?)(?:\\b(?:5|five)\\b(?![^.;]{0,60}(?:\\bnot|n't|\\bnever)\\s+(?:be\\s+)?(?:counted|called|treated|taken|read|listed|shown)\\s+as\\b)[^.;]{0,60}(?:(?<!\\bnot )\\b(?:without|pre|before|non|no)[- ]?contrast\\b(?![- ](?:mark|marks|marking|marked|flag|flags|tag|tags|label|labels|status|information))|\\bnot given\\b|\\b(?:weren't|wasn't|aren't|isn't) given\\b)|\\b[1-9]\\d*\\s+(?:(?:T1[- ]?(?:weighted\\s+)?)?(?:scans?|series|stacks?|images?)\\s+)?(?:(?:were|are|was|is)\\s+)?(?:(?:scanned|acquired|done|taken)\\s+)?(?:without|before|pre)[- ]?contrast\\b|\\b[1-9]\\d*\\s+(?:were|are|was|is)\\s+not\\s+given\\b|\\b[1-9]\\d*\\s+(?:non|un)[- ]?(?:contrast|enhanced)\\b)|\\b(?:without|before|pre)[- ]?contrast\\b[^.;]{0,20}:\\s*[1-9]"}}
 
   # --- what the registry's jobs did, read with no skill, the newest first. The
   #     chat once read the open jobs alone and said there were none
