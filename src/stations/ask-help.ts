@@ -11,7 +11,15 @@ import * as v from "valibot";
 import type { Answer, Seam } from "../seam/client.ts";
 import { toolResult } from "../seam/client.ts";
 import { subjectOfConversation } from "../seam/for.ts";
-import { shapedLine, shapedOf, withShapedLine } from "../seam/shaped.ts";
+import {
+  heldBackLine,
+  heldBackOf,
+  heldCountCells,
+  shapedLine,
+  shapedOf,
+  withHeldCounts,
+  withShapedLine,
+} from "../seam/shaped.ts";
 import { type StationDefinition, type StationTool, stationAgent } from "./agent.ts";
 import type { Manifest } from "./manifest.ts";
 import { catalogOf, prelude } from "./prelude.ts";
@@ -37,6 +45,13 @@ export function unescapeEntities(text: string): string {
     .replace(/&amp;/gu, "&");
 }
 
+/** A draft's answer with its diagnosis's held counts written as held (record 55 K7). */
+function heldDiagnosisOf(output: JsonValue): JsonValue {
+  if (!output || typeof output !== "object" || Array.isArray(output) || !("diagnosis" in output))
+    return output;
+  return { ...output, diagnosis: withHeldCounts(output.diagnosis as JsonValue) };
+}
+
 /**
  * The preview compacted for a small model: the level, the columns and the first rows without the technical columns,
  * never the declaration block; and, where the engine answered columns as shapes (record 55 K7), the one line that
@@ -53,12 +68,17 @@ export function compactPreview(body: unknown): JsonValue {
   const keep = cols.map((c) => !c.startsWith("_"));
   const columns = cols.filter((_, i) => keep[i]);
   const shaped = shapedLine((shapedOf(b) ?? []).filter((c) => columns.includes(c)));
+  // a count held back at plain is written as held, never as a null a small model reads as none (record 55 K7)
+  const heldBack = (heldBackOf(b) ?? []).filter((h) => columns.includes(h.column));
+  const held = heldBackLine(heldBack);
+  const rows = (b.rows ?? []).slice(0, 10).map((r) => (Array.isArray(r) ? r.filter((_, i) => keep[i]) : r));
   return {
     level: b.level ?? null,
     columns,
-    rows: (b.rows ?? []).slice(0, 10).map((r) => (Array.isArray(r) ? r.filter((_, i) => keep[i]) : r)),
+    rows: heldCountCells(columns, rows as unknown[][], heldBack),
     truncated: b.truncated ?? false,
     ...(shaped ? { shaped } : {}),
+    ...(held ? { held_back: held } : {}),
   } as JsonValue;
 }
 
@@ -86,9 +106,10 @@ export function askHelpTools(): StationTool[] {
     salient: opts.salient,
     async run(args, ctx) {
       const a = await dial(ctx.seam, args, ctx.toolCallId, ctx.state.phase);
-      // a preview that holds columns as shapes says which, in one plain line (record 55 K7)
+      // a preview that holds columns as shapes says which, in one plain line, and a diagnosis or a preview writes a
+      // count held back at plain as held, never as a null read as none (record 55 K7)
       return {
-        output: withShapedLine(toolResult(a).output, a.kind === "ok" ? a.body : null),
+        output: withHeldCounts(withShapedLine(toolResult(a).output, a.kind === "ok" ? a.body : null)),
         evidence: { handles: handleOf(a), documents: documentOf(a) },
       };
     },
@@ -113,7 +134,7 @@ export function askHelpTools(): StationTool[] {
           { text: unescapeEntities(String(args.text)) },
           { toolCallId: ctx.toolCallId, phase: ctx.state.phase },
         );
-        const output = toolResult(drafted).output;
+        const output = heldDiagnosisOf(toolResult(drafted).output);
         const documents = documentOf(drafted);
         if (documents.length === 0) return { output, evidence: { handles: [], documents } };
         const previewed = await ctx.seam.door(

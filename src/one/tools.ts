@@ -17,7 +17,15 @@ import { planFrom, restate } from "../host/ladder.ts";
 import type { Answer, Seam, Station } from "../seam/client.ts";
 import { shorten, toolResult } from "../seam/client.ts";
 import { seamWith, stationList, theLineage, theNotes } from "../seam/for.ts";
-import { type HeldBack, heldBackLine, heldBackOf, shapedLine, shapedOf } from "../seam/shaped.ts";
+import {
+  type HeldBack,
+  heldBackLine,
+  heldBackOf,
+  heldCountCells,
+  shapedLine,
+  shapedOf,
+  withHeldCounts,
+} from "../seam/shaped.ts";
 import { preflightForDocument } from "../stations/analysis-plan.ts";
 import { compactPreview, unescapeEntities } from "../stations/ask-help.ts";
 import {
@@ -203,6 +211,16 @@ function shapedField(ctx: ToolCtx, body: unknown): { shaped?: string; held_back?
     if (line) out.held_back = line;
   }
   return out;
+}
+
+/** A page of rows with its held counts written as held, never as a null read as none (record 55 K7, small counts). */
+function heldRowsOf(body: unknown): unknown {
+  const b = body as { columns?: unknown; rows?: unknown } | null;
+  if (!b || typeof b !== "object" || !Array.isArray(b.columns) || !Array.isArray(b.rows)) return body;
+  const names = b.columns.map((c) =>
+    typeof c === "string" ? c : String((c as { name?: unknown } | null)?.name ?? ""),
+  );
+  return { ...b, rows: heldCountCells(names, b.rows as unknown[][], heldBackOf(body) ?? []) };
 }
 
 /** A preview as the model reads it: the level, the columns and the first rows as the registry's data, and the line on its shapes beside them. */
@@ -714,7 +732,8 @@ const queryDraft: OneTool = {
     return {
       output: {
         document,
-        diagnosis: shorten((body.diagnosis ?? null) as JsonValue, 3000),
+        // a count held back at plain is written as held, never as a null read as none (record 55 K7)
+        diagnosis: shorten(withHeldCounts((body.diagnosis ?? null) as JsonValue), 3000),
         preview:
           previewed.kind === "ok"
             ? previewOf(ctx, previewed.body)
@@ -1138,7 +1157,7 @@ const queryRunReadonly: OneTool = {
     return {
       output: {
         document,
-        diagnosis: d.kind === "ok" ? shorten(d.body as JsonValue, 3000) : null,
+        diagnosis: d.kind === "ok" ? shorten(withHeldCounts(d.body as JsonValue), 3000) : null,
         preview: p.kind === "ok" ? previewOf(ctx, p.body) : null,
       },
     };
@@ -1170,7 +1189,7 @@ const queryReadRows: OneTool = {
       return a.kind === "ok"
         ? {
             output: {
-              ...(data(a.body, "read the next page") as Record<string, JsonValue>),
+              ...(data(heldRowsOf(a.body), "read the next page") as Record<string, JsonValue>),
               ...shapedField(ctx, a.body),
             },
           }
@@ -1288,7 +1307,7 @@ const jobsRead: OneTool = {
         job,
         state: b.state ?? null,
         ...(b.error ? { error: shorten(b.error as JsonValue, 500) } : {}),
-        ...(data(a.body, "") as object),
+        ...(data(b.result ? { ...(a.body as object), result: heldRowsOf(b.result) } : a.body, "") as object),
         // a question run as a job names the columns its answer holds as shapes in its result (record 55 K7)
         ...shapedField(ctx, b.result),
       },
