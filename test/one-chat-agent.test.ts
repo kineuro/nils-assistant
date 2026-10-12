@@ -39,7 +39,7 @@ const { probeEngineAuth, registerStation, theLedger, theLineage, theNotes } = aw
 const { loadManifests } = await import("../src/stations/manifest.ts");
 const { ChangeStore, theChanges, useChangeStore } = await import("../src/one/changes.ts");
 const { oneAgent, notePerson } = await import("../src/one/agent.ts");
-const { TURN_BUDGET, answerOf, turnOf } = await import("../src/one/state.ts");
+const { TURN_BUDGET, answerOf, keptDocument, turnOf } = await import("../src/one/state.ts");
 
 const CATALOG = {
   epoch: 3,
@@ -402,6 +402,26 @@ describe("the one agent", () => {
         .map((r) => r.operation),
     ).toEqual(expect.arrayContaining(["draft", "preview", "validate"]));
   }, 60_000);
+
+  it("offers the question the answer names, not a nearby one drafted after it (round 4, 2026-10-12)", async () => {
+    play([
+      { tool: "activate_skill", args: { name: "find-data" } },
+      { tool: "query_draft", args: { text: "ast_version: 1\nname: cohort b\n" } },
+      { tool: "query_draft", args: { text: "ast_version: 1\nname: youngest and oldest\n" } },
+      { text: "Cohort B has 24 subjects (document 812); document 813 shows their ages as shapes." },
+    ]);
+    const h = init(Nils, { id: "oc-kept" });
+    await h.read(await h.dispatch("How many subjects are in cohort B?"));
+    expect(turnOf("oc-kept").drafted).toEqual([812, 813]);
+    const log = recorded("oc-kept");
+    expect(log).toMatch(/"change":"query_version"[^}]*"ref":\{"document":812,"parent":null\}/u);
+    expect(log).not.toMatch(/"ref":\{"document":813/u);
+    // naming none, the last drafted stays the one offered
+    expect(keptDocument([812, 813], "Cohort B has 24 subjects.")).toBe(813);
+    // a document the turn did not draft is never the one offered
+    expect(keptDocument([813], "Document 812 still holds; document 813 counts them.")).toBe(813);
+    expect(keptDocument([], "document 812")).toBeUndefined();
+  });
 
   it("answers how much a dataset holds from its own counts, and sends back an answer that says it is not there", async () => {
     play([

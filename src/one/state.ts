@@ -153,6 +153,20 @@ export function answerOf(t: TurnState): string {
   return "";
 }
 
+/**
+ * The question the turn keeps (round 4, 2026-10-12): the first the answer names ("document 41", "question 41") of
+ * those the turn drafted, else the last it drafted. The model sometimes drafts a nearby question after the one that
+ * answers (a breakdown, a check) and names the answering one; the card offered the last drafted, and the person kept
+ * a question the answer was not about. A skill line ("once a question answers, draft no other") did not hold it.
+ */
+export function keptDocument(drafted: readonly number[], answer: string): number | undefined {
+  for (const m of answer.matchAll(/\b(?:document|question)s?\s+(?:#\s*)?(\d+)\b/giu)) {
+    const n = Number(m[1]);
+    if (drafted.includes(n)) return n;
+  }
+  return drafted.at(-1);
+}
+
 export function forgetConversation(id: string): void {
   turns.delete(id);
   conversations.delete(id);

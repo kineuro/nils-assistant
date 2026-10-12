@@ -57,7 +57,7 @@ import { memoryFacts } from "./memory.ts";
 import { type Access, grantsLine, type Mounted, mountFor, SKILL_ORDER } from "./mount.ts";
 import { hintLine, routeOf } from "./route.ts";
 import { bodyFor, findExamples, loadSkills, skillOf } from "./skills.ts";
-import { answerOf, conversationOf, newTurn, turnOf } from "./state.ts";
+import { answerOf, conversationOf, keptDocument, newTurn, turnOf } from "./state.ts";
 import { readSteps, STEPS_READ, STEPS_WAIT_MS, stepsRead, stepsText, stepsWithin } from "./steps.ts";
 import {
   type OneTool,
@@ -729,10 +729,12 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
       }
       if (t.offered) return;
       t.offered = true;
-      // a question drafted and not proposed is offered as the conversation's new version, as a station's settle did
-      const last = t.drafted.at(-1);
+      // a question drafted and not proposed is offered as the conversation's new version, as a station's settle did:
+      // the one the answer names, not a nearby one drafted after it (round 4)
+      const last = keptDocument(t.drafted, answerOf(t));
       if (last !== undefined && !t.proposed.some((p) => p.kind === "query_version")) {
-        const before = convo.documents.filter((x) => x !== last).at(-1) ?? null;
+        // its parent is the version the conversation held before this turn
+        const before = convo.documents.filter((x) => x !== last && !t.drafted.includes(x)).at(-1) ?? null;
         const sentence = `The question as it stands now (document ${last}).`;
         try {
           theLineage().proposed({ conversation: id, document: last, parent: before, sentence });

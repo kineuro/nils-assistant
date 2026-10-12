@@ -18,6 +18,7 @@ import { bench, compare, loadCorpus, page } from "../bench/one-chat.ts";
 import {
   type Conversation,
   corpusProblems,
+  documentIn,
   type Ev,
   fromChunks,
   fromRuntime,
@@ -99,9 +100,12 @@ describe("the one-chat corpus", () => {
     }
     for (const c of conversations.filter((c) => c.kind === "unknown")) {
       expect(c.turns[0].expect?.proposal, c.id).toBe(false);
-      expect(c.turns[0].expect?.says?.some((m) => typeof m === "object" && m !== null && "not" in m)).toBe(
-        true,
-      );
+      // a count it must not state: the scans' counts are read as counts (round 4)
+      expect(
+        c.turns[0].expect?.says?.some(
+          (m) => typeof m === "object" && m !== null && ("not" in m || "count" in m),
+        ),
+      ).toBe(true);
       // the scans with contrast are the ones the headers mark: a question for post_contrast given, never another field
       expect(c.turns[0].expect?.skill, c.id).toBe("find-data");
       const query = JSON.stringify(c.turns[0].expect?.query ?? []);
@@ -276,6 +280,32 @@ describe("the graders", () => {
     ledgerBefore: 0,
     seconds: 12,
     goldReached,
+  });
+
+  it("read the document a turn left from its question card, before the last one drafted (round 4)", () => {
+    const tool = (id: string, document: number): Ev => ({
+      kind: "tool",
+      id,
+      name: "query_draft",
+      isError: false,
+      result: { content: [], details: { document } },
+      error: null,
+    });
+    const drafted: Ev[] = [tool("c1", 41), tool("c2", 48)];
+    expect(documentIn(drafted)).toBe(48);
+    const card: Ev = {
+      kind: "data",
+      name: "approval",
+      data: { kind: "approval", id: "x", change: "query_version", ref: { document: 41, parent: null } },
+    };
+    expect(documentIn([...drafted, { kind: "text", text: "None (document 41)." }, card])).toBe(41);
+    // another card is no question kept
+    const plan: Ev = {
+      kind: "data",
+      name: "approval",
+      data: { kind: "approval", change: "job_plan", ref: {} },
+    };
+    expect(documentIn([...drafted, plan])).toBe(48);
   });
 
   it("hold a turn's question to the clauses it must carry, read from the document it left", () => {
@@ -812,6 +842,72 @@ describe("what is true, 2026-10-10: the headers mark the scans given contrast", 
       "0 T1 scans in ds-marked are marked as without contrast in their headers.",
     ])
       expect(gradeTurn(t, said(wrong), lexicon, "skill").passed, wrong).toBe(false);
+  });
+
+  // round 4 (2026-10-12): the matchers read the count an answer states, in any words. Each right answer here is a
+  // live one the phrase matchers failed in round 3; each wrong one a statement they must still fail, two of them
+  // live answers the phrases passed in round 2 ("the other 5 as not given")
+  it("read the count an answer states, not its phrases (round 4)", () => {
+    const right = (id: string, turn: number, text: string, query: unknown) =>
+      expect(gradeTurn(conv(id, turn), drafted(text, query), lexicon, "skill").misses, text).toEqual([]);
+    const wrong = (id: string, turn: number, text: string, query: unknown) =>
+      expect(gradeTurn(conv(id, turn), drafted(text, query), lexicon, "skill").passed, text).toBe(false);
+    right(
+      "unknown-post-contrast",
+      0,
+      "**None.** All 6 scans in ds-sorted are T1-weighted, but not one of them has a header that says a contrast agent was given \u2014 so the count of T1 scans marked as with contrast is 0 (document 47).\n\nOne caveat: the post-contrast step hasn't run on ds-sorted yet, so the headers are the only source here. Those 6 scans are simply unmarked \u2014 we can't say they were scanned without contrast, only that the headers don't say.",
+      given("ds-sorted"),
+    );
+    right(
+      "unknown-post-contrast",
+      0,
+      "None that the headers mark as contrast-enhanced: of the 6 T1-weighted scans in ds-sorted (3 subjects), not one is marked as given contrast. But that is not the same as none existing \u2014 the post-contrast step has not run on ds-sorted yet, so all 6 scans are simply unmarked, and whether any of them was enhanced is not known until that step runs.",
+      given("ds-sorted"),
+    );
+    wrong(
+      "unknown-post-contrast",
+      0,
+      "ds-sorted holds 6 T1 scans with contrast; post-contrast has not run yet.",
+      given("ds-sorted"),
+    );
+    wrong(
+      "unknown-post-contrast",
+      0,
+      "None are marked as given contrast, and all 6 were scanned without contrast; post-contrast has not run on ds-sorted.",
+      given("ds-sorted"),
+    );
+    right(
+      "marked-post-contrast",
+      0,
+      "**3 of ds-marked's 8 scans are T1-weighted with contrast**, in 3 different subjects. The contrast check has not been run on ds-marked yet, so the other 5 may include more with contrast \u2014 they aren't counted as without.",
+      given("ds-marked"),
+    );
+    // the other five called not given, as the headers never said
+    wrong(
+      "marked-post-contrast",
+      0,
+      "**3 scans** in ds-marked are T1-weighted with a contrast agent given. The headers mark 3 as given contrast and the other 5 as not given; post-contrast has not run, so more of those 5 could turn out to be contrast scans.",
+      given("ds-marked"),
+    );
+    wrong(
+      "marked-post-contrast",
+      0,
+      "None of the 8 T1 scans in ds-marked are with contrast; there may be more once post-contrast runs.",
+      given("ds-marked"),
+    );
+    for (const text of [
+      "**None \u2014 0 scans in ds-marked have headers saying contrast was not given.** All 8 scans there are T1-weighted: 3 are marked as given contrast, none as not given, and the remaining 5 carry no contrast marking at all. Since the post-contrast step has not run on ds-marked, those 5 stay unknown \u2014 I cannot count them as scanned without contrast.",
+      "**None, as far as the headers say.** Of the 8 T1 scans in ds-marked, 3 are marked as given contrast and none are marked as scanned without it \u2014 the remaining 5 carry no contrast marking at all. Since the contrast check hasn't run on ds-marked yet, those 5 could include scans taken without contrast; I can't count them that way until the check has been run.",
+      "**None** \u2014 no T1 scan in ds-marked has its headers saying contrast was not given. So of its 8 T1 scans: 3 marked as given contrast, 0 marked as without, and 5 left unmarked. Those 5 are unknown, not without-contrast; the contrast check has not run on ds-marked yet.",
+      "**None** \u2014 no T1 scan in ds-marked has its headers marking contrast as not given. So of the 8 T1 scans there, 3 are marked as given contrast and 0 as not given; the remaining 5 carry no contrast marking at all. Since the post-contrast step hasn't run on ds-marked, how many of those 5 were actually scanned without contrast isn't known yet.",
+    ])
+      right("marked-post-contrast", 1, text, given("ds-marked"));
+    for (const text of [
+      "Those 5 are unknown, but 5 were scanned without contrast as far as I can tell.",
+      "The other 5 had no contrast; the rest is unknown until post-contrast runs.",
+      "5 were not given contrast; whether more were is not known yet.",
+    ])
+      wrong("marked-post-contrast", 1, text, given("ds-marked"));
   });
 });
 

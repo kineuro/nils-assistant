@@ -65,8 +65,8 @@ export interface Expect {
   query?: Matcher[];
   /** false: no proposal; else the proposal's kind and fields by dotted path (bench/cases.ts matchers). */
   proposal?: false | { kind?: string; match?: Record<string, Matcher> };
-  /** Matchers on the answer text: { match } or { not: { match } }. */
-  says?: Matcher[];
+  /** Matchers on the answer text: { match }, { not: { match } }, or { count } on the count it states. */
+  says?: Says[];
   /** At most this many sentences in the answer: a plain refusal is one. */
   sentences?: number;
   /** What the turn's analysis hands the person: true, at least one chart or file part; false, none. */
@@ -369,8 +369,18 @@ export function answerOf(events: Ev[]): string {
   return after || wordsOf(events);
 }
 
-/** The document the turn left: the last a tool result names. */
+/**
+ * The document the turn left: the question its card offers the person to keep, when it wrote one; else the last a
+ * tool result names. Round 4 (2026-10-12): the card offers the question the answer names, and a nearby question the
+ * model drafted after it is not what the person keeps, so the bench grades what the card holds, as the person would.
+ */
 export function documentIn(events: Ev[]): number | null {
+  for (let i = events.length - 1; i >= 0; i--) {
+    const e = events[i];
+    if (e.kind !== "data" || e.name !== "approval") continue;
+    const d = (e.data ?? {}) as { change?: unknown; ref?: { document?: unknown } };
+    if (d.change === "query_version" && typeof d.ref?.document === "number") return d.ref.document;
+  }
   let doc: number | null = null;
   for (const e of events)
     if (e.kind === "tool" && !e.isError) {
@@ -431,6 +441,124 @@ const count = (text: string, patterns: string[]): { pattern: string; n: number }
   patterns
     .map((p) => ({ pattern: p, n: [...text.matchAll(new RegExp(p, "giu"))].length }))
     .filter((x) => x.n > 0);
+
+// ---- the counts an answer states ------------------------------------------
+//
+// Round 4 (2026-10-12): the post-contrast matchers were phrases, and they failed right answers in four phrasings
+// ("those 5 stay unknown, I cannot count them as scanned without contrast"; "the count of T1 scans marked as with
+// contrast is 0", the words 80 characters apart). A count matcher reads the numbers an answer states of a thing
+// instead: the nearest number before the thing's words in the same clause, or the one its words are said to be
+// ("without contrast: 5", "with contrast is 0"). A number is not stated of the thing when a negation or a hedge
+// stands between them ("5 ... not counted as without contrast", "5 could include scans without contrast"), when
+// it sits inside an indirect question ("whether the other 5 were given contrast"), or when it is a total ("3 of
+// the 8") or an id ("document 12").
+
+/** A matcher on the counts an answer states of a thing: each must be one of `is`; `stated`: at least one is. */
+export interface CountMatcher {
+  count: {
+    /** The thing's words, a regular expression ("without contrast", "not given"). */
+    of: string;
+    /** The counts allowed; `all` stands for "all" or "every one". */
+    is: (number | "all")[];
+    /** At least one count must be stated. */
+    stated?: boolean;
+    /** An answer that opens with a bare count ("None.", "3 of them.") states it of the thing. */
+    lead?: boolean;
+  };
+}
+export type Says = Matcher | CountMatcher;
+
+const isCount = (s: Says): s is CountMatcher =>
+  typeof s === "object" && s !== null && !Array.isArray(s) && "count" in s;
+
+const WORDS: Record<string, number | "all"> = {
+  zero: 0,
+  none: 0,
+  no: 0,
+  "not one": 0,
+  neither: 0,
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+  eleven: 11,
+  twelve: 12,
+  all: "all",
+  "every one": "all",
+};
+// "no" is a count only before the scans it counts ("no T1 scan"), never in "no contrast mark"
+const NUMBER = `(?:\\d+|not one|every one|no(?=\\s+(?:T1[\\w-]*\\s+)?(?:scans?|series|stacks?|images?)\\b)|${Object.keys(
+  WORDS,
+)
+  .filter((w) => !w.includes(" ") && w !== "no")
+  .join("|")})`;
+const countValue = (w: string): number | "all" => (/^\d+$/u.test(w) ? Number(w) : WORDS[w.toLowerCase()]);
+/** Between the number and the thing: what makes the number not a count of it. */
+const BETWEEN =
+  /\b(not|never|cannot|nor|unknown|unclear|uncertain|whether|if|could|may|might|rather than|instead of|how many)\b|n't\b/iu;
+/** Just before the number: an indirect question or a statement denied. */
+const BEFORE =
+  /\b(how many|whether|if|not the same as|rather than|instead of|(?:can't|cannot|can not|not|never|won't) (?:say|tell|claim|call|count)\w*(?: that)?)\b[^.;]*$/iu;
+
+/** The counts a text states of a thing, in order. */
+export function countsStated(text: string, of: string, lead = false): (number | "all")[] {
+  const thing = new RegExp(of, "giu");
+  const out: (number | "all")[] = [];
+  const plain = text
+    .replace(/[*_`"]/gu, "")
+    // ids, never counts
+    .replace(/\b(documents?|questions?|runs?|jobs?|batch(?:es)?)\s+#?\d+/giu, "$1")
+    // a total ("3 of the 8", "0 of ds-marked's 8 scans") is not the count stated
+    .replace(
+      new RegExp(
+        `\\b(of|out of)\\s+((?:the|its|all|these|those|their)\\s+|[\\w-]+'s\\s+)?${NUMBER}\\b`,
+        "giu",
+      ),
+      "$1 $2the total",
+    );
+  const clauses = plain.split(/[.;!?\n]+|\s[\u2014\u2013-]\s|\u2014/u).map((c) => c.trim());
+  if (lead) {
+    const first = clauses.find((c) => c.length > 0) ?? "";
+    const m = new RegExp(`^(${NUMBER})(?:\\s+of them)?$`, "iu").exec(first);
+    if (m) out.push(countValue(m[1]));
+  }
+  for (const clause of clauses) {
+    const numbers = [...clause.matchAll(new RegExp(`\\b${NUMBER}\\b`, "giu"))];
+    for (const t of clause.matchAll(thing)) {
+      const start = t.index ?? 0;
+      const before = numbers.filter((n) => (n.index ?? 0) + n[0].length <= start).at(-1);
+      if (before) {
+        const end = (before.index ?? 0) + before[0].length;
+        const between = clause.slice(end, start);
+        const ahead = clause.slice(Math.max(0, (before.index ?? 0) - 50), before.index ?? 0);
+        if (between.length <= 80 && !BETWEEN.test(between) && !BEFORE.test(ahead))
+          out.push(countValue(before[0]));
+      }
+      const after = new RegExp(
+        `^\\s*(?:is|are|was|were|totals?|comes to|:|=)\\s*(?:just\\s+|only\\s+)?(${NUMBER})\\b`,
+        "iu",
+      ).exec(clause.slice(start + t[0].length));
+      if (after) out.push(countValue(after[1]));
+    }
+  }
+  return out;
+}
+
+/** Why a text misses a count matcher; null when it holds. */
+export function countMiss(text: string, m: CountMatcher): string | null {
+  const got = countsStated(text, m.count.of, m.count.lead);
+  const wrong = got.filter((n) => !m.count.is.includes(n));
+  if (wrong.length)
+    return `the answer states ${wrong.join(", ")} of /${m.count.of}/, not ${m.count.is.join(" or ")}`;
+  if (m.count.stated && got.length === 0) return `the answer states no count of /${m.count.of}/`;
+  return null;
+}
 
 /** Sentences in a text: ends of sentence followed by a space or the end. */
 export const sentencesIn = (text: string) =>
@@ -653,8 +781,12 @@ export function gradeTurn(
   // what the person reads: the answer's words, and a question the turn asked on a card (round 3: "there is no ALS
   // cohort" was said on the card that asked which cohort to plan for)
   const read = m.asked ? `${m.answer}\n${m.asked}` : m.answer;
-  for (const s of e.says ?? [])
-    if (!holds(read, s)) misses.push(`the answer does not hold ${JSON.stringify(s)}`);
+  for (const s of e.says ?? []) {
+    if (isCount(s)) {
+      const why = countMiss(read, s);
+      if (why) misses.push(why);
+    } else if (!holds(read, s)) misses.push(`the answer does not hold ${JSON.stringify(s)}`);
+  }
   if (e.sentences !== undefined && sentencesIn(m.answer) > e.sentences)
     misses.push(`${sentencesIn(m.answer)} sentences, more than ${e.sentences}`);
   for (const name of ["chart", "file"] as const) {
