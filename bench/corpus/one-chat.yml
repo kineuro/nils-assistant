@@ -764,7 +764,10 @@ conversations:
   #     about the seeded registry's cohorts nmosd and ms-cohort-a, whose
   #     scans the seed reads; the trial of 2026-10-10 asked about
   #     ds-clean, whose copy the seed pseudonymises but never reads, so it
-  #     holds no scans.
+  #     holds no scans. No plan (plan_update): since round 4 (2026-10-12)
+  #     a plan is for work that goes on after the message, and an analysis
+  #     is finished in it, its steps shown as they run; the rule had asked
+  #     for one on work of three steps or more, which every analysis is.
   - id: table-count-by-group
     kind: table
     registry: seeded

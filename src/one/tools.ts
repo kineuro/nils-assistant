@@ -1367,7 +1367,7 @@ const PLAN_STATUS = ["pending", "running", "done", "failed", "skipped"] as const
 const planUpdate: OneTool = {
   name: "plan_update",
   description:
-    "Show the person your plan for work of several steps, as a list they see beside the chat: the whole list each time, each item with its status (pending, running, done, failed, skipped). Only for work of three steps or more; never for a single question.",
+    "Show the person your plan for work that goes on after this message (a plan of jobs or runs they approve and follow), as a list they see beside the chat: the whole list each time, each item with its status (pending, running, done, failed, skipped). Never for an answer you finish in this message (a question, an analysis, a chart, a file), however many steps it takes: the person sees each step as it runs.",
   input: v.object({
     items: v.array(v.object({ text: v.string(), status: v.optional(v.picklist(PLAN_STATUS)) })),
   }),
