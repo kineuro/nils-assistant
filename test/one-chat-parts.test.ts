@@ -67,7 +67,12 @@ describe("what a person's grants mount", () => {
     expect(m.tools).toContain("analysis_table");
     expect(m.tools).toContain("query_draft");
     expect(m.tools).not.toContain("run_read");
-    expect(grantsLine(m)).toMatch(/counts and plain fields only/u);
+    expect(grantsLine(m)).toMatch(/counts and plain fields/u);
+    // a group's mean or spread of an age at plain, 5 subjects or more (record 55 K7, round 4)
+    expect(grantsLine(m)).toMatch(
+      /a group's mean or spread of an age, and only where the group holds 5 subjects or more/u,
+    );
+    expect(grantsLine(m)).toMatch(/never one person's value/u);
   });
 
   it("names every tool the bench's lexicon names, and no other", () => {
