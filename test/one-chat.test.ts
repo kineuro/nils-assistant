@@ -43,10 +43,14 @@ const vector = (f: string) => JSON.parse(readFileSync(join(vectors, f), "utf8"))
 const { conversations, lexicon, golds } = loadCorpus();
 
 describe("the one-chat corpus", () => {
-  it("holds 20 to 50 conversations the bench can run, every kind among them", () => {
+  it("holds 20 to 80 conversations the bench can run, every kind among them", () => {
     expect(corpusProblems(conversations, lexicon, golds)).toEqual([]);
+    // The floor keeps every kind measured. The ceiling keeps a live run short enough to repeat, since each conversation
+    // runs three times on one card, one turn at a time, and keeps the corpus to real tasks rather than variants of one:
+    // the decision of 2026-10-09 began at 20 to 50 real tasks, as the research it cites advises for a start. Raised from
+    // 50 to 80 on 2026-10-12, when the cases of that day's thread filled it.
     expect(conversations.length).toBeGreaterThanOrEqual(20);
-    expect(conversations.length).toBeLessThanOrEqual(50);
+    expect(conversations.length).toBeLessThanOrEqual(80);
     for (const k of KINDS)
       expect(
         conversations.some((c) => c.kind === k),
