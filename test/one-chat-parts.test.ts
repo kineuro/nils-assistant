@@ -170,6 +170,14 @@ describe("plain words", () => {
       expect.arrayContaining(["station", "is working on it", "catalog", "closed to me"]),
     );
     expect(unplainWords("Cohort B has 24 subjects.")).toEqual([]);
+    // a measure's upper bound is the everyday ceiling; the engine's ceiling of what may be seen is not (round 4)
+    expect(
+      unplainWords(
+        "1 came in under the intracranial floor (900,000 mm³) and 1 over the ceiling (2,300,000 mm³).",
+      ),
+    ).toEqual([]);
+    expect(unplainWords("Its volume has a ceiling of 2,300,000 mm³.")).toEqual([]);
+    expect(unplainWords("Your account's ceiling is plain detail.")).toEqual(["ceiling"]);
   });
 
   it("matches the bench's lexicon word for word", async () => {
@@ -289,6 +297,18 @@ describe("the checks before a turn settles", () => {
     process.env.ONE_CHAT_NARRATION_CHECK = "0";
     expect(await complaintsOf(c)).toEqual([]);
     delete process.env.ONE_CHAT_NARRATION_CHECK;
+  });
+
+  it("sends back what it would look for answered from words alone, with no question drafted (round 4)", async () => {
+    const id = "chk-would";
+    const t = newTurn(id, "If I ask you for MEDIC stacks, what would you look for?");
+    t.tools.push("registry_search");
+    t.texts.push("MEDIC sits under the technique comb-ME-GRE: I would look for stacks sorted to it.");
+    const c = { turn: t, convo: conversationOf(id), conversation: id, validate: null, hinted: "find-data" };
+    expect((await complaintsOf(c)).join(" ")).toMatch(/activate the find-data skill and draft the question/u);
+    t.drafted.push(7);
+    t.texts.splice(0, t.texts.length, "MEDIC is the technique comb-ME-GRE: none of the stacks here (document 7).");
+    expect(await complaintsOf(c)).toEqual([]);
   });
 
   it("holds a found document to the engine's validation", async () => {

@@ -83,6 +83,10 @@ export function shapedComplaint(answer: string, shaped: readonly string[]): stri
   return `${these} ${shaped.join(", ")} came back as shapes at this person's detail, so no value of ${it} is known${given === null ? "" : ` (the answer gives ${given})`}: never state or guess one; say plainly that their detail does not show ${it}, and that an admin can give that access`;
 }
 
+/** Asked what the chat would look for: the question is still drafted, so the person has it and its count. */
+const WOULD_LOOK =
+  /\bwhat (?:would|will|do|should) you (?:look|search) (?:for|at)\b|\bhow would you (?:find|look for|search for)\b/iu;
+
 /** Words that say a value was held back. */
 const HELD_SAID =
   /\b(?:held back|withheld|withhold|not (?:shown|given|reported|available)|(?:is|are|was|were) hidden|suppressed|left out|left blank|blank|null|not disclosed)\b/iu;
@@ -164,8 +168,10 @@ export async function complaintsOf(c: CheckContext): Promise<string[]> {
     c.hinted === "find-data" &&
     active.size === 0 &&
     !c.turn.asked &&
-    /\d/u.test(answer) &&
-    !/\b(no|not|none|nothing|isn't|aren't|cannot|can't)\b/iu.test(answer)
+    ((/\d/u.test(answer) && !/\b(no|not|none|nothing|isn't|aren't|cannot|can't)\b/iu.test(answer)) ||
+      // asked what the chat would look for, it still drafts the question (round 3); the words alone lost one run
+      // of three in rounds 3 and 4
+      WOULD_LOOK.test(c.turn.message))
   )
     out.push(
       "this asks for data: activate the find-data skill and draft the question, so the number is the registry's and the person gets the question to keep",
