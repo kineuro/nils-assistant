@@ -1352,20 +1352,27 @@ const runRead: OneTool = {
     const said = (x: { count: number | null; fewer_than_five: boolean }) =>
       x.fewer_than_five ? "fewer than five" : (x.count ?? 0);
     ctx.turn.runs.push({ run: reading.run, failed, metrics: reading.breaches.map((b) => b.metric) });
+    // a run that failed before any unit ran has no units to count (round 4, 2026-10-12): its zeros were read back
+    // as "no unit failed" in one run of three, beside the line that said none was tried
+    const before = Boolean(reading.failure) && reading.units.total === 0;
     const output = {
       run: reading.run,
       analysis: reading.name,
       status: reading.status,
-      units: reading.units,
+      units: before ? "none: the run stopped before its first unit, so no unit was tried" : reading.units,
       ...(reading.failure ? { run_failure: runFailureView(reading.failure) } : {}),
-      failed_units: failed,
-      failed_by_reason: reading.failed.map((f) => ({ reason: f.reason, count: said(f) })),
-      checks_broken: reading.breaches.map((b) => ({
-        metric: b.metric,
-        check: b.check,
-        means: b.description,
-        count: said(b),
-      })),
+      ...(before
+        ? {}
+        : {
+            failed_units: failed,
+            failed_by_reason: reading.failed.map((f) => ({ reason: f.reason, count: said(f) })),
+            checks_broken: reading.breaches.map((b) => ({
+              metric: b.metric,
+              check: b.check,
+              means: b.description,
+              count: said(b),
+            })),
+          }),
       campaign: campaign ? { name: String(campaign.name), over_document: document } : null,
       say: runSay(reading, failed, campaign !== null),
     };

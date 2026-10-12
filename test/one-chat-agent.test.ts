@@ -885,7 +885,11 @@ describe("the one agent tells what is true now (2026-10-09)", () => {
     const h = init(Nils, { id: "oc-run-stopped" });
     await h.read(await h.dispatch("How did run 2 go?"));
     const out = lastResult(seen[1]);
-    expect(out).toMatchObject({ run: 2, status: "failed", units: { total: 0 } });
+    // no zeros to read back as "no unit failed" (round 4): the units are said as none tried, and no count is given
+    expect(out).toMatchObject({ run: 2, status: "failed" });
+    expect(String(out.units)).toMatch(/^none: the run stopped before its first unit/u);
+    expect(out.failed_units).toBeUndefined();
+    expect(out.failed_by_reason).toBeUndefined();
     expect(String((out.run_failure as { error?: unknown }).error)).toMatch(/dcm2niix is not runnable/u);
     expect(String(out.say)).toMatch(/failed before any unit ran/u);
     expect(String(out.say)).toMatch(/what to do about it, as its error says/u);
