@@ -290,9 +290,12 @@ conversations:
     registry: seeded
     from: analysis-plan quality-of-selection
     turns:
+      # "which scans" opens find-data, whose line on a saved selection sends the turn on to plan-analysis: the
+      # right plan, one activation later (round 3, 2026-10-12)
       - say: Which scans in my selection ms-baseline@1 have poor image quality?
         expect:
           skill: plan-analysis
+          also: [find-data]
           proposal: {kind: analysis_plan, match: {pipeline: mriqc, selection: "selection:ms-baseline@1"}}
 
   # --- how did run N go
