@@ -13,6 +13,7 @@ import * as v from "valibot";
 import type { Answer, Seam } from "../seam/client.ts";
 import { toolResult } from "../seam/client.ts";
 import { agentIds, delegate, delegation, delegationsOf, delegationView } from "../seam/delegations.ts";
+import { withShapedLine } from "../seam/shaped.ts";
 import { type StationDefinition, type StationTool, stationAgent } from "./agent.ts";
 import type { Manifest } from "./manifest.ts";
 import type { Check, Verdict } from "./verdict.ts";
@@ -37,7 +38,11 @@ export function conciergeTools(): StationTool[] {
     salient,
     async run(args, ctx) {
       const a = await dial(ctx.seam, args, ctx.toolCallId, ctx.state.phase);
-      return { output: toolResult(a).output, evidence: { handles: handleOf(a) } };
+      // a handle or a page that holds columns as shapes says which, in one plain line (record 55 K7)
+      return {
+        output: withShapedLine(toolResult(a).output, a.kind === "ok" ? a.body : null),
+        evidence: { handles: handleOf(a) },
+      };
     },
   });
   return [

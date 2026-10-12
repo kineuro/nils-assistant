@@ -20,7 +20,7 @@ export interface Route {
   summary: boolean;
   /** Whether the words ask about the registry's jobs, which jobs_read answers with no skill. */
   jobs?: boolean;
-  /** Whether the words ask for a file (a CSV, a spreadsheet, something to download or attach), which the chat cannot make yet. */
+  /** Whether the words ask for a file (a CSV, a spreadsheet, something to download or attach): a question's rows by its card's Download CSV, anything worked out in the workspace. */
   file?: boolean;
   /** The words that decided, for the hint's line. */
   because: string;
@@ -88,9 +88,14 @@ export function routeOf(message: string): Route {
 
 /** The hint as the turn's facts carry it: one line the model may overrule. `tools` are the tools mounted. */
 export function hintLine(r: Route, mounted: readonly string[], tools: readonly string[] = []): string {
+  // a file of something worked out is made in the analysis workspace, which the hint once said was still to come
   if (r.file)
     return mounted.includes("find-data")
-      ? `Hint from the words (${r.because}): a question's answer is saved as a CSV with Download CSV on the answer's card in this chat, at the person's own detail. Draft the question the words ask for, or name the one drafted before, then say in plain words that its card has Download CSV. Any other file (a chart, a picture, an analysis's output) cannot be made here yet: it needs the analysis sandbox, which is coming. Answer in words, without asking first. Overrule it when the words mean otherwise.`
+      ? `Hint from the words (${r.because}): a question's answer is saved as a CSV with Download CSV on the answer's card in this chat, at the person's own detail, its rows as they are. Draft the question the words ask for, or name the one drafted before, then say in plain words that its card has Download CSV. ${
+          mounted.includes("analyse-table")
+            ? "A file of something worked out (medians, shares, a table you computed) or a chart is made in your workspace: activate the analyse-table skill and write it under /out. "
+            : ""
+        }Answer without asking first. Overrule it when the words mean otherwise.`
       : `Hint from the words (${r.because}): this person may not look up data here, so there is no answer to save as a file; say so in one sentence, and that an admin can give it.`;
   if (r.jobs)
     return tools.includes("jobs_read")

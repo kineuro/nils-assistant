@@ -11,6 +11,7 @@ import * as v from "valibot";
 import type { Answer, Seam } from "../seam/client.ts";
 import { toolResult } from "../seam/client.ts";
 import { subjectOfConversation } from "../seam/for.ts";
+import { shapedLine, shapedOf, withShapedLine } from "../seam/shaped.ts";
 import { type StationDefinition, type StationTool, stationAgent } from "./agent.ts";
 import type { Manifest } from "./manifest.ts";
 import { catalogOf, prelude } from "./prelude.ts";
@@ -36,9 +37,13 @@ export function unescapeEntities(text: string): string {
     .replace(/&amp;/gu, "&");
 }
 
-/** The preview compacted for a small model: the level, the columns and the first rows without the technical columns, never the declaration block. */
+/**
+ * The preview compacted for a small model: the level, the columns and the first rows without the technical columns,
+ * never the declaration block; and, where the engine answered columns as shapes (record 55 K7), the one line that
+ * says which, so a shape is never read as a value.
+ */
 export function compactPreview(body: unknown): JsonValue {
-  const b = body as {
+  const b = (body ?? {}) as {
     level?: string;
     columns?: (string | { name: string })[];
     rows?: unknown[][];
@@ -46,11 +51,14 @@ export function compactPreview(body: unknown): JsonValue {
   };
   const cols = (b.columns ?? []).map((c) => (typeof c === "string" ? c : c.name));
   const keep = cols.map((c) => !c.startsWith("_"));
+  const columns = cols.filter((_, i) => keep[i]);
+  const shaped = shapedLine((shapedOf(b) ?? []).filter((c) => columns.includes(c)));
   return {
     level: b.level ?? null,
-    columns: cols.filter((_, i) => keep[i]),
+    columns,
     rows: (b.rows ?? []).slice(0, 10).map((r) => (Array.isArray(r) ? r.filter((_, i) => keep[i]) : r)),
     truncated: b.truncated ?? false,
+    ...(shaped ? { shaped } : {}),
   } as JsonValue;
 }
 
@@ -78,7 +86,11 @@ export function askHelpTools(): StationTool[] {
     salient: opts.salient,
     async run(args, ctx) {
       const a = await dial(ctx.seam, args, ctx.toolCallId, ctx.state.phase);
-      return { output: toolResult(a).output, evidence: { handles: handleOf(a), documents: documentOf(a) } };
+      // a preview that holds columns as shapes says which, in one plain line (record 55 K7)
+      return {
+        output: withShapedLine(toolResult(a).output, a.kind === "ok" ? a.body : null),
+        evidence: { handles: handleOf(a), documents: documentOf(a) },
+      };
     },
   });
   const doc = {

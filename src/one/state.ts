@@ -56,6 +56,11 @@ export interface TurnState {
   datasets: string[];
   /** What the turn's analysis handed the person from its workspace's /out: charts and files, and what was seen. */
   outputs: TurnOutputs;
+  /**
+   * The columns the last answer the turn read held as shapes at the person's detail (record 55 K7, 2026-10-12):
+   * the answer may state no value of them, and says their detail does not show them.
+   */
+  shaped: string[];
 }
 
 export interface Rehearsal {
@@ -112,6 +117,7 @@ export function newTurn(conversation: string, message: string, now = Date.now())
     offered: false,
     datasets: [],
     outputs: { charts: [], files: [], seen: new Map() },
+    shaped: [],
   };
   turns.set(conversation, t);
   return t;

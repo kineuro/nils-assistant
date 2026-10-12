@@ -39,7 +39,7 @@ const { probeEngineAuth, registerStation, theLedger, theLineage, theNotes } = aw
 const { loadManifests } = await import("../src/stations/manifest.ts");
 const { ChangeStore, theChanges, useChangeStore } = await import("../src/one/changes.ts");
 const { oneAgent, notePerson } = await import("../src/one/agent.ts");
-const { TURN_BUDGET, turnOf } = await import("../src/one/state.ts");
+const { TURN_BUDGET, answerOf, turnOf } = await import("../src/one/state.ts");
 
 const CATALOG = {
   epoch: 3,
@@ -186,6 +186,19 @@ const engine = await stubEngine((c) => {
   if (p === "/api/datasets/study-a/summary") return { body: SUMMARY };
   if (p === "/api/ask/catalog") return { body: CATALOG };
   if (p === "/api/ask/guide") return { body: { grounding: ["a session is one subject on one day"] } };
+  // a group's youngest and oldest age at the first scan, which this person's detail shows as shapes (record 55 K7)
+  if (p === "/api/ask/draft" && JSON.stringify(c.body).includes("youngest"))
+    return { body: { document: 813, hash: "h", diagnosis: [{ set: "first", rows: 24 }] } };
+  if (p === "/api/ask/preview" && (c.body as { document_id?: number } | null)?.document_id === 813)
+    return {
+      body: {
+        level: "aggregate",
+        columns: ["youngest", "oldest", "_subjects"],
+        rows: [["99", "99", 24]],
+        truncated: false,
+        shaped: ["youngest", "oldest"],
+      },
+    };
   if (p === "/api/ask/draft")
     return { body: { document: 812, hash: "h", diagnosis: [{ set: "people", rows: 24 }] } };
   if (p === "/api/ask/preview") return { body: { level: "count", columns: ["n_subjects"], rows: [[24]] } };
@@ -597,6 +610,51 @@ describe("the one agent", () => {
     expect(recorded("oc-plain-once")).not.toMatch(/"kind":"replaced"/u);
   }, 60_000);
 
+  it("states and guesses no value of a column that came back as shapes, and says who can give access (record 55 K7)", async () => {
+    const asked = "What are the youngest and the oldest age at the first scan in ms-cohort-a?";
+    const draft = {
+      tool: "query_draft",
+      args: { text: "ast_version: 1\nname: youngest and oldest age at the first scan\n" },
+    };
+    // the guess of the live run of 2026-10-12, which the model made up from the rows' own keys
+    const guess = "In ms-cohort-a the youngest was 21 and the oldest 61 at their first scan.";
+    const right =
+      "Your account's detail does not show ages, so I cannot give the youngest or the oldest age in ms-cohort-a; an admin can give that access.";
+    play([{ tool: "activate_skill", args: { name: "find-data" } }, draft, { text: guess }, { text: right }]);
+    const h = init(Nils, { id: "oc-shaped" });
+    await h.read(await h.dispatch(asked));
+    // the head holds the rule, and the draft's answer says which columns came back as shapes, beside the rows
+    expect(text(seen[0])).toMatch(
+      /Never state, compute or guess a value of a column a tool's answer says came back as shapes/u,
+    );
+    expect(text(seen[2])).toContain(
+      "These columns came back as shapes at your detail: youngest, oldest; their values are not known to you.",
+    );
+    expect(turnOf("oc-shaped").shaped).toEqual(["youngest", "oldest"]);
+    // the guess went back once, naming the columns; the answer that stands states no value and guesses none
+    expect(calls).toBe(4);
+    expect(text(seen[3])).toMatch(
+      /Before you finish: the columns youngest, oldest came back as shapes at this person's detail, so no value of them is known: never state or guess one; say plainly that their detail does not show them, and that an admin can give that access/u,
+    );
+    const parts = (await history("oc-shaped")).messages
+      .filter((m) => m.role === "assistant")
+      .flatMap((m) => m.parts.filter((p) => p.type === "text" || p.type === "data-replaced"));
+    expect(parts).toEqual([
+      expect.objectContaining({ type: "text", text: guess }),
+      { type: "data-replaced", data: { kind: "replaced" } },
+      expect.objectContaining({ type: "text", text: right }),
+    ]);
+    const stands = answerOf(turnOf("oc-shaped"));
+    expect(stands).toBe(right);
+    expect(stands).not.toMatch(/\d/u);
+    // an answer that keeps to the rule settles at once
+    play([{ tool: "activate_skill", args: { name: "find-data" } }, draft, { text: right }]);
+    const once = init(Nils, { id: "oc-shaped-once" });
+    await once.read(await once.dispatch(asked));
+    expect(calls).toBe(3);
+    expect(recorded("oc-shaped-once")).not.toMatch(/"kind":"replaced"/u);
+  }, 60_000);
+
   it("ends the turn with a question card", async () => {
     play([
       {
@@ -664,6 +722,9 @@ describe("the one agent", () => {
     ]);
     const h = init(Nils, { id: "oc-workspace" });
     const reply = await h.read(await h.dispatch("Analyse the scans and chart them by base contrast."));
+    // the skill is loaded as well as mounted: activating it gives its instructions, never a miss (2026-10-12)
+    expect(text(seen[1])).toMatch(/You compute over the rows of a question the person can already see/u);
+    expect(text(seen[1])).toMatch(/## Limits/u);
     expect(reply.text).toMatch(/median of 100 slices/u);
     const chart = reply.data.chart?.at(-1) as { items: { name: string; title: string; media: string }[] };
     expect(chart.items).toEqual([
