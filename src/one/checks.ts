@@ -18,6 +18,70 @@ const SQL =
   /\bselect\b[\s\S]{0,600}?\bfrom\b|\b(?:insert\s+into|delete\s+from|update\s+\w+\s+set|create\s+table|drop\s+table)\b/iu;
 const PERSONAL = /\b(?:19|20)\d{6}-?\d{4}\b|\b\d+(?:\.\d+){5,}\b/u;
 
+/** Words that say a value is not shown at the person's detail. */
+const NOT_SHOWN =
+  /\b(?:shapes?|detail|hidden|withheld|masked|not (?:shown|visible|known|available|open)|(?:does|do|did) not show|(?:does|do|did)n['\u2019]?t show|cannot (?:see|show|give|tell|share)|can['\u2019]?t (?:see|show|give|tell|share))\b/iu;
+/** Who can give the access. */
+const WHO_GIVES = /\badmin(?:istrator)?s?\b/iu;
+/** A value as an answer gives one: a range, an age or a span of time, a year or a date. */
+const VALUE =
+  /\b\d+(?:[.,]\d+)?\s*(?:to|and|[-\u2013])\s*\d+(?:[.,]\d+)?\b|\b\d+(?:[.,]\d+)?\s*(?:years?|yrs?|y\/o|months?|weeks?|days?)\b|\baged? \d+|\b(?:19|20)\d{2}(?:-\d{2}){0,2}\b/iu;
+/** Words of a column's name that say nothing of what it holds. */
+const GENERIC = new Set([
+  "min",
+  "max",
+  "avg",
+  "mean",
+  "sum",
+  "total",
+  "count",
+  "share",
+  "all",
+  "per",
+  "the",
+  "and",
+  "subject",
+  "subjects",
+  "session",
+  "sessions",
+  "stack",
+  "stacks",
+  "scan",
+  "scans",
+]);
+
+/** The words of the columns' names that say what they hold: `age_first` holds an age at a first visit. */
+export function columnWords(columns: readonly string[]): string[] {
+  const words = columns.flatMap((c) => c.toLowerCase().split(/[^a-z]+/u));
+  return [...new Set(words.filter((w) => w.length >= 3 && !GENERIC.has(w)))];
+}
+
+/** The value an answer gives in a sentence about columns that came back as shapes; null when it gives none. */
+export function valueGiven(answer: string, shaped: readonly string[]): string | null {
+  const words = columnWords(shaped);
+  for (const sentence of answer.split(/(?<=[.!?;:])\s+/u)) {
+    const lower = sentence.toLowerCase();
+    if (!words.some((w) => new RegExp(`\\b${w}`, "u").test(lower))) continue;
+    const m = VALUE.exec(sentence);
+    if (m) return m[0];
+  }
+  return null;
+}
+
+/**
+ * What is wrong with an answer about columns that came back as shapes at the person's detail (record 55 K7,
+ * 2026-10-12): it may state or guess no value of them, and says plainly that the person's detail does not show
+ * them and that an admin can give that access; null when it does. A plain reader was once told "ages 21 to 61",
+ * which the model had made up.
+ */
+export function shapedComplaint(answer: string, shaped: readonly string[]): string | null {
+  if (shaped.length === 0 || answer.trim() === "") return null;
+  const given = valueGiven(answer, shaped);
+  if (given === null && NOT_SHOWN.test(answer) && WHO_GIVES.test(answer)) return null;
+  const [these, it] = shaped.length === 1 ? ["the column", "it"] : ["the columns", "them"];
+  return `${these} ${shaped.join(", ")} came back as shapes at this person's detail, so no value of ${it} is known${given === null ? "" : ` (the answer gives ${given})`}: never state or guess one; say plainly that their detail does not show ${it}, and that an admin can give that access`;
+}
+
 export interface CheckContext {
   turn: TurnState;
   convo: ConversationState;
@@ -62,6 +126,9 @@ export async function complaintsOf(c: CheckContext): Promise<string[]> {
       "words were written before the last tool call was done; write nothing until the work is done, then the whole answer once",
     );
   if (PERSONAL.test(answer)) out.push("the answer carries an identifier value; leave it out");
+  // a column that came back as shapes has no value the chat knows (record 55 K7, 2026-10-12)
+  const shaped = shapedComplaint(answer, c.turn.shaped);
+  if (shaped) out.push(shaped);
   // a dataset the words name and the facts list is there: the chat once said it was not (2026-10-09)
   if (c.turn.datasets.length && saysNotThere(answer, c.turn.datasets))
     out.push(

@@ -494,11 +494,29 @@ export const CHART_USAGE = `usage: chart <kind> <file.csv> [options]   (- reads 
 options: --title "..."  --xlabel "..."  --ylabel "..."  --horizontal  --out /out/<name>.svg (default /out/chart.svg)
 A figure is written as plain SVG under /out, and the person sees it beside your answer.`;
 
-/** The command line, read into a spec; a string is a refusal in plain words. */
+/**
+ * Where the workspace notes, by a table's path, the columns that hold shapes and never values (record 55 K7): a
+ * quasi identifying field below the person's detail comes as its shape, digits written as 9, so `99` is no age.
+ */
+export const SHAPED_FILE = "/data/.shaped.json";
+
+/** The columns of a table the workspace noted as shapes; none when it noted nothing of it. */
+export function shapedOfTable(noted: string | null, path: string): string[] {
+  try {
+    const all = JSON.parse(noted ?? "{}") as Record<string, unknown>;
+    const cols = all[path];
+    return Array.isArray(cols) ? cols.filter((c): c is string => typeof c === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/** The command line, read into a spec; a string is a refusal in plain words. `shaped` names the columns that hold shapes. */
 export function chartSpec(
   args: readonly string[],
   csv: Csv,
   file: string,
+  shaped: readonly string[] = [],
 ): { spec: ChartSpec; out: string } | string {
   const kind = args[0] as ChartKind;
   const opt: Record<string, string> = {};
@@ -519,6 +537,9 @@ export function chartSpec(
     return "--out is a file under /out ending in .svg, such as /out/scans-by-base.svg";
   const col = (name: string | undefined, what: string): number | string => {
     if (!name) return `--${what} names a column`;
+    // a shape is no value: 99 is how this person's detail shows an age, never one (record 55 K7)
+    if (shaped.includes(name))
+      return `${name} holds only shapes at this person's detail, never values, so it is not drawn; say their detail does not show it`;
     const i = csv.columns.indexOf(name);
     return i >= 0
       ? i
@@ -681,14 +702,22 @@ export const chartCommand = defineCommand("chart", async (args, ctx) => {
   const file = args[1];
   if (!file) return fail("name the CSV file, or - for stdin");
   let text: string;
+  const path = file === "-" ? null : ctx.fs.resolvePath(ctx.cwd, file);
   try {
-    text =
-      file === "-" ? decodeBytesToUtf8(ctx.stdin) : await ctx.fs.readFile(ctx.fs.resolvePath(ctx.cwd, file));
+    text = path === null ? decodeBytesToUtf8(ctx.stdin) : await ctx.fs.readFile(path);
   } catch {
     return fail(`no file ${file}`);
   }
+  // the columns analysis_table noted as shapes in this table, which are never drawn
+  let noted: string | null = null;
+  if (path !== null)
+    try {
+      noted = await ctx.fs.readFile(SHAPED_FILE);
+    } catch {
+      noted = null;
+    }
   const csv = parseCsv(text);
-  const got = chartSpec(args, csv, file);
+  const got = chartSpec(args, csv, file, path === null ? [] : shapedOfTable(noted, path));
   if (typeof got === "string") return fail(got);
   const svg = renderChart(got.spec);
   await ctx.fs.mkdir("/out", { recursive: true });
