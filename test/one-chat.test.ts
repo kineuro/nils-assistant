@@ -346,6 +346,25 @@ describe("the graders", () => {
     expect(summary.misses).toContain("called query_draft beyond registry_summary");
   });
 
+  it("route a turn that works with the skill an earlier turn activated, and read a card's question (round 3)", () => {
+    const t = { say: "q", expect: { skill: "find-data" } };
+    const unactivated = good.filter((e) => !(e.kind === "tool_start" && e.name === "activate_skill"));
+    expect(gradeTurn(t, turn(unactivated), lexicon, "skill").misses).toEqual([
+      "routed to no skill, not find-data",
+    ]);
+    expect(gradeTurn(t, turn(unactivated), lexicon, "skill", ["find-data", "plan-work"]).routed).toBe(true);
+    expect(gradeTurn(t, turn(unactivated), lexicon, "skill", ["plan-work"]).routed).toBe(false);
+    // the words a person read on a card count with the answer's
+    const asked: Ev[] = [
+      { kind: "asked", question: "There is no ALS cohort here. Which one should I plan it for?" },
+    ];
+    const says = { say: "q", expect: { says: [{ match: "\\bthere is no\\b" }] } };
+    expect(gradeTurn(says, turn([...good, ...asked]), lexicon, "skill").misses).toEqual([]);
+    expect(gradeTurn(says, turn(good), lexicon, "skill").misses).toContain(
+      'the answer does not hold {"match":"\\\\bthere is no\\\\b"}',
+    );
+  });
+
   it("catch every bar on the bad turn, and count its refused and malformed calls", () => {
     const v = vector("bad-turn.chunks.json");
     const events = fromChunks(v.chunks, v.submission);
