@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // One chat, a thread of 2026-10-12: what it showed, held. The registry's
 // fields are every page of them, so a stack's do not stop at `kvp`; a list of
-// one level's fields is asked for by its name.
+// one level's fields is asked for by its name. A run that failed before any
+// unit ran says why and what to do, never that no unit failed.
 
 import { describe, expect, it } from "vitest";
-import { fieldLines, searchCatalog } from "../src/one/tools.ts";
+import { fieldLines, runFailureView, runSay, searchCatalog } from "../src/one/tools.ts";
 import type { Seam } from "../src/seam/client.ts";
+import { readingOf } from "../src/stations/pipelines.ts";
 import { catalogOf, prelude } from "../src/stations/prelude.ts";
 
 /** A seam that answers the paths it knows, query and all, and refuses the rest. */
@@ -106,5 +108,87 @@ describe("the registry's fields, every page of them (2026-10-12)", () => {
     ]);
     expect(fieldLines(text, "stack")).toEqual(["- stack: echo_time (number), slice_thickness (number)"]);
     expect(fieldLines(text, "visit")).toEqual([]);
+  });
+});
+
+/** A run that failed as the two runs of the thread did: its input could not be released, so no unit ran. */
+const STOPPED = {
+  id: 2,
+  pipeline_id: 5,
+  pipeline: "n4-bias-correction@1",
+  status: "failed",
+  error:
+    "run 2 the release of the input failed: dcm2niix is not runnable (No such file or directory (os error 2)). dcm2niix is a prerequisite of a deployment: install a current build from rordenlab/dcm2niix, which a distribution's package lags, and pass --dcm2niix if it is not on the path.",
+  summary: { units: { total: 0, succeeded: 0, failed: 0, skipped: 0, unreported: 0 } },
+};
+
+describe("a run that failed before any unit ran (2026-10-12)", () => {
+  it("says why from the run's own error, and what to do, never that no unit failed", () => {
+    const r = readingOf(STOPPED, null, { items: [] }, "quasi");
+    expect(r.failure).toMatchObject({
+      error: expect.stringMatching(/dcm2niix is not runnable/u),
+      withheld: false,
+    });
+    const say = runSay(r, 0, false);
+    expect(say).toMatch(/failed before any unit ran/u);
+    expect(say).toMatch(/why it failed, in plain words, from its error/u);
+    expect(say).toMatch(/what to do about it, as its error says/u);
+    expect(say).not.toMatch(/that no unit failed/u);
+    expect(runFailureView(r.failure as never)).toEqual({
+      error: expect.stringMatching(/rordenlab\/dcm2niix/u),
+    });
+  });
+
+  it("reads the engine's failure where the run's answer gives one: its kind, cause, what to do and the command", () => {
+    const run = {
+      ...STOPPED,
+      failure: {
+        kind: "dependency",
+        cause: "dcm2niix",
+        advice: "Install dcm2niix on the machine that runs analyses, then run it again.",
+        fix: { command: "nils tools install dcm2niix" },
+      },
+    };
+    const r = readingOf(run, null, { items: [] }, "quasi");
+    expect(r.failure).toMatchObject({
+      kind: "dependency",
+      cause: "dcm2niix",
+      advice: expect.stringMatching(/^Install dcm2niix/u),
+      command: "nils tools install dcm2niix",
+    });
+    expect(runSay(r, 0, false)).toMatch(
+      /what to do about it: Install dcm2niix on the machine that runs analyses, then run it again\. \(nils tools install dcm2niix\)/u,
+    );
+  });
+
+  it("keeps the error's words from a person below detail quasi, and still says the engine's kind and advice", () => {
+    const bare = readingOf(STOPPED, null, { items: [] }, "plain");
+    expect(bare.failure).toMatchObject({ error: null, withheld: true });
+    expect(JSON.stringify(runFailureView(bare.failure as never))).not.toMatch(/dcm2niix/u);
+    expect(runSay(bare, 0, false)).toMatch(/why is shown to a person who may see more detail/u);
+    const told = readingOf(
+      { ...STOPPED, failure: { kind: "dependency", cause: "dcm2niix", advice: "Install dcm2niix." } },
+      null,
+      { items: [] },
+      "plain",
+    );
+    expect(told.failure).toMatchObject({ cause: "dcm2niix", advice: "Install dcm2niix.", error: null });
+    expect(runSay(told, 0, false)).toMatch(
+      /why it failed: dependency, dcm2niix, and what to do about it: Install dcm2niix\./u,
+    );
+  });
+
+  it("leaves a run that names no failure as it was read", () => {
+    const run = {
+      id: 3,
+      pipeline: "synthseg@2",
+      status: "partial",
+      summary: { units: { total: 4, succeeded: 2, failed: 2, skipped: 0, unreported: 0 } },
+    };
+    const r = readingOf(run, null, { items: [] }, "quasi");
+    expect(r.failure).toBeNull();
+    expect(runSay(r, 2, false)).toMatch(
+      /with 2 of 4 units done; that 2 units failed, by reason; that no unit broke a check/u,
+    );
   });
 });

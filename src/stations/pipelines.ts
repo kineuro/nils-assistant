@@ -437,6 +437,64 @@ function shown(n: number, perScan: boolean): Shown {
 const labelOf = (x: unknown): string | null => (typeof x === "string" && x.length > 0 ? x : null);
 
 /**
+ * Where a run's answer says why it failed as a whole (2026-10-12): its `error`, as it was written, and beside it the
+ * failure the engine reads from it, its kind (a dependency, a resource, the input, the pipeline's own), its cause,
+ * what to do, and the command that does it. A run that failed before any unit ran (dcm2niix missing, the input not
+ * released) has no unit to count a reason by, so without them a reading said it failed with no unit failed and gave
+ * no reason. The engine slice that adds the failure is not final: its names are read from here alone, and follow the
+ * engine's OpenAPI once it lands; a run without them is read from its error.
+ */
+export const RUN_FAILURE = {
+  error: "error",
+  failure: "failure",
+  kind: "kind",
+  cause: "cause",
+  advice: "advice",
+  fix: "fix",
+  command: "command",
+} as const;
+
+/** How much of a run's error a reading keeps. */
+export const RUN_ERROR_CHARS = 400;
+
+/** Why a run failed as a whole: the engine's reading of it where it gives one, and the error's words at detail quasi and above (record 49 R4). */
+export interface RunFailure {
+  kind: string | null;
+  cause: string | null;
+  advice: string | null;
+  command: string | null;
+  /** The run's error as it was written, shortened; null below detail quasi, or where it has none. */
+  error: string | null;
+  /** The run has an error whose words this detail does not show. */
+  withheld: boolean;
+}
+
+/** Why a run failed as a whole, from its answer; null where it says nothing of it. */
+export function runFailureOf(run: Record<string, unknown>, perScan: boolean): RunFailure | null {
+  const text = (x: unknown): string | null => (typeof x === "string" && x.trim() ? x.trim() : null);
+  const raw = run[RUN_FAILURE.failure];
+  const f = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+  const fix = f[RUN_FAILURE.fix];
+  const error = text(run[RUN_FAILURE.error]);
+  const out: RunFailure = {
+    kind: text(f[RUN_FAILURE.kind]),
+    cause: text(f[RUN_FAILURE.cause]),
+    advice: text(f[RUN_FAILURE.advice]),
+    command:
+      text(fix) ??
+      (fix && typeof fix === "object" ? text((fix as Record<string, unknown>)[RUN_FAILURE.command]) : null),
+    error:
+      perScan && error
+        ? error.length > RUN_ERROR_CHARS
+          ? `${error.slice(0, RUN_ERROR_CHARS)}…`
+          : error
+        : null,
+    withheld: !perScan && error !== null,
+  };
+  return out.kind || out.cause || out.advice || out.command || error ? out : null;
+}
+
+/**
  * What a run's checks came to, read from the run, its descriptor and its
  * pipeline:qc items. At detail quasi and above it names the units, the
  * worst value past each check and an example of each failure; below quasi
@@ -452,6 +510,8 @@ export interface Reading {
   handle: number | null;
   detail: Detail;
   units: { total: number; succeeded: number; failed: number; skipped: number; unreported: number };
+  /** Why the run failed as a whole, where its answer says (2026-10-12). */
+  failure: RunFailure | null;
   failed: ({ reason: string; units: string[]; example: string | null } & Shown)[];
   breaches: ({
     metric: string;
@@ -585,6 +645,7 @@ export function readingOf(
       skipped: num(u.skipped) ?? 0,
       unreported: num(u.unreported) ?? 0,
     },
+    failure: runFailureOf(r, perScan),
     failed: [...failed.entries()]
       .sort((a, b) => b[1].n - a[1].n)
       .map(([reason, f]) => ({

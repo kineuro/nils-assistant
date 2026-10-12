@@ -149,7 +149,24 @@ const SUMMARY = {
 
 const engine = await stubEngine((c) => {
   const p = c.path.split("?")[0];
-  if (p === "/api/capabilities") return { body: { auth: "off", policy: [] } };
+  // the person's detail as the engine answers it: run_read reads a run's error words at quasi and above
+  if (p === "/api/capabilities") return { body: { auth: "off", policy: [], detail: "sensitive" } };
+  // a run that stopped before any unit ran, as two runs did on 2026-10-12: its input could not be released
+  if (p === "/api/pipeline-runs/2")
+    return {
+      body: {
+        id: 2,
+        pipeline_id: 5,
+        pipeline: "n4-bias-correction@1",
+        status: "failed",
+        error:
+          "run 2 the release of the input failed: dcm2niix is not runnable (No such file or directory (os error 2)). dcm2niix is a prerequisite of a deployment: install a current build from rordenlab/dcm2niix, which a distribution's package lags, and pass --dcm2niix if it is not on the path.",
+        summary: { units: { total: 0, succeeded: 0, failed: 0, skipped: 0, unreported: 0 } },
+      },
+    };
+  if (p === "/api/pipelines/5")
+    return { body: { id: 5, name: "n4-bias-correction", version: 1, level: "session", parameters: [] } };
+  if (p === "/api/review") return { body: { items: [] } };
   if (p === "/api/jobs") {
     const q = new URL(c.path, "http://stub").searchParams;
     const all = q.get("all") === "1";
@@ -675,6 +692,23 @@ describe("the one agent tells what is true now (2026-10-09)", () => {
       kind: "digest",
       args: { queued: ["digest", "--pack", "mri"] },
     });
+  }, 60_000);
+
+  it("says why a run failed before any unit ran, and what to do, from the run's own error (2026-10-12)", async () => {
+    play([
+      { tool: "run_read", args: { run: 2 } },
+      {
+        text: "Run 2 stopped before any scan was looked at: dcm2niix is not installed. Install it, then run it again.",
+      },
+    ]);
+    const h = init(Nils, { id: "oc-run-stopped" });
+    await h.read(await h.dispatch("How did run 2 go?"));
+    const out = lastResult(seen[1]);
+    expect(out).toMatchObject({ run: 2, status: "failed", units: { total: 0 } });
+    expect(String((out.run_failure as { error?: unknown }).error)).toMatch(/dcm2niix is not runnable/u);
+    expect(String(out.say)).toMatch(/failed before any unit ran/u);
+    expect(String(out.say)).toMatch(/what to do about it, as its error says/u);
+    expect(String(out.say)).not.toMatch(/that no unit failed/u);
   }, 60_000);
 
   it("says which steps have run on a dataset the words name, and what the headers answer until they have", async () => {

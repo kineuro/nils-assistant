@@ -49,6 +49,8 @@ import {
   newest,
   paramsFor,
   preflightOf,
+  type Reading,
+  type RunFailure,
   resolve,
   runCommand,
   type Sessions,
@@ -1159,6 +1161,48 @@ const jobsRead: OneTool = {
   },
 };
 
+/** A run's failure as run_read gives it: why, and what to do, each where the run's answer says. */
+export function runFailureView(f: RunFailure): Record<string, JsonValue> {
+  return {
+    ...(f.kind ? { kind: f.kind } : {}),
+    ...(f.cause ? { cause: f.cause } : {}),
+    ...(f.error ? { error: plainly(f.error) } : {}),
+    ...(f.withheld ? { error: "withheld: its words are shown to a person who may see more detail" } : {}),
+    ...(f.advice ? { what_to_do: plainly(f.advice) } : {}),
+    ...(f.command ? { command: f.command } : {}),
+  };
+}
+
+/** Why a run failed as a whole, and what to do, as the model is told to say it. */
+function failureWords(f: RunFailure): string {
+  const why = f.error
+    ? "why it failed, in plain words, from its error"
+    : f.kind || f.cause
+      ? `why it failed: ${[f.kind, f.cause].filter(Boolean).join(", ")}`
+      : "that it failed, and that why is shown to a person who may see more detail";
+  const todo = f.advice
+    ? `what to do about it: ${plainly(f.advice)}${f.command ? ` (${f.command})` : ""}`
+    : f.command
+      ? `what to do about it: ${f.command}`
+      : f.error
+        ? "what to do about it, as its error says"
+        : null;
+  return todo ? `${why}, and ${todo}` : why;
+}
+
+/**
+ * What run_read tells the model to say of a run (2026-10-12): how it ended, why it failed as a whole and what to do
+ * where its answer says, then its units and checks. A run that failed before any unit ran is said as that, never as
+ * a run in which no unit failed: the chat once said so of two runs dcm2niix stopped, and gave no reason.
+ */
+export function runSay(r: Reading, failed: number, campaign: boolean): string {
+  const head = `Say run ${r.run} of ${r.name} ended ${r.status} with ${r.units.succeeded} of ${r.units.total} units done`;
+  const why = r.failure ? failureWords(r.failure) : null;
+  if (why && r.units.total === 0)
+    return `${head}: it failed before any unit ran, so no unit was done or failed and no check was taken; say ${why}. Numbers from here only.`;
+  return `${head}; ${why ? `${why}; ` : ""}${failed ? `that ${failed} units failed, by reason` : "that no unit failed"}; ${r.breaches.length ? "each check broken, by its metric, with its count and what it means" : "that no unit broke a check"}; ${campaign ? "and that a campaign over those units is drafted for a person to make" : "and that nothing needs a campaign"}. Numbers from here only.`;
+}
+
 const runRead: OneTool = {
   name: "run_read",
   description:
@@ -1219,6 +1263,7 @@ const runRead: OneTool = {
       analysis: reading.name,
       status: reading.status,
       units: reading.units,
+      ...(reading.failure ? { run_failure: runFailureView(reading.failure) } : {}),
       failed_units: failed,
       failed_by_reason: reading.failed.map((f) => ({ reason: f.reason, count: said(f) })),
       checks_broken: reading.breaches.map((b) => ({
@@ -1228,7 +1273,7 @@ const runRead: OneTool = {
         count: said(b),
       })),
       campaign: campaign ? { name: String(campaign.name), over_document: document } : null,
-      say: `Say run ${reading.run} of ${reading.name} ended ${reading.status} with ${reading.units.succeeded} of ${reading.units.total} units done; ${failed ? `that ${failed} units failed, by reason` : "that no unit failed"}; ${reading.breaches.length ? "each check broken, by its metric, with its count and what it means" : "that no unit broke a check"}; ${campaign ? "and that a campaign over those units is drafted for a person to make" : "and that nothing needs a campaign"}. Numbers from here only.`,
+      say: runSay(reading, failed, campaign !== null),
     };
     return { output: output as unknown as JsonValue };
   },

@@ -10,6 +10,7 @@ A pipeline run has ended. You tell the person, in a few plain sentences, what it
 
 1. **`run_read`** with the run's number. When the person names no run, call it without one for the newest runs and take the one they mean. Once per run: its answer holds everything.
 2. Answer from its `say` and its numbers only: how the run ended (units done of the total), the failed units with their count and reasons, each broken check by its metric name with its count and what it means, and the campaign drafted over those units for a person to make. A clean run: say no unit failed and nothing broke a check, so nothing needs a look.
+   A run that failed as a whole carries `run_failure`: say why in plain words and what to do about it (a tool to install on the machine that runs analyses, more memory or disk, an input to fix), and that it can run again once that is done. A run that stopped before any unit ran is never a run where no unit failed: no unit was tried.
 3. A later question about the same run ("how many units failed?") is answered from what you already read; read it again only when you no longer have it.
 
 ## What the checks mean
