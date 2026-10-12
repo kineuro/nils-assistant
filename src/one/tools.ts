@@ -209,14 +209,34 @@ const PARTS: Record<string, RegExp> = {
   cohorts: /cohort/iu,
   scores: /kind|score|disease|course/iu,
   scans: /ax[ie]s|stack|derived/iu,
-  fields: /field|level|grain|- /iu,
 };
+
+/**
+ * The summary's fields (2026-10-12): the heading and one line per level, every field of it; with `level`, that
+ * level's line alone. The lines of other parts that also begin with a dash (the axes, the grains) are not fields.
+ */
+export function fieldLines(text: string, level: string | null = null): string[] {
+  const lines = text.split("\n");
+  const at = lines.findIndex((l) => /^Fields per level/u.test(l));
+  if (at < 0) return [];
+  const block: string[] = [];
+  for (const l of lines.slice(at + 1)) {
+    if (!l.startsWith("- ")) break;
+    block.push(l);
+  }
+  if (level === null) return [lines[at], ...block];
+  return block.filter((l) => l.startsWith(`- ${level}:`));
+}
 
 const registrySummary: OneTool = {
   name: "registry_summary",
   description:
-    "What the registry holds: the cohorts with their sizes, the clinical scores and event kinds, the disease courses, the kinds of scans (their sorting values), the fields of each level. The turn's facts already carry it; call this only when they say it could not be read, or to see one part again (part: cohorts, scores, scans or fields).",
-  input: v.object({ part: v.optional(v.picklist(["all", "cohorts", "scores", "scans", "fields"])) }),
+    "What the registry holds: the cohorts with their sizes, the clinical scores and event kinds, the disease courses, the kinds of scans (their sorting values), every field of each level. The turn's facts already carry it; call this only when they say it could not be read, or to see one part again (part: cohorts, scores, scans or fields; with fields, `level` for one level's fields, such as stack).",
+  input: v.object({
+    part: v.optional(v.picklist(["all", "cohorts", "scores", "scans", "fields"])),
+    level: v.optional(v.string()),
+  }),
+  salient: ["part", "level"],
   step: "Looking in the registry",
   async run(args, ctx) {
     const text = await summaryText(ctx);
@@ -226,6 +246,17 @@ const registrySummary: OneTool = {
         "Say in one sentence that their account cannot look into the registry here, and that an admin can give it.",
       );
     const part = str(args.part);
+    if (part === "fields") {
+      const level = str(args.level);
+      const lines = fieldLines(text, level);
+      if (level && lines.length === 0) {
+        const levels = fieldLines(text)
+          .slice(1)
+          .map((l) => l.slice(2, l.indexOf(":")));
+        return refuse(`no level named ${level}`, `Name one of ${levels.join(", ") || "none"}.`);
+      }
+      return { output: data(lines.join("\n"), "ask for the fields of one level, such as stack") };
+    }
     const re = part && part !== "all" ? PARTS[part] : null;
     const lines = re ? text.split("\n").filter((l) => re.test(l)) : text.split("\n");
     return { output: data(lines.join("\n"), "ask for one part: cohorts, scores, scans or fields") };
