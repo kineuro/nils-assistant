@@ -50,6 +50,8 @@ export function operationOf(method: string, path: string): string {
   const m = /^catalog\/([^/]+)(\/([^/]+)\/values)?$/u.exec(named);
   if (m) return m[2] ? "catalog/{level}/{field}/values" : "catalog/{level}";
   if (/^packs\/[^/]+$/u.test(named)) return "packs/{name}";
+  // a saved selection is named by its name or name@version (record 55 K6)
+  if (/^selections\/[^/]+$/u.test(named)) return "selections/{name}";
   // a pipeline is named by its id, its name or name@version (record 49)
   if (/^pipelines\/[^/]+\/preflight$/u.test(named)) return "pipelines/{name}/preflight";
   if (/^pipelines\/[^/]+$/u.test(named)) return "pipelines/{name}";

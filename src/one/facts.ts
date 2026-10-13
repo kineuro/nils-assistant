@@ -81,6 +81,8 @@ export function factsOf(o: {
   /** What the conversation remembers across conversations (src/one/memory.ts); null where none is read. */
   memory?: string | null;
   hint: string;
+  /** What the mentions of the person's message name and which tool reads each (record 55 K6); null where it names none. */
+  mentioned?: string | null;
   document: number | null;
   /** The conversation's summaries so far, kept with what it was told. */
   compactions?: number;
@@ -117,6 +119,7 @@ export function factsOf(o: {
     }
   }
   if (o.document !== null) parts.push(`The question open on the person's page is document ${o.document}.`);
+  if (o.mentioned) parts.push(o.mentioned);
   parts.push(o.hint);
   return { text: parts.join("\n\n"), told };
 }

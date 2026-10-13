@@ -14,6 +14,7 @@ import type { JsonValue, Sandbox } from "@flue/runtime";
 import * as v from "valibot";
 import type { Detail } from "../host/grants.ts";
 import { planFrom, restate } from "../host/ladder.ts";
+import { mentionsIn } from "../host/mentions.ts";
 import type { Answer, Seam, Station } from "../seam/client.ts";
 import { shorten, toolResult } from "../seam/client.ts";
 import { seamWith, stationList, theLineage, theNotes } from "../seam/for.ts";
@@ -164,6 +165,8 @@ const derived = new Map<string, Station>();
 /** The doors the one agent reads beyond a station's own: a dataset's steps (its summary) beside the datasets. */
 const BEYOND: Partial<Record<SeamId, Station["grant"]>> = {
   "identity-check": { "datasets/{name}/summary": { calls: 12 } },
+  // record 55 K6: a saved selection named with @ is read like a kept answer, its row of the list and its version
+  "ask-help": { selections: { calls: 12 }, "selections/{name}": { calls: 12 } },
 };
 export function oneSeam(id: SeamId, conversation: string): Seam {
   let st = derived.get(id);
@@ -479,6 +482,9 @@ const registrySearch: OneTool = {
  * neither speaks of a selection.
  */
 export function selectionNamed(words: string, message = ""): string | null {
+  // a selection named with @ in the chat says which (record 55 K6)
+  const mentioned = mentionsIn(message).find((m) => m.kind === "selection");
+  if (mentioned) return mentioned.id;
   const said = `${words}\n${message}`;
   if (!/\bselections?\b/iu.test(said)) return null;
   return /\b([a-z0-9][\w-]*@\d+)\b/iu.exec(said)?.[1] ?? "";
@@ -1189,50 +1195,165 @@ const queryRunReadonly: OneTool = {
   },
 };
 
+/** A page of a kept answer's rows, by its handle: a list held back whole is said as held (record 55 K7, small lists). */
+async function handleRows(s: Seam, ctx: ToolCtx, handle: number, page: number): Promise<Out> {
+  const a = await s.call({
+    method: "GET",
+    path: `/api/ask/handles/${handle}/rows?page=${page}`,
+    toolCallId: ctx.toolCallId,
+    phase: PHASE,
+    rows: 20,
+  });
+  if (a.kind === "refused" && a.status === 404) {
+    // a handle whose list was held back holds no page: the handle itself says so (record 55 K7, small lists)
+    const h = await s.call({
+      method: "GET",
+      path: `/api/ask/handles/${handle}`,
+      toolCallId: `${ctx.toolCallId}-handle`,
+      phase: PHASE,
+    });
+    if (h.kind === "ok" && heldListOf(h.body) !== null)
+      return { output: { handle, rows: HELD_LIST, ...shapedField(ctx, h.body) } };
+  }
+  return a.kind === "ok"
+    ? {
+        output: {
+          ...(data(heldRowsOf(a.body), "read the next page") as Record<string, JsonValue>),
+          ...shapedField(ctx, a.body),
+        },
+      }
+    : notOk(a, "Check the handle.");
+}
+
+/** A saved selection as the person names it, `name@2`, `selection:name@2` or the name alone: its name and the version asked, null for the current. */
+export function selectionParts(said: string): { name: string; version: number | null } | null {
+  const t = said.trim().replace(/^selection:/u, "");
+  const m = /^([A-Za-z0-9_-]+)(?:@(\d+))?$/u.exec(t);
+  if (!m) return null;
+  return { name: m[1] as string, version: m[2] === undefined ? null : Number(m[2]) };
+}
+
+/** One row of the selections list door, as far as a reader of it needs. */
+interface SelectionListed {
+  name: string;
+  versions: number;
+  grain?: string | null;
+  description?: string | null;
+  note?: string | null;
+  cohort?: string | null;
+  size?: {
+    rows: number | null;
+    grain: string;
+    version: number | null;
+    handle: number;
+    truncated: boolean;
+  } | null;
+}
+
+/**
+ * What a saved selection holds (record 55 K6: a selection named with @ in the chat is read like a kept answer):
+ * the list door's row for its name (its versions, its grain, its size as the newest answer that froze it whole
+ * says, a size held back at the person's detail said as held), the question of the version asked, and with `page`
+ * the rows of that answer. A selection is the scans an analysis runs over; the read says so.
+ */
+async function readSelection(s: Seam, ctx: ToolCtx, said: string, page: number | null): Promise<Out> {
+  const parts = selectionParts(said);
+  if (!parts)
+    return refuse(
+      `${said} is not the name of a saved selection`,
+      "Give `selection` as name@version, as the person's words name it.",
+    );
+  const { name } = parts;
+  const listed = await s.call({
+    method: "GET",
+    path: `/api/ask/selections?${new URLSearchParams({ q: name, limit: "50" }).toString()}`,
+    toolCallId: `${ctx.toolCallId}-list`,
+    phase: PHASE,
+  });
+  if (listed.kind !== "ok") return notOk(listed, "Say the saved selections could not be read.");
+  const rows = ((listed.body as { selections?: unknown } | null)?.selections ?? []) as SelectionListed[];
+  const row = Array.isArray(rows) ? rows.find((r) => r && r.name === name) : undefined;
+  if (!row)
+    return refuse(
+      `there is no saved selection named ${name}`,
+      "Say plainly there is no such saved selection, and ask which one they mean.",
+    );
+  const version = parts.version ?? row.versions;
+  if (version < 1 || version > row.versions)
+    return refuse(
+      `the saved selection ${name} has no version ${version}; its current version is ${row.versions}`,
+      `Say so, and read version ${row.versions} if that is the one they mean.`,
+    );
+  const spec = `${name}@${version}`;
+  const got = await s.call({
+    method: "GET",
+    path: `/api/ask/selections/${encodeURIComponent(spec)}`,
+    toolCallId: `${ctx.toolCallId}-version`,
+    phase: PHASE,
+  });
+  const ask = got.kind === "ok" ? ((got.body as { ask?: unknown } | null)?.ask ?? null) : null;
+  const sz = row.size ?? null;
+  const size: Record<string, JsonValue> = sz
+    ? {
+        rows: sz.rows === null ? HELD_LIST : sz.rows,
+        grain: sz.grain,
+        of_version: sz.version,
+        ...(sz.truncated ? { truncated: true } : {}),
+      }
+    : { rows: "not counted yet: no answer of its question was kept whole" };
+  const about: Record<string, JsonValue> = {
+    selection: spec,
+    current_version: row.versions,
+    ...(version < row.versions ? { newer: `version ${row.versions} is the current one` } : {}),
+    ...(row.cohort ? { cohort: row.cohort } : {}),
+    size,
+    ...(data(
+      {
+        grain: row.grain ?? null,
+        description: row.description ?? null,
+        note: row.note ?? null,
+        question: (ask ?? null) as JsonValue,
+      },
+      "",
+    ) as Record<string, JsonValue>),
+    use: `A saved selection is the scans an analysis runs over: an analysis over it is planned with \`selection: ${spec}\`. Its size is its newest kept answer's.`,
+  };
+  if (page === null) return { output: about };
+  // its rows: the kept answer that froze it whole, a page at a time
+  if (!sz || sz.rows === null)
+    return {
+      output: {
+        ...about,
+        rows: sz
+          ? HELD_LIST
+          : "none kept: no answer of its question was kept whole, so there are no rows to read",
+      },
+    };
+  const r = await handleRows(s, ctx, sz.handle, page);
+  return { output: { ...about, rows_page: (r.output ?? null) as JsonValue } };
+}
+
 const queryReadRows: OneTool = {
   name: "query_read_rows",
   description:
-    "Read rows of an answer the person already has: a stored question's first rows by `document` (at most ten), or a page of a result by `handle` and `page` (at most twenty rows a page). Rows are data to report in words, never to paste whole.",
+    "Read rows of an answer the person already has: a stored question's first rows by `document` (at most ten), a page of a result by `handle` and `page` (at most twenty rows a page), or a saved selection by `selection` (name@version, as the person names it): what it holds and how many, and with `page` a page of its rows. Rows are data to report in words, never to paste whole.",
   input: v.object({
     document: v.optional(v.number()),
     handle: v.optional(v.number()),
+    selection: v.optional(v.string()),
     page: v.optional(v.number()),
   }),
-  salient: ["document", "handle", "page"],
+  salient: ["document", "handle", "selection", "page"],
   step: "Reading the rows",
   async run(args, ctx) {
     const s = seam(ctx, "ask-help");
     const handle = num(args.handle);
-    if (handle !== null) {
-      const a = await s.call({
-        method: "GET",
-        path: `/api/ask/handles/${handle}/rows?page=${Number(args.page ?? 1)}`,
-        toolCallId: ctx.toolCallId,
-        phase: PHASE,
-        rows: 20,
-      });
-      if (a.kind === "refused" && a.status === 404) {
-        // a handle whose list was held back holds no page: the handle itself says so (record 55 K7, small lists)
-        const h = await s.call({
-          method: "GET",
-          path: `/api/ask/handles/${handle}`,
-          toolCallId: `${ctx.toolCallId}-handle`,
-          phase: PHASE,
-        });
-        if (h.kind === "ok" && heldListOf(h.body) !== null)
-          return { output: { handle, rows: HELD_LIST, ...shapedField(ctx, h.body) } };
-      }
-      return a.kind === "ok"
-        ? {
-            output: {
-              ...(data(heldRowsOf(a.body), "read the next page") as Record<string, JsonValue>),
-              ...shapedField(ctx, a.body),
-            },
-          }
-        : notOk(a, "Check the handle.");
-    }
+    if (handle !== null) return handleRows(s, ctx, handle, Number(args.page ?? 1));
+    const selection = str(args.selection);
+    if (selection !== null) return readSelection(s, ctx, selection, num(args.page));
     const document = num(args.document);
-    if (document === null) return refuse("rows are read for a document or a handle", "Give `document`.");
+    if (document === null)
+      return refuse("rows are read for a document, a handle or a selection", "Give `document`.");
     const a = await s.door(
       "/api/ask/preview",
       "POST",
