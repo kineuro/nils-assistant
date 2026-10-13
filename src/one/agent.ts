@@ -31,6 +31,7 @@ import {
 } from "@flue/runtime";
 import * as v from "valibot";
 import { EVERYTHING } from "../host/grants.ts";
+import { mentionsLine } from "../host/mentions.ts";
 import { chosenModel, compactionFor, limitsOf } from "../host/models.ts";
 import { isSummarize, summarizeCompaction } from "../host/summarize.ts";
 import { providerId } from "../providers/kvasir.ts";
@@ -690,6 +691,8 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
           about,
           steps.filter((s): s is string => s !== null),
         ),
+        // record 55 K6: a card, a result, a cohort or a saved selection named with @, and the tool that reads it
+        mentioned: mentionsLine(message, mounted.tools),
         document,
       });
       setTold(facts.told);
