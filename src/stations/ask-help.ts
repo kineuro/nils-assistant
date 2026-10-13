@@ -12,9 +12,12 @@ import type { Answer, Seam } from "../seam/client.ts";
 import { toolResult } from "../seam/client.ts";
 import { subjectOfConversation } from "../seam/for.ts";
 import {
+  HELD_LIST,
+  HELD_LIST_LINE,
   heldBackLine,
   heldBackOf,
   heldCountCells,
+  heldListOf,
   shapedLine,
   shapedOf,
   withHeldCounts,
@@ -67,6 +70,9 @@ export function compactPreview(body: unknown): JsonValue {
   const cols = (b.columns ?? []).map((c) => (typeof c === "string" ? c : c.name));
   const keep = cols.map((c) => !c.startsWith("_"));
   const columns = cols.filter((_, i) => keep[i]);
+  // a list held back whole at plain is said as held, never as rows that came back empty (record 55 K7, small lists)
+  if (heldListOf(b) !== null)
+    return { held_list: HELD_LIST_LINE, level: b.level ?? null, columns, rows: HELD_LIST, truncated: false };
   const shaped = shapedLine((shapedOf(b) ?? []).filter((c) => columns.includes(c)));
   // a count held back at plain is written as held, never as a null a small model reads as none (record 55 K7)
   const heldBack = (heldBackOf(b) ?? []).filter((h) => columns.includes(h.column));

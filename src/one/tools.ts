@@ -18,10 +18,14 @@ import type { Answer, Seam, Station } from "../seam/client.ts";
 import { shorten, toolResult } from "../seam/client.ts";
 import { seamWith, stationList, theLineage, theNotes } from "../seam/for.ts";
 import {
+  HELD_LIST,
+  HELD_LIST_LINE,
   type HeldBack,
   heldBackLine,
   heldBackOf,
   heldCountCells,
+  heldListOf,
+  heldListRefused,
   shapedLine,
   shapedOf,
   withHeldCounts,
@@ -195,7 +199,10 @@ function data(value: unknown, narrow: string): JsonValue {
  * the one plain line, as `shaped` beside the registry's data and never inside it, and the names the turn keeps for
  * the check before it settles. An answer that names none (an engine from before then) leaves the turn as it was.
  */
-function shapedField(ctx: ToolCtx, body: unknown): { shaped?: string; held_back?: string } {
+function shapedField(
+  ctx: ToolCtx,
+  body: unknown,
+): { shaped?: string; held_back?: string; held_list?: string } {
   const out: { shaped?: string; held_back?: string } = {};
   const names = shapedOf(body);
   if (names !== null) {
@@ -207,6 +214,8 @@ function shapedField(ctx: ToolCtx, body: unknown): { shaped?: string; held_back?
   const held = heldBackOf(body);
   if (held !== null) {
     ctx.turn.heldBack = held;
+    // a list held back whole is said as held, never as values that are null (record 55 K7, small lists)
+    if (heldListOf(body) !== null) return { held_list: HELD_LIST_LINE };
     const line = heldBackLine(held);
     if (line) out.held_back = line;
   }
@@ -215,6 +224,11 @@ function shapedField(ctx: ToolCtx, body: unknown): { shaped?: string; held_back?
 
 /** A page of rows with its held counts written as held, never as a null read as none (record 55 K7, small counts). */
 function heldRowsOf(body: unknown): unknown {
+  // a list held back whole: its rows and its row count written as held, never as none (record 55 K7, small lists)
+  if (heldListOf(body) !== null) {
+    const { held_back: _held, ...rest } = body as Record<string, unknown>;
+    return { ...rest, rows: HELD_LIST, ...("row_count" in rest ? { row_count: HELD_LIST } : {}) };
+  }
   const b = body as { columns?: unknown; rows?: unknown } | null;
   if (!b || typeof b !== "object" || !Array.isArray(b.columns) || !Array.isArray(b.rows)) return body;
   const names = b.columns.map((c) =>
@@ -245,6 +259,15 @@ function notOk(a: Answer, next: string): Out {
     why = a.reason === "token_unavailable" ? "the person's sign-in was not at hand" : a.reason;
   else if (a.kind === "refused") {
     const err = o.error;
+    // a set, a start or a cohort read from a handle whose list was held back: held, never a failure (record 55 K7)
+    if (heldListRefused(a.status, err))
+      return {
+        output: {
+          held_list: HELD_LIST_LINE,
+          rows: HELD_LIST,
+          next: "Say the list is held back to protect a small group, so nothing is made from it; never say it has no rows, none or a number.",
+        },
+      };
     why = `the registry refused it (${a.status})${err ? `: ${typeof err === "string" ? err : JSON.stringify(err).slice(0, 300)}` : ""}`;
     if (a.status === 403)
       next = "Say in one sentence that this person's account cannot do that, and that an admin can give it.";
@@ -760,6 +783,8 @@ async function measuresOf(ctx: ToolCtx, document: number): Promise<JsonValue | n
       { toolCallId: `${ctx.toolCallId}-measures`, phase: PHASE, rows: 10 },
     );
     if (a.kind !== "ok") return null;
+    // a list held back whole has no measure to read (record 55 K7, small lists)
+    if (heldListOf(a.body) !== null) return { rows: HELD_LIST, ...shapedField(ctx, a.body) };
     const b = (a.body ?? {}) as { columns?: (string | { name: string })[]; rows?: unknown[][] };
     const names = (b.columns ?? []).map((c) => (typeof c === "string" ? c : c.name));
     const at = names.flatMap((n, i) => (/^(stddev|median|percentile)\./u.test(n) ? [i] : []));
@@ -1186,6 +1211,17 @@ const queryReadRows: OneTool = {
         phase: PHASE,
         rows: 20,
       });
+      if (a.kind === "refused" && a.status === 404) {
+        // a handle whose list was held back holds no page: the handle itself says so (record 55 K7, small lists)
+        const h = await s.call({
+          method: "GET",
+          path: `/api/ask/handles/${handle}`,
+          toolCallId: `${ctx.toolCallId}-handle`,
+          phase: PHASE,
+        });
+        if (h.kind === "ok" && heldListOf(h.body) !== null)
+          return { output: { handle, rows: HELD_LIST, ...shapedField(ctx, h.body) } };
+      }
       return a.kind === "ok"
         ? {
             output: {
@@ -1691,6 +1727,10 @@ async function proposeAnalysis(args: Record<string, unknown>, ctx: ToolCtx, sent
     const rb = (ran.kind === "ok" ? ran.body : {}) as { handle?: unknown; truncated?: unknown };
     const handle = num(rb.handle);
     if (handle === null) why = "whom it runs over left nothing to check the run against";
+    // a list held back at plain holds no rows to run over (record 55 K7, small lists)
+    else if (heldListOf(rb) !== null)
+      why =
+        "whom it runs over is held back at this person's detail to protect a small group, so no run can be checked over them";
     else if (rb.truncated === true)
       why =
         "it runs over more than one bounded answer; save the question as a selection and the check runs over it";
@@ -2073,6 +2113,17 @@ async function analysisRows(ctx: ToolCtx, document: number): Promise<Table | Out
     { toolCallId: `${ctx.toolCallId}-run`, phase: PHASE, rows: ANALYSIS_ROWS },
   );
   if (a.kind !== "ok") return notOk(a, "Check the question's id, or draft it again with query_draft.");
+  // a list held back whole at plain has no row to analyse, and is no empty table either (record 55 K7, small lists)
+  if (heldListOf(a.body) !== null) {
+    ctx.turn.heldBack = heldBackOf(a.body) ?? [];
+    return {
+      output: {
+        held_list: HELD_LIST_LINE,
+        rows: HELD_LIST,
+        next: "Say in one sentence that the list is held back at this person's detail to protect a small group, so there is nothing to analyse; never say it has no rows, none or a number.",
+      },
+    };
+  }
   const b = a.body as {
     handle?: unknown;
     columns?: (string | { name: string })[];

@@ -13,6 +13,7 @@ import type { JsonValue } from "@flue/runtime";
 import * as v from "valibot";
 import type { Seam } from "../seam/client.ts";
 import { toolResult } from "../seam/client.ts";
+import { heldListOf } from "../seam/shaped.ts";
 import { type StationDefinition, type StationTool, stationAgent } from "./agent.ts";
 import type { Manifest } from "./manifest.ts";
 import {
@@ -294,6 +295,10 @@ export function analysisPlanTools(): StationTool[] {
           const handle = typeof body.handle === "number" ? body.handle : null;
           if (handle !== null) evidence.handles.push(handle);
           if (handle === null) preflightWhy = "the ask for the cohorts left no handle to check the run over";
+          // a list held back at plain holds no rows to run over (record 55 K7, small lists)
+          else if (heldListOf(body) !== null)
+            preflightWhy =
+              "the sessions it would run over are held back at this person's detail to protect a small group, so no run can be checked over them";
           else if (body.truncated === true)
             preflightWhy =
               "the ask for the cohorts is larger than one bounded answer; save it as a selection and the pre-flight runs over it";

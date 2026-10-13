@@ -107,6 +107,26 @@ export function heldBackComplaint(answer: string, held: readonly HeldBack[]): st
   return `some values of ${held.map((h) => h.column).join(", ")} were held back at this person's detail (${whys}) and are not known: say which values were held back and why, and never state or guess them`;
 }
 
+/** Words that take a held list for an empty one, or give it a size. */
+const LIST_NONE =
+  /\b(?:no|zero|0)\s+(?:rows?|results?|subjects?|scans?|sessions?|visits?|matches|people|one)\b|\bthere (?:are|is|were|was) no\b|\bnone\b|\bnothing\b|\bempty\b|\b(?:[1-4]|one|two|three|four)\s+(?:rows?|subjects?|scans?|sessions?|visits?|people)\b/iu;
+const LIST_WHY = /^a list of fewer than 5\b/iu;
+
+/**
+ * What is wrong with an answer about a list held back whole at the person's detail (record 55 K7, small lists, the
+ * ruling of 2026-10-13): an answer that lists 1 to 4 subjects a quasi identifying field chose has no row. The answer
+ * says the list is held back to protect a small group; it never says the list has no rows, none, or how many. Null
+ * when it does.
+ */
+export function heldListComplaint(answer: string, held: readonly HeldBack[]): string | null {
+  if (!held.some((h) => LIST_WHY.test(h.why)) || answer.trim() === "") return null;
+  if (LIST_NONE.test(answer))
+    return "the list was held back at this person's detail to protect a small group: it is not empty and its size is not known; say it is held back to protect a small group, never no rows, none or a number";
+  if (!/\bheld back\b|\bwithheld\b|\bnot shown\b/iu.test(answer))
+    return "the list was held back at this person's detail to protect a small group: say so, and never that it has no rows, none or a number";
+  return null;
+}
+
 export interface CheckContext {
   turn: TurnState;
   convo: ConversationState;
@@ -155,7 +175,10 @@ export async function complaintsOf(c: CheckContext): Promise<string[]> {
   const shaped = shapedComplaint(answer, c.turn.shaped);
   if (shaped) out.push(shaped);
   // a value held back below detail quasi, a group under 5 subjects (record 55 K7, the ruling on aggregates)
-  const held = heldBackComplaint(answer, c.turn.heldBack ?? []);
+  // a list held back whole says so, and is never said to be empty or of a size (record 55 K7, small lists)
+  const list = heldListComplaint(answer, c.turn.heldBack ?? []);
+  const held = list ? null : heldBackComplaint(answer, c.turn.heldBack ?? []);
+  if (list) out.push(list);
   if (held) out.push(held);
   // a dataset the words name and the facts list is there: the chat once said it was not (2026-10-09)
   if (c.turn.datasets.length && saysNotThere(answer, c.turn.datasets))
