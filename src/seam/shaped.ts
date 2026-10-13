@@ -78,6 +78,8 @@ export function heldBackLine(held: readonly HeldBack[]): string | null {
  * hold; unchanged when the answer holds nothing as shapes or held back, or is not an object.
  */
 export function withShapedLine(output: JsonValue, body: unknown): JsonValue {
+  // a list held back whole is said as held, never as rows that came back empty (record 55 K7, small lists)
+  if (heldListOf(body) !== null) return withHeldList(output, body);
   const line = shapedLine(shapedOf(body) ?? []);
   const heldBack = heldBackOf(body) ?? [];
   const held = heldBackLine(heldBack);
@@ -162,4 +164,52 @@ export function heldCountCells(
   if (counts.size === 0) return rows as unknown[][];
   const at = columns.map((c) => counts.has(c));
   return rows.map((r) => (Array.isArray(r) ? r.map((v, i) => (v === null && at[i] ? HELD_COUNT : v)) : r));
+}
+
+/**
+ * A list held back whole at detail plain (record 55 K7, small lists, the ruling of 2026-10-13): an answer that lists
+ * the rows of 1 to 4 subjects a quasi identifying field chose comes back with no row, `row_count` null, `pages` 0 and
+ * every column in `held_back` with the list's why; its handle holds no rows (its rows door answers 404) and a set, a
+ * start or a cohort made from it is refused with 409, "handle N holds no rows". A small model reads an empty list as
+ * none, so every reader writes its rows as these words and says once what they mean.
+ */
+export const HELD_LIST =
+  "held back (a list of fewer than 5 subjects; its length is a count, so no row is shown)";
+
+/** The one line a model reads beside a list held back whole. */
+export const HELD_LIST_LINE = `This answer's list was held back at your detail to protect a small group: its rows are not shown and how many there are is not known to you. Say the list is held back to protect a small group; never say it has no rows, none, nothing or any number, and never work one out.`;
+
+/** The engine's why for a list held back whole, where an answer gives none. */
+export const LIST_WHY =
+  "a list of fewer than 5 subjects that a quasi identifying field chose; its length is a count, so no row is shown";
+
+const LIST = /^a list of fewer than 5\b/iu;
+
+/** Why an answer (a run, a preview, a handle, a page, a job's result) is a list held back whole; null where it is not. */
+export function heldListOf(body: unknown): string | null {
+  if (!isRecord(body)) return null;
+  if (Array.isArray(body.rows) && body.rows.length > 0) return null;
+  for (const h of heldBackOf(body) ?? []) if (LIST.test(h.why)) return h.why;
+  return "row_count" in body && body.row_count === null ? LIST_WHY : null;
+}
+
+/** Whether a refusal's words are the engine's 409 for a handle whose list was held back ("handle N holds no rows"). */
+export function heldListRefused(status: number, error: unknown): boolean {
+  return (
+    status === 409 &&
+    /\bholds no rows\b/iu.test(typeof error === "string" ? error : JSON.stringify(error ?? ""))
+  );
+}
+
+/**
+ * An answer whose list was held back whole, as a model reads it: its rows and its row count written as held, the
+ * line beside them in place of the held_back line, which would call the columns' values null; unchanged otherwise.
+ */
+export function withHeldList(output: JsonValue, body: unknown): JsonValue {
+  if (heldListOf(body) === null || !isRecord(output)) return output;
+  const out: Record<string, JsonValue> = { ...output };
+  if ("rows" in out) out.rows = HELD_LIST;
+  if ("row_count" in out) out.row_count = HELD_LIST;
+  delete out.held_back;
+  return { held_list: HELD_LIST_LINE, ...out };
 }
