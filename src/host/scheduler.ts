@@ -10,6 +10,7 @@
 // assistant's.
 
 import type { Answer, Seam } from "../seam/client.ts";
+import { actionOf } from "./actions.ts";
 import { VERBS, type When } from "./ladder.ts";
 import type { LadderStore, StepRow } from "./ladder-store.ts";
 
@@ -19,6 +20,8 @@ export interface SchedulerOptions {
   seamFor: (conversation: string) => Seam | null;
   /** C49: whether rung two is open to this person at all. */
   mayRun?: (subject: string) => boolean;
+  /** Record 55, ruling 24: an admin holds everything, so a step of theirs needs no standing grant. */
+  isAdmin?: (subject: string) => boolean;
   now?: () => number;
 }
 
@@ -109,11 +112,11 @@ export class Scheduler {
         ok: false,
         reason: "rung two is closed to this person: the assist-run entitlement is required here (C49)",
       };
-    const grant = this.o.store.grantFor(subject, step.door);
+    const grant = this.o.isAdmin?.(subject) ? true : this.o.store.grantCovering(subject, step.door);
     if (!grant)
       return {
         ok: false,
-        reason: `no standing grant for ${step.door}; grant it under Settings and the step runs`,
+        reason: `the assistant may not yet ${actionOf(step.door).words.toLowerCase()} for you; give it under Standing grants and the step runs`,
       };
     const w = step.when ?? "now";
     const holds = await this.holds(seam, step, w);
@@ -154,7 +157,8 @@ export class Scheduler {
 
   /** Queue the step's job under the grant; the actor header names the person's grant. */
   private async fire(seam: Seam, subject: string, step: StepRow): Promise<Fired> {
-    const grant = this.o.store.grantFor(subject, step.door) as { id: number };
+    // an admin's step runs under no standing grant, since they hold everything; the actor header then names none
+    const grant = this.o.store.grantCovering(subject, step.door);
     const spec = VERBS[step.verb];
     const call = spec.call(step.args);
     if ("refused" in call) {
@@ -167,7 +171,7 @@ export class Scheduler {
       body: call.body,
       toolCallId: `plan-${step.plan}-step-${step.n}`,
       phase: "schedule",
-      grant: grant.id,
+      ...(grant ? { grant: grant.id } : {}),
     });
     if (a.kind !== "ok") {
       const reason =
@@ -176,7 +180,12 @@ export class Scheduler {
           : a.kind === "blocked"
             ? a.reason
             : a.reason;
-      this.o.store.setStep(step.id, { state: "failed", reason, grant: grant.id, finished_at: this.now() });
+      this.o.store.setStep(step.id, {
+        state: "failed",
+        reason,
+        grant: grant?.id ?? null,
+        finished_at: this.now(),
+      });
       return { step: step.id, outcome: "failed", reason, job: null };
     }
     const job = (a.body as { job?: number }).job ?? null;
@@ -184,7 +193,7 @@ export class Scheduler {
       state: "queued",
       reason: null,
       job,
-      grant: grant.id,
+      ...(grant ? { grant: grant.id } : {}),
       queued_at: this.now(),
     });
     return { step: step.id, outcome: "queued", reason: null, job };
@@ -283,6 +292,12 @@ export function inboxOf(store: LadderStore, subject: string): Record<string, unk
     grants: store
       .grants(subject)
       .filter((g) => g.revoked_at === null)
-      .map((g) => ({ id: g.id, door: g.door, created_at: new Date(g.created_at).toISOString() })),
+      .map((g) => ({
+        id: g.id,
+        door: g.door,
+        page: g.page,
+        words: g.words,
+        created_at: new Date(g.created_at).toISOString(),
+      })),
   };
 }

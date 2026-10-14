@@ -384,6 +384,7 @@ describe("the one agent", () => {
       "write",
       "registry_summary",
       "registry_search",
+      "subject_resolve",
       "registry_describe",
       "query_draft",
       "query_run_readonly",

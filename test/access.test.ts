@@ -80,10 +80,17 @@ describe("a person", () => {
       grants: [...SETS.reviewer.grants, "assistant:use"].sort(),
       detail: "quasi",
     });
+    // record 55, ruling 24: an admin, who may change people and groups, holds everything, the assistant too
     expect(await of({ roles: ["reader", "reviewer", "operator", "admin"] })).toMatchObject({
-      grants: SETS.admin.grants,
+      grants: EVERYTHING.grants,
       detail: "sensitive",
     });
+    expect(await of({ grants: ["identity:work", "data:see"], detail: "quasi" })).toMatchObject({
+      grants: EVERYTHING.grants,
+      detail: "sensitive",
+    });
+    // the one grant no set holds stays out unless the token names it
+    expect((await of({ grants: ["identity:work"], detail: "plain" }))?.grants).not.toContain("sealed:see");
     expect(await of({ roles: [] })).toMatchObject({ grants: [], detail: "plain" });
     // an engine serving with its authentication off gives everything
     expect(await of({ auth: "off", roles: ["reader"] })).toMatchObject({

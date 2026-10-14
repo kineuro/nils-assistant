@@ -6,12 +6,13 @@
 // the engine with the person's own token (the host's guard), never from a
 // model's arguments; the engine still authorises every call with that token.
 
-import { type Detail, holds } from "../host/grants.ts";
+import { type Detail, holds, isAdmin } from "../host/grants.ts";
 import type { SkillId } from "./route.ts";
 
 export const TOOL_ORDER = [
   "registry_summary",
   "registry_search",
+  "subject_resolve",
   "registry_describe",
   "query_draft",
   "query_run_readonly",
@@ -49,6 +50,8 @@ export interface Mounted {
   tools: ToolName[];
   skills: SkillId[];
   detail: Detail;
+  /** Record 55, ruling 24: an admin, whose access the assistant acts with, undiminished by a station's ceiling. */
+  admin?: boolean;
 }
 
 const any = (grants: readonly string[], ...need: string[]) => need.some((g) => holds(grants, g));
@@ -73,6 +76,8 @@ export function toolsFor(grants: readonly string[]): ToolName[] {
   const open: Record<ToolName, boolean> = {
     registry_summary: true,
     registry_search: query,
+    // record 55, ruling 24: whoever may use the data names a subject by an ID and gets its subject code
+    subject_resolve: query || any(grants, "data:see"),
     registry_describe:
       query || any(grants, "identity:see", "pipelines:see", "review:work", "data:work", "places:work"),
     query_draft: query,
@@ -93,7 +98,12 @@ export function toolsFor(grants: readonly string[]): ToolName[] {
 }
 
 export function mountFor(a: Access): Mounted {
-  return { tools: toolsFor(a.grants), skills: skillsFor(a.grants), detail: a.detail };
+  return {
+    tools: toolsFor(a.grants),
+    skills: skillsFor(a.grants),
+    detail: a.detail,
+    ...(isAdmin(a.grants) ? { admin: true } : {}),
+  };
 }
 
 const SKILL_WORDS: Record<SkillId, string> = {

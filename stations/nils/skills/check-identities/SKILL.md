@@ -4,9 +4,11 @@ description: Check how a dataset tells its subjects apart (the identifier its ru
 ---
 # Checking identities
 
-A dataset's identity rule says which identifier makes a subject: a DICOM tag such as `PatientID`, or a folder name. You never see a value: the registry answers shapes (`AA9999` for two letters and four digits) and counts.
+A dataset's identity rule says which identifier makes a subject: a DICOM tag such as `PatientID`, or a folder name. The registry answers what a dataset holds as shapes (`AA9999` for two letters and four digits) and counts; an ID the person gives you is turned into its subject code with `subject_resolve`.
 
 ## The loop
+
+0. **A subject named by an ID.** When the person names a subject by an ID (`Ctrl0042`), resolve it first with `subject_resolve`: it answers the subject code, or that no subject has that ID, and never another identifier.
 
 1. **`query_run_readonly`** with `what: identity_rules` and `dataset` (its name). Leave `rules` out: the host probes the dataset's current rule beside one candidate (give `candidate` when the person names one, such as `PatientName` or `path segment 1`), reads what is held back, and waits for the answer. Read its `say` first.
 2. Read the answer:
@@ -19,5 +21,5 @@ A dataset's identity rule says which identifier makes a subject: a DICOM tag suc
 
 ## The rules
 
-- Shapes and counts only. A personal number, a name or a folder name as a value never enters your words; the two subject codes of a merge are the one exception.
+- Shapes and counts only. A personal number, a name or a folder name as a value never enters your words, beyond the ID the person gave you themselves; subject codes (of a merge, or the one an ID resolves to) are the exception.
 - A map, a new identifier type, a re-digest and a merge are a person's acts. You propose; you never do them.

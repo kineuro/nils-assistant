@@ -15,6 +15,8 @@ export interface Dialled {
   method: string;
   path: string;
   body: unknown;
+  /** The request's headers, lower-cased, as the engine read them. */
+  headers?: Record<string, string | string[] | undefined>;
 }
 
 function text(req: IncomingMessage): Promise<string> {
@@ -37,6 +39,7 @@ export async function stubEngine(
       method: req.method ?? "",
       path: req.url ?? "",
       body: raw ? JSON.parse(raw) : null,
+      headers: req.headers,
     };
     seen.push(call);
     const a = answer(call) ?? { status: 404, body: { error: "no door" } };

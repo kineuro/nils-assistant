@@ -4,6 +4,17 @@ All notable changes to the NILS assistant are recorded here. The format follows 
 
 ## [Unreleased]
 
+### Added
+
+- `subject_resolve` (record 55, ruling 24): when a person names a subject by an ID (a study's own ID, a hospital ID), the one agent turns it into the subject code with the engine's `POST /api/linkage/resolve`, trying each ID type a person could name a subject by when they name none, and asks its question of that subject; an ID no subject has is said so, never answered for a whole cohort. The find-data and check-identities skills and the agent's rules say to resolve first. Tested on the question an admin asked of a ctrl-id, with a scripted model and a stub engine.
+- Standing grants may be given for a whole page (`{page}`) or for everything (`{all: true}`), and are answered in words with their page: `GET /grants` carries `admin`, each grant's `page` and `words`, the ladder's rows with theirs, and `offer`, the actions the person may give grouped by page. A held step's reason names the action in words, never a door.
+
+### Changed
+
+- An admin has full access to anything (record 55, ruling 24). A person holding `identity:work` is read as holding every grant at detail sensitive; their steps need no standing grant; and the one agent acting for them dials with the admin's own ceiling and content class, so a station's lower ceiling no longer turns an admin's answers into shapes. Everyone else keeps their grants, their detail and each station's ceiling.
+- The grants vocabulary is suite version 3: `campaigns:see`, `campaigns:work`, `models:see` and `models:work` are no longer dropped from a person's grants, so campaign actions can be given as standing grants, and `sealed:see` is kept where a token names it. The test vectors are suite version 3's.
+- The standing grants kept by door gain their page and words once (`grant_` gains `page` and `words`); the door stays the kept form.
+
 ### Changed
 
 - The bench, the evals and the tests name no real cohort (record 55, ruling 18): the seeded registry's third cohort is `cohort-d` (asked about as cohort D), the cohort the registry lacks is the Huntington cohort, and the memory guard's subject-code example is `STUDY-0012`. The briefs of analysis-plan and concierge, whose examples named a cohort, carry their new hashes, and the recorded runs under `bench/results` use the same names.

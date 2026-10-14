@@ -11,6 +11,7 @@ import { createServer, type IncomingMessage, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
+import { actionOf, covers, EVERYTHING_SCOPE, offerOf, pageScope, scopeWords } from "../src/host/actions.ts";
 import { SETS } from "../src/host/grants.ts";
 import {
   exceeds,
@@ -556,7 +557,9 @@ describe("the overnight instruction runs as a plan (bar 3)", () => {
     let fired = await scheduler.tick();
     expect(fired[0]).toMatchObject({
       outcome: "waiting",
-      reason: "no standing grant for POST /api/jobs; grant it under Settings and the step runs",
+      // record 55, ruling 24: what is missing is said in words, never as a door
+      reason:
+        "the assistant may not yet read, sort, pseudonymise and bring in data for you; give it under Standing grants and the step runs",
     });
     const g = store.grant(subject, "POST /api/jobs");
     fired = await scheduler.tick();
@@ -566,7 +569,7 @@ describe("the overnight instruction runs as a plan (bar 3)", () => {
     fired = await scheduler.tick();
     expect(fired.find((f) => f.step === store.steps("plan-half")[1].id)).toMatchObject({
       outcome: "waiting",
-      reason: expect.stringMatching(/no standing grant for POST \/api\/ask\/jobs/u),
+      reason: expect.stringMatching(/may not yet queue questions for you/u),
     });
     // revoke, and the door closes again
     expect(store.revoke(g.id, subject)?.revoked_at).not.toBeNull();
@@ -648,5 +651,122 @@ describe("the overnight instruction runs as a plan (bar 3)", () => {
     const fired = await scheduler.tick();
     expect(fired[0]).toMatchObject({ outcome: "waiting", reason: expect.stringMatching(/assist-run/u) });
     expect(e.seen.some((s) => s.method === "POST")).toBe(false);
+  });
+
+  it("record 55, ruling 24: a page's grant or everything stands for each of its steps, and an admin's steps need none", async () => {
+    const e = await stubEngine();
+    closers.push(() => e.server.close());
+    const { store, seamFor } = harness(e.url);
+    const plan = (id: string, subject: string) => {
+      store.plan({
+        id,
+        conversation: `c-${id}`,
+        subject,
+        instruction: "digest",
+        planned: planFrom([{ verb: "digest", args: { place: "scanner" } }], POLICY),
+      });
+      store.confirm(id, subject);
+    };
+    // a whole page: Data holds the job door the digest queues through
+    plan("plan-page", "anna@lab");
+    store.grant("anna@lab", pageScope("data"));
+    // everything at once
+    plan("plan-all", "bo@lab");
+    store.grant("bo@lab", EVERYTHING_SCOPE);
+    // an admin, with no standing grant at all
+    plan("plan-admin", "nima@lab");
+    // and a person with a grant for another page only waits, in words
+    plan("plan-other", "cy@lab");
+    store.grant("cy@lab", pageScope("places"));
+    const scheduler = new Scheduler({ store, seamFor, isAdmin: (s) => s === "nima@lab" });
+    const fired = await scheduler.tick();
+    const of = (id: string) => fired.find((f) => store.step(f.step)?.plan === id);
+    expect(of("plan-page")).toMatchObject({ outcome: "queued" });
+    expect(of("plan-all")).toMatchObject({ outcome: "queued" });
+    expect(of("plan-admin")).toMatchObject({ outcome: "queued" });
+    expect(of("plan-other")).toMatchObject({ outcome: "waiting" });
+    expect(of("plan-other")?.reason).not.toMatch(/\/api\//u);
+    // the admin's step is queued under no grant, the page's under its own
+    expect(store.steps("plan-admin")[0].grant).toBeNull();
+    expect(store.steps("plan-page")[0].grant).toBe(store.grantCovering("anna@lab", "POST /api/jobs")?.id);
+  });
+
+  it("record 55, ruling 24: every grant is kept with its words and page, and one kept by door before then gains them", () => {
+    const dir = mkdtempSync(join(tmpdir(), "ladder-words-"));
+    const path = join(dir, "ladder.sqlite");
+    // a ladder file as an older assistant left it: grants by door alone
+    {
+      const db = new LadderStore(path).db;
+      db.exec("DROP TABLE grant_");
+      db.exec(
+        "CREATE TABLE grant_ (id INTEGER PRIMARY KEY AUTOINCREMENT, subject TEXT NOT NULL, door TEXT NOT NULL, created_at INTEGER NOT NULL, revoked_at INTEGER)",
+      );
+      for (const door of [
+        "POST /api/linkage/imports",
+        "PUT /api/places/{id}",
+        "POST /api/campaigns/{id}/raters",
+      ])
+        db.prepare("INSERT INTO grant_ (subject, door, created_at) VALUES ('nima@lab', ?, 1)").run(door);
+      db.close();
+    }
+    const store = new LadderStore(path);
+    expect(store.grants("nima@lab").map((g) => [g.page, g.words])).toEqual([
+      ["data", "Bring in identifier maps"],
+      ["places", "Change places"],
+      ["campaigns", "Change a campaign's raters"],
+    ]);
+    // the kept door stays, so a step still finds its grant
+    expect(store.grantCovering("nima@lab", "PUT /api/places/{id}")?.words).toBe("Change places");
+    expect(store.grant("nima@lab", pageScope("data"))).toMatchObject({
+      page: "data",
+      words: "Everything on Data",
+    });
+    expect(store.grant("nima@lab", EVERYTHING_SCOPE)).toMatchObject({
+      page: null,
+      words: "Everything the assistant may do for you",
+    });
+    // words for a door the table has not got come from the engine's label, never the path
+    expect(
+      actionOf("POST /api/whatever", {
+        door: "POST /api/whatever",
+        grant: "review:work",
+        writes: true,
+        idempotent: true,
+        cost: "job",
+        label: { present: "Doing a thing" },
+      } as never),
+    ).toEqual({ page: "review", words: "Doing a thing" });
+    expect(scopeWords("POST /api/whatever", []).words).not.toMatch(/\/api\//u);
+    expect(covers(pageScope("data"), "POST /api/linkage/imports", [])).toBe(true);
+    expect(covers(pageScope("places"), "POST /api/linkage/imports", [])).toBe(false);
+  });
+
+  it("record 55, ruling 24: what a person may give is offered in words by page, campaigns among them, never beyond the person", () => {
+    const policy = [
+      ...POLICY,
+      { door: "POST /api/linkage/imports", grant: "data:work", writes: true, idempotent: false, cost: "job" },
+      { door: "PUT /api/places/{id}", grant: "places:work", writes: true, idempotent: true, cost: "bounded" },
+      {
+        door: "POST /api/campaigns/{id}/raters",
+        grant: "campaigns:work",
+        writes: true,
+        idempotent: true,
+        cost: "bounded",
+      },
+    ];
+    const admin = offerOf(policy, SETS.admin.grants);
+    expect(admin.map((p) => p.title)).toEqual(["Query", "Data", "Campaigns", "Places"]);
+    expect(admin.find((p) => p.page === "campaigns")?.actions).toEqual([
+      { door: "POST /api/campaigns/{id}/raters", words: "Change a campaign's raters" },
+    ]);
+    expect(admin.find((p) => p.page === "data")?.actions.map((a) => a.words)).toEqual([
+      "Read, sort, pseudonymise and bring in data",
+      "Rebuild the visits",
+      "Bring in identifier maps",
+    ]);
+    // a reader is offered what a reader holds, and no campaign
+    const reader = offerOf(policy, SETS.reader.grants);
+    expect(reader.map((p) => p.page)).toEqual(["query"]);
+    expect(JSON.stringify(admin.map((p) => p.actions.map((a) => a.words)))).not.toMatch(/\/api\//u);
   });
 });
