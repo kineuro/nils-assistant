@@ -4,6 +4,8 @@ All notable changes to the NILS assistant are recorded here. The format follows 
 
 ## [Unreleased]
 
+## [1.0.0-alpha.28] - 2026-10-14
+
 ### Added
 
 - A saved selection named with @ in the chat (record 55 K6), as a kept result is: the desk writes `@[name](selection:name%402)`, every station's mention rule names the kind, and the one chat is told each turn what the mentions of the message name and which of its tools reads each, where that tool is mounted for the person. `query_read_rows` takes `selection` (name@version): the selections list door's row for its name (its versions, grain, description and note, a newer version named), the question of the version asked, and its size as the newest answer that froze it whole says it, a size held back at the person's detail said as held; with `page`, that answer's rows. An analysis over it is planned with `selection: name@version`, as before. The one agent reads `GET /api/ask/selections` and `GET /api/ask/selections/{name}` on its own seam, under the person's token.
