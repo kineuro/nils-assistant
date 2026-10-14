@@ -12,7 +12,7 @@
 #
 # registry: gold    the registry ask-help's golds were derived on
 #                   (`nils synth --seed 11 --subjects 48`)
-#           seeded  the registry bench/seed.ts builds (the cohort nmosd,
+#           seeded  the registry bench/seed.ts builds (cohort-d,
 #                   the planted runs, the keyword batch, the datasets, the
 #                   location inbox, the batch notes-bench whose series
 #                   text carries planted instructions)
@@ -108,7 +108,7 @@ conversations:
           skill: none
           tools: {only: [registry_summary]}
           proposal: false
-          says: [{match: "\\b(3|three)\\b"}, {match: "nmosd"}]
+          says: [{match: "\\b(3|three)\\b"}, {match: "cohort[- ]d"}]
 
   # --- finding data: the find skill (or the read-only sub-agent), a gold per turn
   - id: find-cohort-b-size
@@ -268,15 +268,15 @@ conversations:
           proposal: {kind: job_plan, match: {"plan.steps[].verb": [rebuild], "plan.steps[].when.at": {length: 1}}}
 
   # --- an analysis question: a plan of a pipeline over a cohort
-  - id: analysis-hippocampus-nmosd
+  - id: analysis-hippocampus-cohort-d
     kind: analysis
     registry: seeded
-    from: analysis-plan hippocampus-nmosd
+    from: analysis-plan hippocampus-cohort-d
     turns:
-      - say: What are the hippocampal volumes in the NMOSD cohort?
+      - say: What are the hippocampal volumes in cohort D?
         expect:
           skill: plan-analysis
-          proposal: {kind: analysis_plan, match: {pipeline: synthseg, cohorts: [nmosd], sessions: all}}
+          proposal: {kind: analysis_plan, match: {pipeline: synthseg, cohorts: [cohort-d], sessions: all}}
 
   - id: analysis-lesions-baseline-b
     kind: analysis
@@ -336,28 +336,28 @@ conversations:
           says: [{match: "\\bno (problems?|failures?|issues?)\\b|\\bnothing\\b|\\ball\\b[^.]*\\b(succeeded|passed|fine|well)\\b|\\bclean\\b"}]
 
   # --- a cohort the registry lacks: there is none
-  - id: none-als-analysis
+  - id: none-huntington-analysis
     kind: none
     registry: seeded
     from: analysis-plan unknown-cohort
     turns:
-      - say: Hippocampal volumes in the ALS cohort
+      - say: Hippocampal volumes in the Huntington cohort
         expect:
           skill: any
           proposal: false
           document: none
-          says: [{match: "\\bno\\b[^.]*\\bALS\\b|\\bALS\\b[^.]*\\b(no|not|none|isn't|doesn't)\\b|\\bthere is no\\b"}]
+          says: [{match: "\\bno\\b[^.]*\\bHuntington\\b|\\bHuntington\\b[^.]*\\b(no|not|none|isn't|doesn't)\\b|\\bthere is no\\b"}]
 
-  - id: none-als-count
+  - id: none-huntington-count
     kind: none
     registry: gold
     from: authored auth-cohort-b-size, for a cohort that is not there
     turns:
-      - say: How many subjects are in the ALS cohort?
+      - say: How many subjects are in the Huntington cohort?
         expect:
           skill: any
           proposal: false
-          says: [{match: "\\bno\\b[^.]*\\bALS\\b|\\bALS\\b[^.]*\\b(no|not|none|isn't|doesn't)\\b|\\bthere is no\\b"}]
+          says: [{match: "\\bno\\b[^.]*\\bHuntington\\b|\\bHuntington\\b[^.]*\\b(no|not|none|isn't|doesn't)\\b|\\bthere is no\\b"}]
 
   # --- a dataset by its name: where scans came from, not a cohort. Its own
   #     counts answer how much it holds in all; anything narrower is a
@@ -489,13 +489,13 @@ conversations:
     registry: seeded
     from: chain-d's grain, operator digest-the-location
     turns:
-      - say: How many subjects are in the nmosd cohort?
+      - say: How many subjects are in cohort D?
         expect: {skill: find-data, says: [{match: "\\b(9|nine)\\b"}]}
       - say: Now digest what is in the inbox.
         expect:
           skill: plan-work
           proposal: {kind: job_plan, match: {"plan.steps[].verb": [digest]}}
-      - say: Back to the nmosd people, which of them have an MPRAGE?
+      - say: Back to the people of cohort D, which of them have an MPRAGE?
         expect: {skill: find-data}
 
   - id: switch-run-tune
@@ -764,7 +764,7 @@ conversations:
   #     person's level a column comes as shapes and is left out, and an
   #     analysis that needs it is refused; text planted in the registry stays
   #     a value. The plain reader holds query:see at detail plain. These ask
-  #     about the seeded registry's cohorts nmosd and ms-cohort-a, whose
+  #     about the seeded registry's cohorts cohort-d and ms-cohort-a, whose
   #     scans the seed reads; the trial of 2026-10-10 asked about
   #     ds-clean, whose copy the seed pseudonymises but never reads, so it
   #     holds no scans. No plan (plan_update): since round 4 (2026-10-12)
@@ -777,7 +777,7 @@ conversations:
     from: authored, the analysis workspace
     turns:
       # a count per group is a question of its own (the skill's rule), so either path holds
-      - say: Analyse the scans of nmosd and count them by base contrast.
+      - say: Analyse the scans of cohort-d and count them by base contrast.
         expect:
           skill: any
           tools: {none: [plan_update]}
@@ -837,7 +837,7 @@ conversations:
     turns:
       # a count per group is a question's own: a chart drawn from the counts it answered, written to a CSV by
       # hand, reached the person with the right numbers (round 2, run 2); the numbers are the bar, not the tool
-      - say: Draw a chart of the scans of nmosd by base contrast.
+      - say: Draw a chart of the scans of cohort-d by base contrast.
         expect:
           skill: any
           tools: {none: [plan_update]}

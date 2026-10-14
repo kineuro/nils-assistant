@@ -14,7 +14,7 @@ describe("the memory guard", () => {
   it("refuses a person's data by its shape, and names the shape", () => {
     for (const text of [
       "S-0001 is the index case",
-      "NMOSD-0012 dropped out",
+      "STUDY-0012 dropped out",
       "she was born 1961-04-02",
       "scanned on 02.04.1961",
       "personnummer 19610402-1234",
@@ -96,7 +96,7 @@ describe("a person's memory", () => {
     const said = rememberFor(notes, "anna@desk", { text: "prefers counts by cohort", asked: true });
     expect(said.part).toMatchObject({ kind: "memory", state: "saved", text: "prefers counts by cohort" });
     const id = notes.people("anna@desk")[0]?.id as number;
-    expect(rememberFor(notes, "anna@desk", { text: "NMOSD-0012 is hers", asked: true })).toMatchObject({
+    expect(rememberFor(notes, "anna@desk", { text: "STUDY-0012 is hers", asked: true })).toMatchObject({
       part: null,
       output: { refused: true },
     });

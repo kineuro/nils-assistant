@@ -268,11 +268,11 @@ describe("words that name a dataset", () => {
       /keep it: activate the find-data skill and draft the question with the dataset named\./u,
     );
     expect(hint).not.toMatch(/[<>&]/u);
-    const cohorts = ["ms-cohort-a", "nmosd"];
+    const cohorts = ["ms-cohort-a", "pilot"];
     expect(leavesDatasets("How many of them are 3D?", cohorts)).toBe(false);
     expect(leavesDatasets("Only those from 2020.", cohorts)).toBe(false);
     expect(leavesDatasets("How many subjects are in cohort B?", cohorts)).toBe(true);
-    expect(leavesDatasets("And in nmosd?", cohorts)).toBe(true);
+    expect(leavesDatasets("And in pilot?", cohorts)).toBe(true);
   });
 
   it("tell a count in all, which needs no question, from any other number", () => {
@@ -385,8 +385,8 @@ describe("an answer about a named dataset", () => {
   });
 
   it("is held only when the words named a dataset the facts list", async () => {
-    const t = newTurn("ds-none", "How many subjects are in the ALS cohort?");
-    t.texts.push("There is no ALS cohort, and no dataset called ALS either.");
+    const t = newTurn("ds-none", "How many subjects are in the Huntington cohort?");
+    t.texts.push("There is no Huntington cohort, and no dataset called Huntington either.");
     const out = await complaintsOf({
       turn: t,
       convo: conversationOf("ds-none"),

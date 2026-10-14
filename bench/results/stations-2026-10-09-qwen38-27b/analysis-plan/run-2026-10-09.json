@@ -15,13 +15,13 @@
   },
   "results": [
     {
-      "id": "hippocampus-nmosd",
+      "id": "hippocampus-cohort-d",
       "passed": true,
       "why": "",
       "terminal": "settled",
       "seconds": 18,
-      "conversation": "bench-hippocampus-nmosd-mv0tjw06",
-      "sentence": "I set up synthseg (robust) over the nmosd cohort, all sessions, to measure the left and right hippocampal volumes per session — it works on any clinical T1w and its own quality scores are the checks. Pre-flight: 0 of 0 units ready, about 0 min, no GPU; it is blocked because no stack of the selection is picked yet, so the input release would hold no subject's images — nils pick run picks them. You start it with Run."
+      "conversation": "bench-hippocampus-cohort-d-mv0tjw06",
+      "sentence": "I set up synthseg (robust) over cohort D, all sessions, to measure the left and right hippocampal volumes per session — it works on any clinical T1w and its own quality scores are the checks. Pre-flight: 0 of 0 units ready, about 0 min, no GPU; it is blocked because no stack of the selection is picked yet, so the input release would hold no subject's images — nils pick run picks them. You start it with Run."
     },
     {
       "id": "lesions-ms-a-over-time",

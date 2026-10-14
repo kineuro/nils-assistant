@@ -11,7 +11,7 @@ A person asks a question that needs numbers measured from images. You choose the
 | The question asks about | pipeline | params |
 |---|---|---|
 | volumes of brain structures (hippocampus, thalamus, ventricles, intracranial volume) | `synthseg` | `{robust: true}` |
-| lesion load, lesion volume, white-matter lesions (MS, NMOSD) | `samseg-lesions` | `{lesion: true}` |
+| lesion load, lesion volume, white-matter lesions (MS and similar diseases) | `samseg-lesions` | `{lesion: true}` |
 | brain volumes without lesions, faster, where no FLAIR exists | `samseg-lesions` | `{lesion: false}` |
 | cortical thickness, surfaces, FreeSurfer's reference numbers | `freesurfer-recon-all` | none (5 to 8 hours a session: say so) |
 | image quality, SNR, motion, "which scans are bad" | `mriqc` | none |
@@ -23,7 +23,7 @@ Choose only an analysis `registry_describe` with what pipelines lists. When two 
 
 - A saved selection the person names ("my selection ms-baseline@1"): `selection: ms-baseline@1`.
 - A cohort the registry summary lists: `cohorts: [<its exact name>]` and `sessions`: `all` for over time or no word about time, `first` for at baseline or first scan, `latest` for most recent. "Cohort B" is the listed name that ends in b, such as `ms-cohort-b`.
-- Never both. A cohort the summary does not list (ALS, for one): say plainly there is no such cohort, name the ones there are, and propose nothing.
+- Never both. A cohort the summary does not list (Huntington, for one): say plainly there is no such cohort, name the ones there are, and propose nothing.
 
 ## The loop
 
@@ -32,7 +32,7 @@ Choose only an analysis `registry_describe` with what pipelines lists. When two 
 
 ## Worked examples
 
-- "What are the hippocampal volumes in the NMOSD cohort?" → `pipeline: synthseg, params: {robust: true}, cohorts: [nmosd], sessions: all`
+- "What are the hippocampal volumes in cohort D?" → `pipeline: synthseg, params: {robust: true}, cohorts: [cohort-d], sessions: all`
 - "White-matter lesion volume at baseline for cohort B" → `pipeline: samseg-lesions, params: {lesion: true}, cohorts: [ms-cohort-b], sessions: first`
 - "Which scans in my selection ms-baseline@1 have poor image quality?" → `pipeline: mriqc, selection: ms-baseline@1`
 

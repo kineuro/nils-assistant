@@ -12,16 +12,16 @@
 cohorts:
   - {name: ms-cohort-a, subjects: 24, sessions: 71, stacks: 640}
   - {name: ms-cohort-b, subjects: 24, sessions: 66, stacks: 590}
-  - {name: nmosd, subjects: 9, sessions: 27, stacks: 230}
+  - {name: cohort-d, subjects: 9, sessions: 27, stacks: 230}
 
 selections: [ms-baseline@1, every-t1@2]
 
 cases:
-  - id: hippocampus-nmosd
-    question: What are the hippocampal volumes in the NMOSD cohort?
+  - id: hippocampus-cohort-d
+    question: What are the hippocampal volumes in cohort D?
     expect:
       pipeline: synthseg
-      cohorts: [nmosd]
+      cohorts: [cohort-d]
       sessions: all
     preflight: {total: 27, ready: 26, missing: [{why: "no live pick of role t1w", units: 1}], minutes: 135}
 
@@ -107,6 +107,6 @@ cases:
     preflight: {total: 137, ready: 135, missing: [{why: "no live pick of role t1w", units: 2}], minutes: 685}
 
   - id: unknown-cohort
-    question: Hippocampal volumes in the ALS cohort
+    question: Hippocampal volumes in the Huntington cohort
     expect:
       plan: false

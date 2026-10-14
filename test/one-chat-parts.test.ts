@@ -88,12 +88,12 @@ describe("the routing hint", () => {
     ["What clinical scores are recorded?", null, true],
     ["How many cohorts are there now, and what is the newest one called?", null, true],
     ["How many subjects are in cohort B?", "find-data", false],
-    ["Back to the nmosd people, which of them have an MPRAGE?", "find-data", false],
+    ["Back to the people of cohort D, which of them have an MPRAGE?", "find-data", false],
     ["Digest what is in the inbox.", "plan-work", false],
     ["Now digest what is in the inbox.", "plan-work", false],
     ["Rebuild the sessions tonight at 02:00 UTC.", "plan-work", false],
     ["Erase subject SYN0005 and everything derived from it.", "plan-work", false],
-    ["What are the hippocampal volumes in the NMOSD cohort?", "plan-analysis", false],
+    ["What are the hippocampal volumes in cohort D?", "plan-analysis", false],
     ["Which scans in my selection ms-baseline@1 have poor image quality?", "plan-analysis", false],
     ["How did run 12 go?", "read-run", false],
     ["Thanks. And in that run, how many units failed?", "read-run", false],
@@ -465,31 +465,31 @@ describe("searching the registry's names", () => {
 
   it("says when each cohort was made, in the summary, the search and the cohorts' list (round 4, 2026-10-12)", () => {
     const cohorts = [
-      { name: "nmosd", members: 9, created_at: "2026-10-12T08:01:09Z" },
+      { name: "cohort-d", members: 9, created_at: "2026-10-12T08:01:09Z" },
       { name: "ms-cohort-a", members: 24, created_at: "2026-10-12T08:01:02Z" },
       { name: "ms-cohort-b", members: 24, created_at: "2026-10-12T08:01:02Z" },
     ];
     const text = renderCatalog({ cohorts } as never);
     expect(text).toContain(
-      "Cohorts (by name): nmosd (9 members), ms-cohort-a (24 members), ms-cohort-b (24 members)",
+      "Cohorts (by name): cohort-d (9 members), ms-cohort-a (24 members), ms-cohort-b (24 members)",
     );
     // oldest first, a tie in the catalog's order
     expect(text).toContain(
-      "Cohorts in the order they were made: ms-cohort-a (made 2026-10-12 08:01:02), ms-cohort-b (made 2026-10-12 08:01:02), nmosd (made 2026-10-12 08:01:09)",
+      "Cohorts in the order they were made: ms-cohort-a (made 2026-10-12 08:01:02), ms-cohort-b (made 2026-10-12 08:01:02), cohort-d (made 2026-10-12 08:01:09)",
     );
     // an engine that does not say it: no such line
     expect(renderCatalog({ cohorts: [{ name: "a", members: 1 }] } as never)).not.toContain(
       "order they were made",
     );
-    expect(searchCatalog({ cohorts } as never, "nmosd")).toContain(
-      "cohort nmosd (9 members, made 2026-10-12 08:01:09)",
+    expect(searchCatalog({ cohorts } as never, "cohort-d")).toContain(
+      "cohort cohort-d (9 members, made 2026-10-12 08:01:09)",
     );
     const listed = cohortsOf([
-      { name: "nmosd", subjects: 9, sessions: 34, created_at: "2026-10-12T08:01:09Z" },
+      { name: "cohort-d", subjects: 9, sessions: 34, created_at: "2026-10-12T08:01:09Z" },
     ]);
-    expect(listed).toEqual([{ name: "nmosd", subjects: 9, sessions: 34, made: "2026-10-12 08:01:09" }]);
+    expect(listed).toEqual([{ name: "cohort-d", subjects: 9, sessions: 34, made: "2026-10-12 08:01:09" }]);
     expect(cohortsText(listed)).toBe(
-      "The cohorts: nmosd (9 subjects, 34 sessions, made 2026-10-12 08:01:09).",
+      "The cohorts: cohort-d (9 subjects, 34 sessions, made 2026-10-12 08:01:09).",
     );
   });
 
@@ -641,13 +641,13 @@ describe("a proposed change, decided by the person", () => {
       runScope(["run", "synthseg@2", "--select", "selection:ms-t1@3", "--param", "robust=true"], null),
     ).toEqual(["runs over the selection ms-t1@3", "settings: robust=true"]);
     expect(
-      runScope(["run", "synthseg@2", "--handle", "55"], { cohorts: ["nmosd", "ms"], sessions: "first" }),
+      runScope(["run", "synthseg@2", "--handle", "55"], { cohorts: ["cohort-d", "ms"], sessions: "first" }),
     ).toEqual([
-      "runs over the first session of each subject of nmosd and ms",
+      "runs over the first session of each subject of cohort-d and ms",
       "settings: the analysis's own defaults",
     ]);
     // no run to queue, nothing to name
-    expect(runScope(null, { cohorts: ["nmosd"], sessions: "all" })).toEqual([]);
+    expect(runScope(null, { cohorts: ["cohort-d"], sessions: "all" })).toEqual([]);
   });
 
   it("tells a stranger nothing of a change and keeps none of their token: whose it is comes first (2026-10-10)", async () => {

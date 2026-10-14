@@ -5,7 +5,7 @@
 // analysis-plan and run-read ask of it.
 //
 // - analysis-plan (stations/analysis-plan/evals/cases.yml): the cohorts
-//   `ms-cohort-a` and `ms-cohort-b` (synth makes them), `nmosd` (made here,
+//   `ms-cohort-a` and `ms-cohort-b` (synth makes them), `cohort-d` (made here,
 //   nine synthetic subjects), the saved selections `ms-baseline@1` and
 //   `every-t1@2`, and the starter catalog seeded.
 // - run-read (stations/run-read/evals/runs.json): the three planted runs of
@@ -77,8 +77,8 @@ export const PLANTED_BATCH = "planted-bench";
 /** The key phrase of the seeded registry: made up, and only ever this registry's. */
 const KEY_PHRASE = "the nils bench synthetic registry\n";
 
-/** The nine synthetic subjects of the made-up `nmosd` cohort: the last nine synth makes. */
-export const NMOSD = Array.from({ length: 9 }, (_, i) => `SYN${String(40 + i).padStart(4, "0")}`);
+/** The nine synthetic subjects of the made-up `cohort-d` cohort: the last nine synth makes. */
+export const COHORT_D = Array.from({ length: 9 }, (_, i) => `SYN${String(40 + i).padStart(4, "0")}`);
 
 const t1 = (where: unknown[] = []) => [
   ["=", {}, ["axis", {}, "technique"], "MPRAGE"],
@@ -248,11 +248,11 @@ export async function seed(o: Options): Promise<Record<string, unknown>> {
     "clinical",
     "cohort",
     "make",
-    "nmosd",
+    "cohort-d",
     "--description",
     "a made-up cohort of the bench: nine synthetic subjects",
   ]);
-  nils(["clinical", "cohort", "add", "nmosd", ...NMOSD, "--why", "the bench's synthetic cohort"]);
+  nils(["clinical", "cohort", "add", "cohort-d", ...COHORT_D, "--why", "the bench's synthetic cohort"]);
   const selections: string[] = [];
   for (const [i, s] of SELECTIONS.entries()) {
     const out = nils([
@@ -448,7 +448,7 @@ export async function seed(o: Options): Promise<Record<string, unknown>> {
   const seeded = {
     at: new Date().toISOString(),
     registry,
-    cohorts: ["ms-cohort-a", "ms-cohort-b", "nmosd"],
+    cohorts: ["ms-cohort-a", "ms-cohort-b", "cohort-d"],
     selections,
     runs,
     RUNS: runs.map((r) => `${r.run}:${r.case}`).join(","),

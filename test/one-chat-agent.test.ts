@@ -63,7 +63,7 @@ const JOBS = [
   {
     id: 57,
     kind: "pipeline",
-    name: "synthseg over nmosd",
+    name: "synthseg over cohort-d",
     state: "running",
     started_at: "2026-10-08 22:00:00",
   },
@@ -236,7 +236,7 @@ const engine = await stubEngine((c) => {
         ],
       },
     };
-  if (p === "/api/cohorts") return { body: [{ name: "nmosd", subjects: 9, sessions: 20 }] };
+  if (p === "/api/cohorts") return { body: [{ name: "cohort-d", subjects: 9, sessions: 20 }] };
   if (p === "/api/sources")
     return {
       body: {
@@ -808,7 +808,7 @@ describe("the one agent", () => {
           kind: "analysis_plan",
           pipeline: "synthseg",
           params: { robust: true },
-          cohorts: ["nmosd"],
+          cohorts: ["cohort-d"],
           sessions: "all",
           question: "hippocampal volumes",
           why: "volumes",
@@ -816,15 +816,15 @@ describe("the one agent", () => {
         },
       },
       {
-        text: "I propose synthseg over the nmosd cohort: 18 of 20 units are ready; it runs when you approve it.",
+        text: "I propose synthseg over cohort D: 18 of 20 units are ready; it runs when you approve it.",
       },
     ]);
     const h = init(Nils, { id: "oc-analysis" });
-    await h.read(await h.dispatch("What are the hippocampal volumes in the NMOSD cohort?"));
+    await h.read(await h.dispatch("What are the hippocampal volumes in cohort D?"));
     const out = JSON.stringify(seen[2].messages.filter((m) => m.role === "toolResult"));
     expect(out).toMatch(/"kind":"analysis_plan"/u);
     expect(out).toMatch(/"pipeline":"synthseg"/u);
-    expect(out).toMatch(/"cohorts":\["nmosd"\]/u);
+    expect(out).toMatch(/"cohorts":\["cohort-d"\]/u);
     expect(out).toMatch(/"sessions":"all"/u);
     const [c] = theChanges().of("oc-analysis");
     expect(c.kind).toBe("analysis_plan");
@@ -832,7 +832,7 @@ describe("the one agent", () => {
     expect(c.payload.command).toEqual(["run", "synthseg@2", "--handle", "55", "--param", "robust=true"]);
     // the card names whom the queued run covers and its settings, not only the model's sentence (2026-10-10)
     const card = recorded("oc-analysis");
-    expect(card).toMatch(/runs over every session of nmosd/u);
+    expect(card).toMatch(/runs over every session of cohort-d/u);
     expect(card).toMatch(/settings: robust=true/u);
     expect(engine.seen.some((x) => x.method === "POST" && x.path === "/api/jobs")).toBe(false);
     expect(recorded("oc-analysis")).toMatch(/"change":"job_plan"/u);
@@ -881,7 +881,7 @@ describe("the one agent tells what is true now (2026-10-09)", () => {
     expect(jobs[10]).toEqual({
       id: 57,
       kind: "pipeline",
-      name: "synthseg over nmosd",
+      name: "synthseg over cohort-d",
       state: "running",
       started_at: "2026-10-08 22:00:00",
     });
