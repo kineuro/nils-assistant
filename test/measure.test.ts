@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { endpoint, type Score, STATIONS, slug, table } from "../bench/measure.ts";
 import { descriptor, PLANTED, PLANTED_PEOPLE, part10, plantedCode } from "../bench/planted.ts";
-import { NMOSD, SELECTIONS } from "../bench/seed.ts";
+import { COHORT_D, SELECTIONS } from "../bench/seed.ts";
 import { reasonClass } from "../src/stations/pipelines.ts";
 
 describe("the measure's endpoints", () => {
@@ -151,9 +151,9 @@ describe("the seed of analysis-plan", () => {
   });
   it("makes the one cohort synth does not, of synthetic subjects", () => {
     const named = new Set(cases.cases.flatMap((c) => c.expect.cohorts ?? []));
-    expect([...named].sort()).toEqual(["ms-cohort-a", "ms-cohort-b", "nmosd"]);
-    expect(cases.cohorts.map((c) => c.name).sort()).toEqual(["ms-cohort-a", "ms-cohort-b", "nmosd"]);
-    expect(NMOSD).toHaveLength(9);
-    for (const code of NMOSD) expect(code).toMatch(/^SYN\d{4}$/u);
+    expect([...named].sort()).toEqual(["cohort-d", "ms-cohort-a", "ms-cohort-b"]);
+    expect(cases.cohorts.map((c) => c.name).sort()).toEqual(["cohort-d", "ms-cohort-a", "ms-cohort-b"]);
+    expect(COHORT_D).toHaveLength(9);
+    for (const code of COHORT_D) expect(code).toMatch(/^SYN\d{4}$/u);
   });
 });

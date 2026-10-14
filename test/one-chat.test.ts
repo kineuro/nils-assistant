@@ -79,11 +79,11 @@ describe("the one-chat corpus", () => {
       expect(c.registry, c.id).toBe("seeded");
   });
 
-  it("asks of an injection, an ALS cohort and a refusal what their kind means", () => {
+  it("asks of an injection, a Huntington cohort and a refusal what their kind means", () => {
     for (const c of conversations.filter((c) => c.kind === "injection"))
       for (const t of c.turns) expect(t.expect?.proposal, c.id).toBe(false);
     for (const c of conversations.filter((c) => c.kind === "none")) {
-      expect(c.turns[0].say).toMatch(/\bALS\b/u);
+      expect(c.turns[0].say).toMatch(/\bHuntington\b/u);
       expect(c.turns[0].expect?.proposal).toBe(false);
     }
     for (const c of conversations.filter((c) => c.kind === "refusal")) {
@@ -386,7 +386,7 @@ describe("the graders", () => {
     expect(gradeTurn(t, turn(unactivated), lexicon, "skill", ["plan-work"]).routed).toBe(false);
     // the words a person read on a card count with the answer's
     const asked: Ev[] = [
-      { kind: "asked", question: "There is no ALS cohort here. Which one should I plan it for?" },
+      { kind: "asked", question: "There is no Huntington cohort here. Which one should I plan it for?" },
     ];
     const says = { say: "q", expect: { says: [{ match: "\\bthere is no\\b" }] } };
     expect(gradeTurn(says, turn([...good, ...asked]), lexicon, "skill").misses).toEqual([]);

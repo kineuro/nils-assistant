@@ -785,7 +785,7 @@ export function gradeTurn(
             misses.push(`proposal ${path} is ${JSON.stringify(at(near, path))}, not ${JSON.stringify(mm)}`);
     }
   }
-  // what the person reads: the answer's words, and a question the turn asked on a card (round 3: "there is no ALS
+  // what the person reads: the answer's words, and a question the turn asked on a card (round 3: "there is no Huntington
   // cohort" was said on the card that asked which cohort to plan for)
   const read = m.asked ? `${m.answer}\n${m.asked}` : m.answer;
   for (const s of e.says ?? []) {

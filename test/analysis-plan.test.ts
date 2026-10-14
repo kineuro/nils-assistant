@@ -165,8 +165,8 @@ describe("the catalog, read for choosing", () => {
     );
   });
   it("writes the ask of a set of cohorts as stacks of their sessions, all or each subject's first or latest, projecting only a stack's id", () => {
-    const all = cohortDocument(["nmosd"], "all", "x") as { sets: Record<string, Record<string, unknown>> };
-    expect(all.sets.scope.where).toEqual([["=", {}, ["field", {}, "name"], "nmosd"]]);
+    const all = cohortDocument(["cohort-d"], "all", "x") as { sets: Record<string, Record<string, unknown>> };
+    expect(all.sets.scope.where).toEqual([["=", {}, ["field", {}, "name"], "cohort-d"]]);
     expect(all.sets.visits).toEqual({ grain: "session", of: "people" });
     expect(all.sets.stacks).toEqual({ grain: "stack", of: "visits" });
     const latest = cohortDocument(["a", "b"], "latest", "y") as {
@@ -217,12 +217,14 @@ describe("the fixture set: each question becomes a runnable document", () => {
         // the cohort the question names is not listed: no plan, and the refusal names the cohorts there are
         const out = (
           await tool("plan_run").run(
-            { ...args, cohorts: ["als"], sessions: "all" },
+            { ...args, cohorts: ["huntington"], sessions: "all" },
             toolContext(seam, conversation, "read"),
           )
         ).output as { refused?: boolean; why?: string };
         expect(out.refused).toBe(true);
-        expect(out.why).toBe("no cohort named als; the cohorts are ms-cohort-a, ms-cohort-b, nmosd");
+        expect(out.why).toBe(
+          "no cohort named huntington; the cohorts are ms-cohort-a, ms-cohort-b, cohort-d",
+        );
         expect(e.seen.some((s) => s.path.startsWith("/api/ask/draft"))).toBe(false);
         return;
       }
@@ -305,14 +307,14 @@ describe("the fixture set: each question becomes a runnable document", () => {
         toolContext(seam, "ap-refusals", "read"),
       );
     expect(
-      ((await run({ selection: "ms-baseline@1", cohorts: ["nmosd"] })).output as { why: string }).why,
+      ((await run({ selection: "ms-baseline@1", cohorts: ["cohort-d"] })).output as { why: string }).why,
     ).toMatch(/not both, not neither/u);
     expect(((await run({})).output as { why: string }).why).toMatch(/not both, not neither/u);
-    expect(((await run({ cohorts: ["nmosd"], params: { threads: 0 } })).output as { why: string }).why).toBe(
-      "threads is from 1 to 32, not 0",
-    );
     expect(
-      ((await run({ pipeline: "fastsurfer", cohorts: ["nmosd"] })).output as { why: string }).why,
+      ((await run({ cohorts: ["cohort-d"], params: { threads: 0 } })).output as { why: string }).why,
+    ).toBe("threads is from 1 to 32, not 0");
+    expect(
+      ((await run({ pipeline: "fastsurfer", cohorts: ["cohort-d"] })).output as { why: string }).why,
     ).toMatch(/^no pipeline fastsurfer in the catalog; it holds /u);
     // a saved selection the engine does not know is refused with the engine's words, not planned
     expect(((await run({ selection: "nobody@1" })).output as { why: string }).why).toMatch(/no selection/u);

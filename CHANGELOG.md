@@ -4,6 +4,10 @@ All notable changes to the NILS assistant are recorded here. The format follows 
 
 ## [Unreleased]
 
+### Changed
+
+- The bench, the evals and the tests name no real cohort (record 55, ruling 18): the seeded registry's third cohort is `cohort-d` (asked about as cohort D), the cohort the registry lacks is the Huntington cohort, and the memory guard's subject-code example is `STUDY-0012`. The briefs of analysis-plan and concierge, whose examples named a cohort, carry their new hashes, and the recorded runs under `bench/results` use the same names.
+
 ## [1.0.0-alpha.28] - 2026-10-14
 
 ### Added

@@ -14,7 +14,7 @@ const RULES: { test: RegExp; why: string; series?: true }[] = [
   { test: /\b(?:19|20)\d{2}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])\b/u, why: "a full date" },
   { test: /\b(?:0?[1-9]|[12]\d|3[01])[./](?:0?[1-9]|1[0-2])[./](?:19|20)?\d{2}\b/u, why: "a full date" },
   { test: /[\w.+-]+@[\w-]+\.[\w.-]+/u, why: "an e-mail address" },
-  // letters, perhaps a dash, and three to six digits that are not a year: S-0001, NMOSD-0012
+  // letters, perhaps a dash, and three to six digits that are not a year: S-0001, STUDY-0012
   { test: /\b[A-Za-z]{1,5}[-_]?(?!(?:19|20)\d{2}\b)\d{3,6}\b/u, why: "what looks like a subject code" },
   {
     test: /\b[A-Za-z0-9]+(?:_[A-Za-z0-9]+){2,}\b/u,

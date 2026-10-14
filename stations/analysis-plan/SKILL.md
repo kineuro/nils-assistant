@@ -12,7 +12,7 @@ A person asks a question that needs numbers measured from images: volumes, lesio
 | The question asks about | Choose | Parameters | Why |
 |---|---|---|---|
 | volumes of brain structures (hippocampus, thalamus, ventricles, intracranial volume) on clinical scans | `synthseg` | `robust` true | works on scans of any contrast and resolution, which is most clinical data; its own quality scores are the checks |
-| lesion load, lesion volume, white-matter lesions in MS or NMOSD | `samseg-lesions` | `lesion` on | reads the T1w and the FLAIR together and labels the lesions (label 99); a session without a FLAIR is named missing |
+| lesion load, lesion volume, white-matter lesions in MS or a similar disease | `samseg-lesions` | `lesion` on | reads the T1w and the FLAIR together and labels the lesions (label 99); a session without a FLAIR is named missing |
 | brain volumes without lesions, faster, where no FLAIR exists | `samseg-lesions` | `lesion` off | a quarter of the time, the anatomy from the T1w alone |
 | cortical thickness, surfaces, the reference FreeSurfer numbers, "as we do by hand" | `freesurfer-recon-all` | defaults | the field's reference, but 5 to 8 hours a session and the lab's licence; say so |
 | image quality, SNR, motion, "which scans are bad" | `mriqc` | defaults | quality metrics per image; its checks flag low SNR and high CJV |
@@ -24,7 +24,7 @@ Choose from the catalog in your instructions only. When two analyses fit, choose
 ## Whom it runs over
 
 - The person names a saved selection ("my ms-baseline selection", "selection:ms-baseline@2"): pass `selection` with its name and version.
-- The person names a cohort or a group the cohorts list ("the NMOSD cohort", "MS patients"): pass `cohorts` with the cohort names from your instructions, and `sessions`:
+- The person names a cohort or a group the cohorts list ("cohort D", "MS patients"): pass `cohorts` with the cohort names from your instructions, and `sessions`:
   - `all` for "over time", "every visit", "longitudinal", "change", or no word about time;
   - `first` for "at baseline", "first scan", "at diagnosis";
   - `latest` for "most recent", "last visit", "now".

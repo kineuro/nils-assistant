@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // analysis-plan (record 49 A5): a person's question about their images
-// ("hippocampal volumes in the NMOSD cohort", "lesion load in MS patients
+// ("hippocampal volumes in cohort D", "lesion load in MS patients
 // over time") becomes a run document: whom to run over (a saved selection,
 // or the ask a set of cohorts becomes), which analysis at which version,
 // its parameters, and the engine's pre-flight of that run (units, missing

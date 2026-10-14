@@ -8,7 +8,7 @@ Record 49 A5's bar: a question about images becomes a runnable document at the s
 
 ## Live
 
-`bench/seed.ts` builds the registry the cases name: the synthetic registry with `ms-cohort-a` and `ms-cohort-b`, the cohort `nmosd` (nine synthetic subjects), the saved selections `ms-baseline@1` (cohort A's T1 at the first session) and `every-t1@2` (version 1 the one-millimetre T1, version 2 every T1), and the starter catalog seeded. Serve it, point an assistant host whose model is the local 27B at it, and measure:
+`bench/seed.ts` builds the registry the cases name: the synthetic registry with `ms-cohort-a` and `ms-cohort-b`, `cohort-d` (nine synthetic subjects), the saved selections `ms-baseline@1` (cohort A's T1 at the first session) and `every-t1@2` (version 1 the one-millimetre T1, version 2 every T1), and the starter catalog seeded. Serve it, point an assistant host whose model is the local 27B at it, and measure:
 
 ```sh
 npm run bench:measure -- --model <name> --assistant http://127.0.0.1:<port> --engine http://127.0.0.1:<port> --stations analysis-plan

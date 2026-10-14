@@ -15,13 +15,13 @@
   },
   "results": [
     {
-      "id": "hippocampus-nmosd",
+      "id": "hippocampus-cohort-d",
       "passed": true,
       "why": "",
       "terminal": "settled",
       "seconds": 24,
-      "conversation": "bench-hippocampus-nmosd-mv03m07g",
-      "sentence": "I've recorded a plan to measure the left and right hippocampal volumes (in mm3) for every session of the NMOSD cohort with SynthSeg (robust), the analysis that works on clinical T1w scans of any contrast or resolution and reports its own quality scores as checks — FreeSurfer would give the same volumes but at about 7 hours a session and under the lab's licence, so I chose the cheaper one. The pre-flight shows synthseg@1 with 0 of 0 units ready, about 0 min, no GPU needed; it is not ready yet because no stack of the selection is picked, so the release of the input would hold no subject's images — nils pick run picks them. You start it with Run."
+      "conversation": "bench-hippocampus-cohort-d-mv03m07g",
+      "sentence": "I've recorded a plan to measure the left and right hippocampal volumes (in mm3) for every session of cohort D with SynthSeg (robust), the analysis that works on clinical T1w scans of any contrast or resolution and reports its own quality scores as checks — FreeSurfer would give the same volumes but at about 7 hours a session and under the lab's licence, so I chose the cheaper one. The pre-flight shows synthseg@1 with 0 of 0 units ready, about 0 min, no GPU needed; it is not ready yet because no stack of the selection is picked, so the release of the input would hold no subject's images — nils pick run picks them. You start it with Run."
     },
     {
       "id": "lesions-ms-a-over-time",
@@ -120,7 +120,7 @@
       "terminal": "settled",
       "seconds": 48,
       "conversation": "bench-unknown-cohort-mv03rdf7",
-      "sentence": "There is no ALS cohort in your list (only ms-cohort-a, ms-cohort-b and nmosd), so I planned synthseg (robust) over the closest motor-neuron disease group, nmosd, all 34 sessions, to measure the left and right hippocampus volumes in about 5 minutes a session; no pre-flight was taken because the ask for the cohorts left no handle to check the run over. You start it with Run — and tell me if you meant a different cohort or that the ALS data should be added."
+      "sentence": "There is no Huntington cohort in your list (only ms-cohort-a, ms-cohort-b and cohort-d), so I planned synthseg (robust) over the closest motor-neuron disease group, cohort-d, all 34 sessions, to measure the left and right hippocampus volumes in about 5 minutes a session; no pre-flight was taken because the ask for the cohorts left no handle to check the run over. You start it with Run — and tell me if you meant a different cohort or that the Huntington data should be added."
     }
   ]
 }
