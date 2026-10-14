@@ -1310,7 +1310,7 @@ app.post("/plans/:id/proposals/:n/decide", async (ctx) => {
 registerStation({
   id: "one-decide",
   version: c.version,
-  grant: { jobs: {}, overlays: {}, "linkage/merge": {}, capabilities: {} },
+  grant: { jobs: {}, overlays: {}, "packs/{name}/proposals": {}, "linkage/merge": {}, capabilities: {} },
   ceiling: "operator",
   content: "catalog",
   model: "none",

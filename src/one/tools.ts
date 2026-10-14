@@ -44,14 +44,7 @@ import {
   typeNames,
   usesPath,
 } from "../stations/identity-check.ts";
-import {
-  diffOf,
-  listName,
-  listsOfPack,
-  overlayOf,
-  type Prediction,
-  valuesOf,
-} from "../stations/keyword-tune.ts";
+import { diffOf, listName, listsOfPack, type Prediction, valuesOf } from "../stations/keyword-tune.ts";
 import { forgetFor, type MemoryPart, recallFor, rememberFor } from "../stations/memory.ts";
 import { ladderStore, policyOf } from "../stations/operator.ts";
 import {
@@ -165,6 +158,8 @@ const derived = new Map<string, Station>();
 /** The doors the one agent reads beyond a station's own: a dataset's steps (its summary) beside the datasets. */
 const BEYOND: Partial<Record<SeamId, Station["grant"]>> = {
   "identity-check": { "datasets/{name}/summary": { calls: 12 } },
+  // record 56: a word is rehearsed as a typed rule change, at the pack's rehearse door
+  "keyword-tune": { "packs/{name}/rehearse": { calls: 12 } },
   // record 55 K6: a saved selection named with @ is read like a kept answer, its row of the list and its version
   "ask-help": { selections: { calls: 12 }, "selections/{name}": { calls: 12 } },
 };
@@ -814,13 +809,117 @@ async function measuresOf(ctx: ToolCtx, document: number): Promise<JsonValue | n
 
 const RUN_WHAT = ["document", "sorting_words", "identity_rules"] as const;
 
-/** The overlay's own scope, from the scope rehearsed over: a batch by its id, an origin by its manufacturer. */
-export function overlayScope(scope: string): Record<string, string> {
-  const [kind, rest] = [scope.slice(0, scope.indexOf(":")), scope.slice(scope.indexOf(":") + 1)];
-  if (kind === "batch" && rest) return { batch: rest };
-  if (kind === "origin" && rest) return { manufacturer: rest };
-  if (["manufacturer", "model", "station"].includes(kind) && rest) return { [kind]: rest };
-  return {};
+/**
+ * The scope of a rule change (record 56, contracts/patch/v1) from the scope the person named: a batch by its id, a
+ * maker (`origin:` or `manufacturer:`), a model or a station as a scanner, a dataset or a site by its name, or the
+ * whole pack. Null for anything else.
+ */
+export function patchScope(scope: string): string | null {
+  const s = scope.trim();
+  if (s === "pack") return "pack";
+  const at = s.indexOf(":");
+  if (at < 0) return null;
+  const kind = s.slice(0, at).trim();
+  const rest = s.slice(at + 1).trim();
+  if (!rest) return null;
+  if (kind === "batch") return /^\d+$/u.test(rest) ? `batch:${rest}` : null;
+  if (kind === "origin" || kind === "manufacturer") return `scanner:manufacturer=${rest}`;
+  if (kind === "model" || kind === "station") return `scanner:${kind}=${rest}`;
+  if (kind === "dataset" || kind === "site" || kind === "scanner") return `${kind}:${rest}`;
+  return null;
+}
+
+/** One change to one word list as the typed operations of a patch (record 56, section 5.5). */
+export function operationsOf(
+  p: Prediction,
+  scope: string,
+  reason: string,
+  evidence: Record<string, JsonValue>,
+): Record<string, JsonValue>[] {
+  const target: Record<string, JsonValue> =
+    p.value !== null ? { axis: p.axis, value: p.value } : { bucket: String(p.bucket) };
+  const ops: Record<string, JsonValue>[] = [];
+  if (p.add.length) ops.push({ op: "add_words", ...target, words: p.add, scope, reason, evidence });
+  if (p.remove.length) ops.push({ op: "remove_words", ...target, words: p.remove, scope, reason, evidence });
+  return ops;
+}
+
+/** The person's one case, as the patch's own: a series description and the value it must get. */
+export function casesOf(p: Prediction, caseText: string, caseValue: string): Record<string, JsonValue>[] {
+  return [
+    {
+      name: `the site's ${p.list} word`,
+      stack: { text_series_description: caseText },
+      axes: { [p.axis]: caseValue },
+    },
+  ];
+}
+
+/** What an effect report answers, folded to what the diff and the person read: never a stack id. */
+export interface Rehearsed {
+  moves: { axis: string; from: string; to: string; stacks: number }[];
+  review_items: { close: number; open: number };
+  moved: number;
+  answers: { fixes: number; breaks: number; net: number };
+  cases: { held: boolean; failures: string | null };
+  ships: JsonValue;
+}
+
+/** The parts of the engine's effect report (POST /api/packs/{name}/rehearse) a rehearsal reads. */
+interface EffectReport {
+  moved?: { stacks?: number };
+  axes?: { axis?: string; transitions?: { from?: string; to?: string; stacks?: number }[] }[];
+  review?: { by_kind?: { appear?: number; disappear?: number }[] };
+  answers?: { fixes?: number; breaks?: number; net?: number };
+  patch?: { cases?: { held?: boolean; failures?: string | null } };
+  ships?: JsonValue;
+}
+
+export function rehearsedOf(report: unknown): Rehearsed {
+  const r = (report ?? {}) as EffectReport;
+  const n = (x: unknown) => (typeof x === "number" ? x : 0);
+  const moves: Rehearsed["moves"] = [];
+  for (const a of r.axes ?? [])
+    for (const t of a.transitions ?? [])
+      moves.push({
+        axis: String(a.axis ?? ""),
+        from: String(t.from ?? ""),
+        to: String(t.to ?? ""),
+        stacks: n(t.stacks),
+      });
+  const kinds = r.review?.by_kind ?? [];
+  return {
+    moves,
+    review_items: {
+      close: kinds.reduce((s, k) => s + n(k.disappear), 0),
+      open: kinds.reduce((s, k) => s + n(k.appear), 0),
+    },
+    moved: n(r.moved?.stacks),
+    answers: { fixes: n(r.answers?.fixes), breaks: n(r.answers?.breaks), net: n(r.answers?.net) },
+    cases: {
+      held: r.patch?.cases?.held !== false,
+      failures: typeof r.patch?.cases?.failures === "string" ? r.patch.cases.failures : null,
+    },
+    ships: r.ships ?? null,
+  };
+}
+
+/** The diff of a rehearsal, with what the effect report adds: a case that fails, an answer it breaks. */
+export function verdictOf(p: Prediction, r: Rehearsed): ReturnType<typeof diffOf> {
+  const diff = diffOf(p, r);
+  if (!r.cases.held)
+    return {
+      ...diff,
+      verdict: "revert",
+      why: "the case does not hold with the change, so the word does not do what was meant",
+    };
+  if (r.answers.breaks > 0 && diff.verdict === "keep")
+    return {
+      ...diff,
+      verdict: "partial",
+      why: `it breaks ${r.answers.breaks} answer${r.answers.breaks === 1 ? "" : "s"} people gave (right to wrong)`,
+    };
+  return diff;
 }
 
 async function rehearseWords(args: Record<string, unknown>, ctx: ToolCtx): Promise<Out> {
@@ -831,7 +930,16 @@ async function rehearseWords(args: Record<string, unknown>, ctx: ToolCtx): Promi
   const caseText = str(args.case_text);
   const caseValue = str(args.case_value);
   if (!scope || !axis)
-    return refuse("a rehearsal names the scope and the axis", "Give `scope` (such as batch:12) and `axis`.");
+    return refuse(
+      "a rehearsal names the scope and the axis",
+      "Give `scope` (such as dataset:NAME) and `axis`.",
+    );
+  const ruleScope = patchScope(scope);
+  if (!ruleScope)
+    return refuse(
+      `${scope} is not a scope a rule change takes`,
+      "Give `scope` as dataset:NAME, site:NAME, batch:ID or origin:MAKER, or pack for every site's sorting.",
+    );
   if ((bucket === null) === (value === null))
     return refuse(
       "a rehearsal changes one list: a bucket the sorting names, or the list of one value",
@@ -851,11 +959,13 @@ async function rehearseWords(args: Record<string, unknown>, ctx: ToolCtx): Promi
   if (add.length + remove.length === 0)
     return refuse("a rehearsal adds or removes at least one word", "Give `add` with the word.");
   const s = seam(ctx, "keyword-tune");
-  // the signals and the list itself, read once per conversation, so a word the list holds is never added
-  if (ctx.convo.groups.size === 0 && ctx.convo.values.size === 0) {
+  // the signals and the list itself, read once per conversation, so a word the list holds is never added; the
+  // signals are read over a batch or a maker, the scopes that door takes
+  const signalsScope = /^(batch|origin):/u.test(scope) ? scope : null;
+  if (signalsScope && ctx.convo.groups.size === 0 && ctx.convo.values.size === 0) {
     const a = await s.call({
       method: "GET",
-      path: `/api/classify/signals?scope=${encodeURIComponent(scope).replace(/%3A/giu, ":")}`,
+      path: `/api/classify/signals?scope=${encodeURIComponent(signalsScope).replace(/%3A/giu, ":")}`,
       toolCallId: `${ctx.toolCallId}-signals`,
       phase: PHASE,
     });
@@ -903,35 +1013,58 @@ async function rehearseWords(args: Record<string, unknown>, ctx: ToolCtx): Promi
     must_not_regress: ((args.must_not_regress as string[] | undefined) ?? []).map(String),
     at: Date.now(),
   };
-  const overlay = overlayOf(prediction, overlayScope(scope), caseText, caseValue);
+  // record 56, section 5.5: the change as typed operations, each with its scope, its reason and its evidence
+  const reason =
+    str(args.why) ??
+    `${add.length ? `add ${add.join(", ")}` : ""}${add.length && remove.length ? " and " : ""}${remove.length ? `remove ${remove.join(", ")}` : ""} on ${list}, as the person asked`;
+  const evidence: Record<string, JsonValue> = {
+    assistant: "tune-sorting-words",
+    conversation: ctx.conversation,
+  };
+  const operations = operationsOf(prediction, ruleScope, reason, evidence);
+  const cases = casesOf(prediction, caseText, caseValue);
   ctx.write.progress("Rehearsing the sorting words, writing nothing");
   const a = await s.call({
     method: "POST",
-    path: "/api/classify/try",
-    body: { overlay, scope, sample: Number(args.sample ?? 2000) },
+    path: "/api/packs/mri/rehearse",
+    body: { operations, reason, evidence, cases, examples: 3 },
     toolCallId: ctx.toolCallId,
     phase: PHASE,
   });
   if (a.kind !== "ok") return notOk(a, "Correct the one thing named and rehearse again.");
-  const tried = a.body as Parameters<typeof diffOf>[1];
-  const diff = diffOf(prediction, tried);
+  const tried = rehearsedOf(a.body);
+  const diff = verdictOf(prediction, tried);
   ctx.convo.rehearsal = {
     prediction,
-    scope,
+    scope: ruleScope,
     case_text: caseText,
     case_value: caseValue,
-    overlay,
+    operations,
+    cases,
+    reason,
+    evidence,
     diff,
     at: Date.now(),
   };
   return {
     output: {
       list,
+      scope: ruleScope,
       diff: diff as unknown as JsonValue,
-      tried: data(tried, "") as JsonValue,
+      tried: data(
+        {
+          moved: tried.moved,
+          moves: tried.moves.slice(0, 12),
+          review_items: tried.review_items,
+          answers: tried.answers,
+          cases: tried.cases,
+          ships: tried.ships,
+        },
+        "",
+      ) as JsonValue,
       next:
         diff.verdict === "keep"
-          ? "It holds: propose it with propose_change, kind overlay, and say in one sentence what it changes."
+          ? "It holds: propose it with propose_change, kind overlay, and say in one sentence what it changes; a person adopts it on the Rules page."
           : diff.verdict === "partial"
             ? `Partly: ${diff.why}. Narrow the change and rehearse once more, or propose it saying what is left.`
             : `It does not hold: ${diff.why}. Say so and propose nothing.`,
@@ -1925,7 +2058,7 @@ function proposeOverlay(args: Record<string, unknown>, ctx: ToolCtx, sentence: s
   if (r.diff.verdict === "revert")
     return refuse(`the rehearsal did not hold: ${r.diff.why}`, "Say so and propose nothing.");
   const name = str(args.name) ?? `tune-${r.prediction.list}`;
-  const overlay = overlayOf(r.prediction, overlayScope(r.scope), r.case_text, r.case_value);
+  // record 56: approved, it becomes the engine's proposed rule change, which an operator adopts on the Rules page
   return propose(ctx, {
     kind: "overlay",
     sentence,
@@ -1934,7 +2067,16 @@ function proposeOverlay(args: Record<string, unknown>, ctx: ToolCtx, sentence: s
       `${r.prediction.list}: ${r.prediction.add.length ? `add ${r.prediction.add.join(", ")}` : ""}${r.prediction.remove.length ? ` remove ${r.prediction.remove.join(", ")}` : ""}`.trim(),
       `rehearsed over ${r.scope}: ${r.diff.why}`,
     ],
-    payload: { name, overlay, scope: r.scope, why: str(args.why) ?? sentence },
+    payload: {
+      name,
+      pack: "mri",
+      title: str(args.title) ?? sentence,
+      operations: r.operations,
+      cases: r.cases,
+      reason: str(args.why) ?? r.reason,
+      evidence: r.evidence,
+      scope: r.scope,
+    },
     details: {
       list: r.prediction.list,
       axis: r.prediction.axis,
@@ -2023,7 +2165,7 @@ function proposeRule(args: Record<string, unknown>, ctx: ToolCtx, sentence: stri
 const proposeChange: OneTool = {
   name: "propose_change",
   description:
-    "Propose a change for the person to approve on a card; it never changes anything by itself. `kind` and `sentence` (what it will do, in their words) always; then by kind: query_version (`document`, `parent`), job_plan (`instruction` and `steps`, each {verb, args, when}), analysis_plan (`pipeline`, `params`, `selection` or `cohorts` with `sessions` all, first or latest, `question`, `why`), overlay (the rehearsed sorting words; `name`, `why`), identity_merge (`subjects`, the two codes, `canonical`, `why`), identity_rule (`rule`, `path_is_direct_identifier`, `new_type`).",
+    "Propose a change for the person to approve on a card; it never changes anything by itself. `kind` and `sentence` (what it will do, in their words) always; then by kind: query_version (`document`, `parent`), job_plan (`instruction` and `steps`, each {verb, args, when}), analysis_plan (`pipeline`, `params`, `selection` or `cohorts` with `sessions` all, first or latest, `question`, `why`), overlay (the rehearsed sorting words as a typed rule change, which an operator adopts on the Rules page; `name`, `why`), identity_merge (`subjects`, the two codes, `canonical`, `why`), identity_rule (`rule`, `path_is_direct_identifier`, `new_type`).",
   input: v.object({
     kind: v.picklist(KINDS),
     sentence: v.string(),

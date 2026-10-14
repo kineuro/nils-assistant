@@ -5,8 +5,9 @@
 // approved change is then applied here, in the host's code, under the
 // person's own token: a job plan is confirmed through the plan's confirm path
 // and its due steps fire; an analysis is queued as the job a person's Run
-// queues; sorting words become the engine's overlay proposal for an operator
-// to adopt; a merge is made at the engine's merge door. An identity rule is
+// queues; sorting words become the engine's proposed rule change (record 56:
+// typed operations kept with their effect report) for an operator to adopt on
+// the Rules page; a merge is made at the engine's merge door. An identity rule is
 // recorded as approved: changing a dataset's rule and digesting again are
 // done on the dataset's page. A query version is decided where it always
 // was, on the conversation's feedback door.
@@ -93,8 +94,21 @@ async function apply(
         };
       return call("/api/jobs", { command: p.command });
     }
-    case "overlay":
-      return call("/api/overlays", { name: p.name, overlay: p.overlay, scope: p.scope, why: p.why });
+    case "overlay": {
+      // record 56: the rehearsed typed operations, proposed to the pack; a change kept before them carries the
+      // overlay document, which the engine reads as the word edits it is
+      const pack = typeof p.pack === "string" && p.pack ? p.pack : "mri";
+      const body = Array.isArray(p.operations)
+        ? {
+            title: p.title ?? p.name,
+            operations: p.operations,
+            cases: p.cases,
+            reason: p.reason,
+            evidence: p.evidence,
+          }
+        : { title: p.name, overlay: p.overlay, reason: p.why, evidence: { overlay: p.name } };
+      return call(`/api/packs/${encodeURIComponent(pack)}/proposals`, body);
+    }
     case "identity_merge":
       return call("/api/linkage/merge", { canonical: p.canonical, alias: p.alias, why: p.why });
     case "identity_rule":
