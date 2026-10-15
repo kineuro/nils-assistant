@@ -5,7 +5,14 @@
 // ordered: plain, quasi (the quasi-identifying class, such as sex and age)
 // and sensitive. The engine's capabilities say both for the person a token
 // names; an older engine says ladder names instead, and each stands for its
-// set, as the vectors every part tests against fix them.
+// set, as the vectors every part tests against fix them (suite version 3:
+// campaigns and models are pages like the others, record 42 R7; sealed:see
+// is given only by name, record 48).
+//
+// Record 55, ruling 24: an admin has full access to anything. The admin is
+// the person who may change people and groups (identity:work): the desk
+// resolves such a person to every grant at detail sensitive, and the
+// assistant acting for them acts with that access.
 
 /** Every grant, sorted by code point. */
 export const GRANTS: readonly string[] = [
@@ -13,6 +20,8 @@ export const GRANTS: readonly string[] = [
   "assistant-settings:work",
   "assistant:use",
   "audit:see",
+  "campaigns:see",
+  "campaigns:work",
   "data:see",
   "data:work",
   "database:see",
@@ -23,6 +32,8 @@ export const GRANTS: readonly string[] = [
   "install:work",
   "kvasir:see",
   "kvasir:work",
+  "models:see",
+  "models:work",
   "pipelines:see",
   "pipelines:work",
   "places:see",
@@ -34,6 +45,9 @@ export const GRANTS: readonly string[] = [
   "review:see",
   "review:work",
 ];
+
+/** Record 48: the one grant no set holds, given only by name; known so it is never dropped from a token. */
+export const UNSEALED = "sealed:see";
 
 /** The detail levels, lowest first. */
 export const DETAILS = ["plain", "quasi", "sensitive"] as const;
@@ -49,7 +63,7 @@ export interface Access {
 export function grantsOf(list: unknown): string[] {
   const held = new Set<string>();
   for (const g of Array.isArray(list) ? list : []) {
-    if (typeof g !== "string" || !GRANTS.includes(g)) continue;
+    if (typeof g !== "string" || !(GRANTS.includes(g) || g === UNSEALED)) continue;
     held.add(g);
     if (g.endsWith(":work")) held.add(`${g.slice(0, -":work".length)}:see`);
   }
@@ -79,12 +93,13 @@ export function holds(grants: readonly string[], grant: string): boolean {
 }
 
 const reader = grantsOf(["query:work", "data:see"]);
-const reviewer = grantsOf([...reader, "review:work", "pipelines:see"]);
+const reviewer = grantsOf([...reader, "review:work", "pipelines:see", "models:see"]);
 const operator = grantsOf([
   ...reviewer,
   "data:work",
   "release:work",
   "pipelines:work",
+  "models:work",
   "places:work",
   "install:see",
   "kvasir:see",
@@ -115,4 +130,12 @@ export function accessOfNames(names: readonly string[]): Access {
     } else grants.push(name);
   }
   return { grants: grantsOf(grants), detail };
+}
+
+/** The grant that makes a person an admin: who may change people and groups holds everything (record 55, ruling 24). */
+export const ADMIN_GRANT = "identity:work";
+
+/** Whether a person is an admin, who holds every page, grant and detail and needs nothing granted to themselves. */
+export function isAdmin(grants: readonly string[]): boolean {
+  return holds(grants, ADMIN_GRANT);
 }

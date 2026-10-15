@@ -12,6 +12,16 @@ import { createAgentRouter } from "@flue/runtime/routing";
 import { Hono } from "hono";
 import { config } from "./config.ts";
 import { guard, personIn, scopeOf } from "./host/access.ts";
+import {
+  actionOf,
+  EVERYTHING_SCOPE,
+  offerOf,
+  PAGE_WORDS,
+  PAGES,
+  type PageId,
+  pageScope,
+  scopeWords,
+} from "./host/actions.ts";
 import { capabilities, purposeOf } from "./host/capabilities.ts";
 import { type Observe, watchContext } from "./host/context.ts";
 import { markdownOf } from "./host/export.ts";
@@ -24,9 +34,9 @@ import {
   sqlFor,
   streamPath,
 } from "./host/fork.ts";
-import { holds } from "./host/grants.ts";
-import { exceeds, ladderOf, opens, type PolicyRow, rungOf } from "./host/ladder.ts";
-import { LadderStore } from "./host/ladder-store.ts";
+import { holds, isAdmin } from "./host/grants.ts";
+import { ladderOf, opens, type PolicyRow, rungOf } from "./host/ladder.ts";
+import { type GrantRow, LadderStore } from "./host/ladder-store.ts";
 import type { ConversationRow, ShareRow } from "./host/lineage.ts";
 import { chosenModel, modelList, setModels } from "./host/models.ts";
 import { type Instructions, MemoryRefused, type Note } from "./host/notes.ts";
@@ -217,6 +227,10 @@ const scheduler = new Scheduler({
   seamFor: (conversation) =>
     tokens.get(conversation) || engineAuthOffNow() ? seamFor("scheduler", conversation) : null,
   mayRun: c.requireAssistRun ? (subject) => assistRun.get(subject) === true : undefined,
+  // record 55, ruling 24: the person's own access, under the people seam's admin ceiling, which narrows nothing
+  personSeamFor: (conversation) =>
+    tokens.get(conversation) || engineAuthOffNow() ? seamFor("people", conversation) : null,
+  personSeamDone: (conversation) => forgetSeam("people", conversation),
 });
 if (process.env.NODE_ENV !== "test") scheduler.start(Number(process.env.ASSISTANT_SCHEDULER_MS ?? 15_000));
 /** C49: the persons the deployment's entitlements open rung two to, read from the engine's capabilities with their token. */
@@ -1215,6 +1229,7 @@ async function personOf(ctx: { req: { header: (k: string) => string | undefined 
   if (!p) return null;
   adopt(p);
   assistRun.set(p.principal, p.entitlements.includes("assist-run"));
+  scheduler.observe(p.principal, p.grants);
   return { subject: p.principal, grants: p.grants, entitlements: p.entitlements, policy: p.policy };
 }
 
@@ -1222,36 +1237,77 @@ async function personOf(ctx: { req: { header: (k: string) => string | undefined 
 app.get("/grants", async (ctx) => {
   const who = await personOf(ctx);
   if (!who) return ctx.json({ error: "no token" }, 401);
+  const ladderRows = ladderOf(who.policy).map((r) => ({
+    ...r,
+    ...actionOf(
+      r.door,
+      who.policy.find((p) => p.door === r.door),
+    ),
+  }));
   return ctx.json({
     subject: who.subject,
-    grants: ladder.grants(scopeOf(who.subject, who.grants, ctx.req.query("all") === "1")).map((g) => ({
-      id: g.id,
-      subject: g.subject,
-      door: g.door,
-      created_at: new Date(g.created_at).toISOString(),
-      revoked_at: g.revoked_at === null ? null : new Date(g.revoked_at).toISOString(),
-    })),
-    ladder: ladderOf(who.policy),
+    // record 55, ruling 24: an admin holds everything and needs no standing grant
+    admin: isAdmin(who.grants),
+    grants: ladder.grants(scopeOf(who.subject, who.grants, ctx.req.query("all") === "1")).map((g) => {
+      const shown = scopeWords(g.door, who.policy);
+      return {
+        id: g.id,
+        subject: g.subject,
+        door: g.door,
+        page: shown.page ?? g.page,
+        words: shown.words || g.words,
+        created_at: new Date(g.created_at).toISOString(),
+        revoked_at: g.revoked_at === null ? null : new Date(g.revoked_at).toISOString(),
+      };
+    }),
+    ladder: ladderRows,
+    // what this person may give, grouped by page: the rung-two actions their own grants open
+    offer: offerOf(who.policy, who.grants),
   });
 });
 
 app.post("/grants", async (ctx) => {
   const who = await personOf(ctx);
   if (!who) return ctx.json({ error: "no token" }, 401);
-  const body = (await ctx.req.json().catch(() => ({}))) as { door?: unknown };
-  const door = typeof body.door === "string" ? body.door : "";
-  const row = who.policy.find((r) => r.door === door);
-  if (!row) return ctx.json({ error: `${door || "(none)"} is not a door the engine serves` }, 404);
-  if (rungOf(row) !== 2)
-    return ctx.json({ error: `${door} is rung ${rungOf(row)}; a standing grant is for rung two only` }, 409);
-  if (!opens(who.grants, row)) return ctx.json({ error: exceeds(door, row) }, 403);
+  const body = (await ctx.req.json().catch(() => ({}))) as { door?: unknown; page?: unknown; all?: unknown };
   if (c.requireAssistRun && !who.entitlements.includes("assist-run"))
     return ctx.json({ error: "rung two is closed here without the assist-run entitlement (C49)" }, 403);
-  const g = ladder.grant(who.subject, door);
-  return ctx.json(
-    { id: g.id, subject: g.subject, door: g.door, created_at: new Date(g.created_at).toISOString() },
-    201,
-  );
+  const offer = offerOf(who.policy, who.grants);
+  const answer = (g: GrantRow) =>
+    ctx.json(
+      {
+        id: g.id,
+        subject: g.subject,
+        door: g.door,
+        page: g.page,
+        words: g.words,
+        created_at: new Date(g.created_at).toISOString(),
+      },
+      201,
+    );
+  // everything at once, or a whole page at once (record 55, ruling 24); never beyond what the person holds
+  if (body.all === true) {
+    if (offer.length === 0)
+      return ctx.json({ error: "nothing the assistant may do for you is open to your grants" }, 403);
+    return answer(ladder.grant(who.subject, EVERYTHING_SCOPE, scopeWords(EVERYTHING_SCOPE, who.policy)));
+  }
+  if (typeof body.page === "string") {
+    const page = body.page as PageId;
+    if (!(PAGES as readonly string[]).includes(page))
+      return ctx.json({ error: `${body.page} is not a page` }, 404);
+    if (!offer.some((o) => o.page === page))
+      return ctx.json({ error: `nothing on ${PAGE_WORDS[page]} is open to your grants` }, 403);
+    return answer(ladder.grant(who.subject, pageScope(page), scopeWords(pageScope(page), who.policy)));
+  }
+  const door = typeof body.door === "string" ? body.door : "";
+  const row = who.policy.find((r) => r.door === door);
+  if (!row) return ctx.json({ error: "that is not something the assistant can do here" }, 404);
+  const words = actionOf(door, row).words;
+  if (rungOf(row) !== 2)
+    return ctx.json({ error: `${words}: the assistant only proposes this, and a person does it` }, 409);
+  if (!opens(who.grants, row))
+    return ctx.json({ error: `${words} needs what your account does not hold` }, 403);
+  return answer(ladder.grant(who.subject, door, actionOf(door, row)));
 });
 
 app.delete("/grants/:id", async (ctx) => {

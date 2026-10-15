@@ -8,7 +8,15 @@
 // inbox.
 
 import { createHash } from "node:crypto";
-import { type Access, accessOfNames, type Detail, detailOf, EVERYTHING, grantsOf } from "./grants.ts";
+import {
+  type Access,
+  accessOfNames,
+  type Detail,
+  detailOf,
+  EVERYTHING,
+  grantsOf,
+  isAdmin,
+} from "./grants.ts";
 import type { PolicyRow } from "./ladder.ts";
 
 export interface Person {
@@ -46,9 +54,14 @@ function expiresAt(token: string | null): number | null {
  */
 export function accessIn(doc: Record<string, unknown>): Access {
   if (doc.auth === "off") return EVERYTHING;
-  if (Array.isArray(doc.grants) || typeof doc.detail === "string")
-    return { grants: grantsOf(doc.grants), detail: detailOf(doc.detail) };
-  return accessOfNames([doc.roles, doc.entitlements].flatMap((l) => (Array.isArray(l) ? l.map(String) : [])));
+  const access =
+    Array.isArray(doc.grants) || typeof doc.detail === "string"
+      ? { grants: grantsOf(doc.grants), detail: detailOf(doc.detail) }
+      : accessOfNames([doc.roles, doc.entitlements].flatMap((l) => (Array.isArray(l) ? l.map(String) : [])));
+  // record 55, ruling 24: an admin holds everything; the engine still authorises every call with their token
+  return isAdmin(access.grants)
+    ? { grants: grantsOf([...EVERYTHING.grants, ...access.grants]), detail: "sensitive" }
+    : access;
 }
 
 export class People {

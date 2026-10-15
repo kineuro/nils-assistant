@@ -8,12 +8,18 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import type { Planned, When } from "./ladder.ts";
+import { covers, scopeWords } from "./actions.ts";
+import type { Planned, PolicyRow, When } from "./ladder.ts";
 
 export interface GrantRow {
   id: number;
   subject: string;
+  /** What it covers as kept: one engine door, a whole page (`page:<id>`) or everything (`*`). */
   door: string;
+  /** The page it sits under, as the desk shows it; null for everything (record 55, ruling 24). */
+  page: string | null;
+  /** What it lets the assistant do, in the desk's words; never a path. */
+  words: string;
   created_at: number;
   revoked_at: number | null;
 }
@@ -65,6 +71,22 @@ export class LadderStore {
       revoked_at INTEGER
     )`);
     this.db.exec("CREATE INDEX IF NOT EXISTS grant_subject ON grant_ (subject, door)");
+    // record 55, ruling 24: a grant is shown in words under its page, never as a door; the grants kept by
+    // door before then gain their page and words once, and keep their door
+    const cols = (this.db.prepare("PRAGMA table_info(grant_)").all() as { name: string }[]).map(
+      (c) => c.name,
+    );
+    if (!cols.includes("page")) this.db.exec("ALTER TABLE grant_ ADD COLUMN page TEXT");
+    if (!cols.includes("words")) this.db.exec("ALTER TABLE grant_ ADD COLUMN words TEXT");
+    const bare = this.db.prepare("SELECT id, door FROM grant_ WHERE words IS NULL").all() as {
+      id: number;
+      door: string;
+    }[];
+    const fill = this.db.prepare("UPDATE grant_ SET page = ?, words = ? WHERE id = ?");
+    for (const g of bare) {
+      const w = scopeWords(g.door, []);
+      fill.run(w.page, w.words, g.id);
+    }
     this.db.exec(`CREATE TABLE IF NOT EXISTS plan (
       id TEXT PRIMARY KEY,
       conversation TEXT NOT NULL,
@@ -98,13 +120,26 @@ export class LadderStore {
 
   // grants
 
-  grant(subject: string, door: string): GrantRow {
+  /** A standing grant given: one door, a page (`page:<id>`) or everything (`*`), with its words as shown now. */
+  grant(subject: string, door: string, shown?: { page: string | null; words: string }): GrantRow {
     const have = this.grantFor(subject, door);
     if (have) return have;
+    const w = shown ?? scopeWords(door, []);
     const r = this.db
-      .prepare("INSERT INTO grant_ (subject, door, created_at) VALUES (?, ?, ?)")
-      .run(subject, door, Date.now());
+      .prepare("INSERT INTO grant_ (subject, door, page, words, created_at) VALUES (?, ?, ?, ?, ?)")
+      .run(subject, door, w.page, w.words, Date.now());
     return this.grantById(Number(r.lastInsertRowid)) as GrantRow;
+  }
+
+  /**
+   * The active grant of a person that covers a door: that door's own, its page's, or everything; null when none
+   * does. The door's page is read from the engine's policy row, as the offer and the grant door read it.
+   */
+  grantCovering(subject: string, door: string, policy: PolicyRow[]): GrantRow | null {
+    const rows = this.db
+      .prepare("SELECT * FROM grant_ WHERE subject = ? AND revoked_at IS NULL ORDER BY id DESC")
+      .all(subject) as unknown as GrantRow[];
+    return rows.find((g) => g.door === door) ?? rows.find((g) => covers(g.door, door, policy)) ?? null;
   }
 
   grantById(id: number): GrantRow | null {

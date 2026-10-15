@@ -38,6 +38,7 @@ import {
   datasetView,
   heldReading,
   heldShapesOf,
+  identifyingTypeNames,
   type ProbeCandidate,
   ruleComplaint,
   shapeCounts,
@@ -161,10 +162,26 @@ const BEYOND: Partial<Record<SeamId, Station["grant"]>> = {
   // record 56: a word is rehearsed as a typed rule change, at the pack's rehearse door
   "keyword-tune": { "packs/{name}/rehearse": { calls: 12 } },
   // record 55 K6: a saved selection named with @ is read like a kept answer, its row of the list and its version
-  "ask-help": { selections: { calls: 12 }, "selections/{name}": { calls: 12 } },
+  "ask-help": {
+    selections: { calls: 12 },
+    "selections/{name}": { calls: 12 },
+  },
 };
+/**
+ * Record 55, ruling 24: the conversations whose person is an admin. The assistant acting for an admin acts with the
+ * admin's access: its seams carry the admin ceiling and the identifiers content class, so a station's own ceiling
+ * never lowers what an admin sees. Everyone else's seams keep the station's ceiling.
+ */
+const asAdmin = new Set<string>();
+export function actsAsAdmin(conversation: string, admin: boolean): void {
+  if (admin) asAdmin.add(conversation);
+  else asAdmin.delete(conversation);
+}
+
 export function oneSeam(id: SeamId, conversation: string): Seam {
-  let st = derived.get(id);
+  const admin = asAdmin.has(conversation);
+  const key = admin ? `${id}:admin` : id;
+  let st = derived.get(key);
   if (!st) {
     const base = stationList().find((s) => s.id === id);
     if (!base) throw new Error(`the work of ${id} is not configured here`);
@@ -174,8 +191,41 @@ export function oneSeam(id: SeamId, conversation: string): Seam {
         { ...cap, ...(cap.calls !== undefined ? { calls: Math.max(12, cap.calls * 4) } : {}) },
       ]),
     );
-    st = { ...base, id: `nils.${id}`, grant: { ...grant, ...BEYOND[id] }, purpose: undefined };
-    derived.set(id, st);
+    st = {
+      ...base,
+      // an admin's seam is a seam of its own, so a turn after an admin is no longer one never reuses it
+      id: admin ? `nils.${id}.admin` : `nils.${id}`,
+      grant: { ...grant, ...BEYOND[id] },
+      purpose: undefined,
+      ...(admin ? { ceiling: "admin" as const, content: "identifiers" as const } : {}),
+    };
+    derived.set(key, st);
+  }
+  return seamWith(st, conversation);
+}
+
+/**
+ * Record 55, ruling 24: the seam an ID the person names is resolved through, ask-help's ceiling and content class (an
+ * admin's own for an admin), acting for the person in the chat, which alone may dial the resolve; its one door is not
+ * counted against ask-help's caps, so trying each ID type costs nothing else of the turn.
+ */
+const resolveStations = new Map<string, Station>();
+export function resolveSeam(conversation: string): Seam {
+  const admin = asAdmin.has(conversation);
+  const key = admin ? "admin" : "person";
+  let st = resolveStations.get(key);
+  if (!st) {
+    const base = stationList().find((s) => s.id === "ask-help");
+    if (!base) throw new Error("the work of ask-help is not configured here");
+    st = {
+      ...base,
+      id: admin ? "nils.resolve.admin" : "nils.resolve",
+      grant: { "linkage/resolve": {} },
+      purpose: undefined,
+      forPerson: true,
+      ...(admin ? { ceiling: "admin" as const, content: "identifiers" as const } : {}),
+    };
+    resolveStations.set(key, st);
   }
   return seamWith(st, conversation);
 }
@@ -415,6 +465,96 @@ async function datasetsFor(ctx: ToolCtx): Promise<DatasetFact[]> {
     return [];
   }
 }
+
+/**
+ * Record 55, ruling 24: a subject named by an ID of a known type (a study's own ID such as Ctrl0042),
+ * turned into its subject code with one lookup, so the question is then asked of that subject. The engine answers
+ * the code, or that the ID is not known, and never an identifier it was not given.
+ */
+const subjectResolve: OneTool = {
+  name: "subject_resolve",
+  description:
+    "Turn an ID the person names a subject by (Ctrl0042, a hospital or study ID) into that subject's code, before any question about the subject. Give `id_type` (the ID type's name, such as ctrl-id; leave it out to have each type tried) and `value` (the ID exactly as the person wrote it). Answers the subject code, how many scans of theirs you may see and the datasets they are in, or that no subject has that ID.",
+  input: v.object({ value: v.string(), id_type: v.optional(v.string()) }),
+  salient: ["value", "id_type"],
+  step: "Finding the subject",
+  async run(args, ctx): Promise<Out> {
+    const value = str(args.value);
+    if (!value) return refuse("no ID was given", "Ask the person which ID they mean.");
+    const named = str(args.id_type);
+    let types: string[];
+    if (named) types = [named];
+    else {
+      // every type a person could name a subject by: the ones a map or a dataset filed, not the registry's own
+      const t = await get(ctx, "identity-check", "/api/linkage/types");
+      if (t.kind !== "ok") return notOk(t, "Say the ID types could not be read.");
+      // a person names a subject by a study's own ID: an ID that identifies a person anywhere (a type flagged
+      // identifying, or one of the built-in ones on an engine that flags none) is tried only when they name its type
+      const flagged = new Set(identifyingTypeNames(t.body));
+      types = typeNames(t.body).filter((n) => !NOT_TRIED.includes(n) && !flagged.has(n));
+    }
+    let refused = 0;
+    for (const id_type of types) {
+      const a = await resolveSeam(ctx.conversation).call({
+        method: "POST",
+        path: "/api/linkage/resolve",
+        body: { id_type, value },
+        toolCallId: ctx.toolCallId,
+        phase: PHASE,
+      });
+      if (a.kind !== "ok") {
+        // tried in turn: a type that is not there, a value that is not one of it, or a type this person may not
+        // resolve (an ID that identifies a person anywhere needs every detail) moves on to the next type
+        if (a.kind === "refused" && [400, 403, 404, 422].includes(a.status) && !named) {
+          if (a.status === 403) refused += 1;
+          continue;
+        }
+        return notOk(
+          a,
+          a.kind === "refused" && a.status === 404
+            ? "Say there is no ID type by that name, and name the types the answer lists."
+            : "Say the ID could not be looked up.",
+        );
+      }
+      const b = (a.body ?? {}) as {
+        known?: unknown;
+        subject_code?: unknown;
+        scans?: unknown;
+        datasets?: unknown;
+      };
+      if (b.known === true && typeof b.subject_code === "string")
+        return {
+          output: {
+            id: value,
+            id_type,
+            subject_code: b.subject_code as string,
+            scans: num(b.scans),
+            datasets: Array.isArray(b.datasets)
+              ? b.datasets.filter((d): d is string => typeof d === "string")
+              : [],
+            next: `Ask about the subject ${b.subject_code}: a question of the subject's scans written with the field subject.code = ${b.subject_code} (a stack set's ["=", {}, ["field", {}, "subject.code"], "${b.subject_code}"]). Name the subject in the answer by the ID the person gave and by its subject code.`,
+          },
+        };
+      if (named) break;
+    }
+    // every type refused this person: they may not look IDs up, which is not the ID being unknown
+    if (!named && types.length > 0 && refused === types.length)
+      return refuse(
+        "this account may not look IDs up",
+        "Say in one sentence that their account cannot look a subject up by an ID here, and that an admin can give it; never say the ID is unknown, and never answer for a whole cohort instead.",
+      );
+    return {
+      output: {
+        id: value,
+        subject_code: null,
+        next: `Say no subject you may see has the ID ${value}${named ? ` of the type ${named}` : ""}; never answer for a whole cohort instead.`,
+      },
+    };
+  },
+};
+
+/** The types an unnamed ID is never tried as: the registry's own, and those that identify a person anywhere on an engine that flags none. */
+const NOT_TRIED = ["subject-code", "study-instance-uid", "patient-id", "personnummer"];
 
 const registrySearch: OneTool = {
   name: "registry_search",
@@ -2638,6 +2778,7 @@ const analysisTable: OneTool = {
 export const TOOLS: Record<ToolName, OneTool> = {
   registry_summary: registrySummary,
   registry_search: registrySearch,
+  subject_resolve: subjectResolve,
   registry_describe: registryDescribe,
   query_draft: queryDraft,
   query_run_readonly: queryRunReadonly,
@@ -2657,6 +2798,7 @@ export const TOOLS: Record<ToolName, OneTool> = {
 export const READ_ONLY: readonly ToolName[] = [
   "registry_summary",
   "registry_search",
+  "subject_resolve",
   "registry_describe",
   "query_draft",
   "query_run_readonly",

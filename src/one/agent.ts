@@ -30,7 +30,7 @@ import {
   useTool,
 } from "@flue/runtime";
 import * as v from "valibot";
-import { EVERYTHING } from "../host/grants.ts";
+import { EVERYTHING, isAdmin } from "../host/grants.ts";
 import { mentionsLine } from "../host/mentions.ts";
 import { chosenModel, compactionFor, limitsOf } from "../host/models.ts";
 import { isSummarize, summarizeCompaction } from "../host/summarize.ts";
@@ -61,6 +61,7 @@ import { bodyFor, findExamples, loadSkills, skillOf } from "./skills.ts";
 import { answerOf, conversationOf, keptDocument, newTurn, turnOf } from "./state.ts";
 import { readSteps, STEPS_READ, STEPS_WAIT_MS, stepsRead, stepsText, stepsWithin } from "./steps.ts";
 import {
+  actsAsAdmin,
   type OneTool,
   oneSeam,
   READ_ONLY,
@@ -105,6 +106,7 @@ How you work
 - Each turn brings facts from the host: what the registry holds and the datasets its scans came from (sent once, and again when they change), what this person may do here, and a hint read from their words. They are true now; trust them over what you remember.
 - A question about what the registry holds (which cohorts and datasets there are and their sizes, which clinical scores, disease courses and kinds of scans it records) is answered straight from the facts, with no tool and no skill. A dataset is not a cohort: how many subjects, visits or scans one dataset holds is its count in the facts.
 - A question that asks for data (how many subjects, sessions or scans meet a condition, which ones, a list, a value, the subjects of one cohort) goes through the find-data skill and a drafted question, even when the summary seems to hold the number or they ask only what you would look for: the person gets the question to keep.
+- A subject the person names by an ID (Ctrl0042, a hospital or study ID) is turned into its subject code with subject_resolve first, and the question is asked of that subject; never answer for a whole cohort instead.
 - For anything else, first activate the one skill that fits and follow it. When the person changes task, change skill; the same chat goes on.
 - Do the work yourself with the fewest tool calls that answer. Never look up again what the facts or an earlier answer in this chat already hold.
 - Changes are proposed, never made: a new version of a question, a plan of work, an analysis, new sorting words, a merge or an identity rule goes through propose_change, and the person approves it on a card. Never say a change was made.
@@ -134,7 +136,7 @@ How you write
 - Lead with the answer: one to three short sentences; a short list only when they asked for a list.
 - Everyday words. Never name your tools or skills or describe how you work inside, and never use these words of how you work: station, grant, door, a phase of the work, catalog, pack, epoch, ceiling, rung, ledger, capabilities, handle, session scheme, delegate. Say instead: what your account may do (not grants), the result or the answer (not a handle), the sorting rules (not packs), the list of fields (not the catalog). The field's own words stay: an image's phase, as in magnitude and phase, is the right word.
 
-Your tools: registry_summary, registry_search and registry_describe look things up in the registry; query_draft, query_run_readonly and query_read_rows write and try questions of the registry, writing nothing else; jobs_read and run_read read jobs and analysis runs; plan_update, ask_user and propose_change are what the person sees: the plan, a question card and an approval card; remember, forget and recall_memory keep, forget and find what this person asked you to keep.`;
+Your tools: registry_summary, registry_search and registry_describe look things up in the registry; subject_resolve turns an ID a subject is named by into its subject code; query_draft, query_run_readonly and query_read_rows write and try questions of the registry, writing nothing else; jobs_read and run_read read jobs and analysis runs; plan_update, ask_user and propose_change are what the person sees: the plan, a question card and an approval card; remember, forget and recall_memory keep, forget and find what this person asked you to keep.`;
 
 const SUBAGENT_RULE =
   "\n\nFinding data: give it to the agent named find with the task tool (agent find, prompt: the person's question in their own words, and the document it refines when there is one). It drafts the question and answers with what it found and a last line `document: <id>`. Answer the person from that; never find data yourself.";
@@ -491,6 +493,9 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
 
     const [held, setHeld] = usePersistentState<Mounted | null>("mounted", null);
     const mounted = held ?? mountFor(accessOf(id));
+    // record 55, ruling 24: an admin's conversation acts with the admin's access, read fresh each turn and never
+    // from the saved mount, so an admin no longer, or a fork's reader, does not keep it
+    actsAsAdmin(id, isAdmin(accessOf(id).grants));
     const [told, setTold] = usePersistentState<Told>("told", TOLD_NOTHING);
     // what the conversation remembers across conversations: read at its first turn and held for its life, for its
     // own person only (a share its reader continues reads the reader's own) (2026-10-12)

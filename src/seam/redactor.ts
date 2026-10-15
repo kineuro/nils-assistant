@@ -61,8 +61,9 @@ export function admitHandle(
 
 /**
  * The linkage reads a station may dial (record 26): the identifier types by name, and the identifiers a
- * dataset holds as shapes and counts. Both answer no value; everything else under linkage (the map, the
- * reveal, the merge, coding the held) carries identifiers or writes them, and is a person's.
+ * dataset holds as shapes and counts; and since record 55's ruling 24, for the one agent acting for the person in
+ * the chat only, the resolve, which turns one ID the person gave into its subject code. None answers an identifier it was not given; everything else under linkage (the
+ * map, the reveal, the merge, coding the held) carries identifiers or writes them, and is a person's.
  */
 const LINKAGE_READS = /^\/api\/linkage\/(types|held)(\?.*)?$/u;
 
@@ -71,9 +72,15 @@ export function admitPath(
   method = "GET",
   /** One chat: the seam a person's approved change runs through may make the merge they approved. */
   person = false,
+  /** Record 55, ruling 24: the one agent acting for the person in the chat may resolve an ID they name; a station never. */
+  forPerson = false,
 ): { ok: true } | { ok: false; why: string } {
   if (/\/api\/linkage|\/api\/ask\/values\b|\/api\/custody/u.test(path)) {
     if (method.toUpperCase() === "GET" && LINKAGE_READS.test(path)) return { ok: true };
+    // record 55, ruling 24: one ID the person gave, turned into its subject code; it answers no identifier it was
+    // not given
+    if (forPerson && method.toUpperCase() === "POST" && /^\/api\/linkage\/resolve$/u.test(path))
+      return { ok: true };
     if (person && method.toUpperCase() === "POST" && /^\/api\/linkage\/merge$/u.test(path))
       return { ok: true };
     return { ok: false, why: "a linkage path is never dialled from a station" };
