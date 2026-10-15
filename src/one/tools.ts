@@ -897,7 +897,8 @@ export function rehearsedOf(report: unknown): Rehearsed {
     moved: n(r.moved?.stacks),
     answers: { fixes: n(r.answers?.fixes), breaks: n(r.answers?.breaks), net: n(r.answers?.net) },
     cases: {
-      held: r.patch?.cases?.held !== false,
+      // a report that does not say its cases held is never taken as holding
+      held: r.patch?.cases?.held === true,
       failures: typeof r.patch?.cases?.failures === "string" ? r.patch.cases.failures : null,
     },
     ships: r.ships ?? null,
@@ -920,6 +921,49 @@ export function verdictOf(p: Prediction, r: Rehearsed): ReturnType<typeof diffOf
       why: `it breaks ${r.answers.breaks} answer${r.answers.breaks === 1 ? "" : "s"} people gave (right to wrong)`,
     };
   return diff;
+}
+
+/**
+ * The scope the sorting's signals are read over for a rule change's scope: a batch as itself, a maker, a model or
+ * a station as an origin, and a dataset, a site or the whole pack as the pack's version (the signals door has no
+ * dataset or site scope). Null where no version is known for a scope that needs one.
+ */
+export function signalsScopeOf(
+  scope: string,
+  version: string | null,
+): { scope: string; origin: { kind: string | null; name: string } | null } | null {
+  const s = scope.trim();
+  const at = s.indexOf(":");
+  const kind = at < 0 ? s : s.slice(0, at).trim();
+  const rest = at < 0 ? "" : s.slice(at + 1).trim();
+  if (kind === "batch") return { scope: `batch:${rest}`, origin: null };
+  if (kind === "origin") return { scope: `origin:${rest}`, origin: { kind: null, name: rest } };
+  if (kind === "manufacturer" || kind === "model" || kind === "station")
+    return { scope: `origin:${rest}`, origin: { kind, name: rest } };
+  if (kind === "pack" || kind === "dataset" || kind === "site" || kind === "scanner")
+    return version ? { scope: `pack:${version}`, origin: null } : null;
+  return null;
+}
+
+/** Why a maker, a model or a station the signals did not find is refused, with the ones it did; null where found. */
+export function unknownOrigin(
+  signals: { origin: { kind: string | null; name: string } | null },
+  body: unknown,
+): { why: string; next: string } | null {
+  const o = signals.origin;
+  if (!o) return null;
+  const origins = ((body as { origins?: { name?: unknown; kind?: unknown }[] } | null)?.origins ?? []).filter(
+    (x) => o.kind === null || x.kind === o.kind,
+  );
+  const found = origins.some((x) => String(x.name ?? "").toLowerCase() === o.name.toLowerCase());
+  if (found) return null;
+  const names = [...new Set(origins.map((x) => String(x.name ?? "")).filter(Boolean))];
+  return {
+    why: `no scan of the registry has the ${o.kind ?? "maker, model or station"} ${o.name}`,
+    next: names.length
+      ? `Use one the registry holds: ${names.slice(0, 12).join(", ")}.`
+      : "Name a scope the registry holds.",
+  };
 }
 
 async function rehearseWords(args: Record<string, unknown>, ctx: ToolCtx): Promise<Out> {
@@ -959,27 +1003,47 @@ async function rehearseWords(args: Record<string, unknown>, ctx: ToolCtx): Promi
   if (add.length + remove.length === 0)
     return refuse("a rehearsal adds or removes at least one word", "Give `add` with the word.");
   const s = seam(ctx, "keyword-tune");
-  // the signals and the list itself, read once per conversation, so a word the list holds is never added; the
-  // signals are read over a batch or a maker, the scopes that door takes
-  const signalsScope = /^(batch|origin):/u.test(scope) ? scope : null;
-  if (signalsScope && ctx.convo.groups.size === 0 && ctx.convo.values.size === 0) {
-    const a = await s.call({
-      method: "GET",
-      path: `/api/classify/signals?scope=${encodeURIComponent(signalsScope).replace(/%3A/giu, ":")}`,
-      toolCallId: `${ctx.toolCallId}-signals`,
-      phase: PHASE,
-    });
-    if (a.kind === "ok") noteSignals(ctx.convo, a.body);
-  }
   const list = listName(axis, bucket, value);
-  if (!ctx.convo.packLists.has(list)) {
+  // the pack's own lists, read once per conversation, so a word the list holds is never added, and its version,
+  // which the signals of a whole-pack, dataset or site scope are read under
+  if (!ctx.convo.packLists.has(list) || ctx.convo.packVersion === null) {
     const a = await s.call({
       method: "GET",
       path: "/api/packs/mri",
       toolCallId: `${ctx.toolCallId}-pack`,
       phase: PHASE,
     });
-    if (a.kind === "ok") for (const [k, w] of listsOfPack(a.body)) ctx.convo.packLists.set(k, w);
+    if (a.kind === "ok") {
+      for (const [k, w] of listsOfPack(a.body)) ctx.convo.packLists.set(k, w);
+      const version = (a.body as { version?: unknown } | null)?.version;
+      if (typeof version === "string") ctx.convo.packVersion = version;
+    }
+  }
+  // the signals over every scope, read once for each, so a value or a scanner the registry does not know is refused
+  // before anything is rehearsed
+  const signals = signalsScopeOf(scope, ctx.convo.packVersion);
+  if (signals && !ctx.convo.signalsRead.has(signals.scope)) {
+    const a = await s.call({
+      method: "GET",
+      path: `/api/classify/signals?scope=${encodeURIComponent(signals.scope).replace(/%3A/giu, ":")}`,
+      toolCallId: `${ctx.toolCallId}-signals`,
+      phase: PHASE,
+    });
+    if (a.kind !== "ok") return notOk(a, "Name a scope the registry holds, and rehearse again.");
+    noteSignals(ctx.convo, a.body);
+    ctx.convo.signalsRead.add(signals.scope);
+    const unknown = unknownOrigin(signals, a.body);
+    if (unknown) return refuse(unknown.why, unknown.next);
+  }
+  if (value !== null) {
+    const listed = [...ctx.convo.packLists.keys()]
+      .filter((k) => k.startsWith(`${axis}.`))
+      .map((k) => k.slice(axis.length + 1));
+    if (listed.length > 0 && !listed.includes(value))
+      return refuse(
+        `${value} is not a value of ${axis} that a word reaches`,
+        `Use one of ${listed.join(", ")}.`,
+      );
   }
   if (value !== null) {
     const known = [...(ctx.convo.values.get(axis) ?? [])];
@@ -1044,6 +1108,7 @@ async function rehearseWords(args: Record<string, unknown>, ctx: ToolCtx): Promi
     reason,
     evidence,
     diff,
+    breaks: tried.answers.breaks,
     at: Date.now(),
   };
   return {
@@ -2048,6 +2113,23 @@ async function proposeAnalysis(args: Record<string, unknown>, ctx: ToolCtx, sent
   });
 }
 
+/**
+ * Why a rehearsed change that breaks answers people gave is not proposed (record 56 section 5.6): never as it is,
+ * only when the person asks for it knowing it, `accept` given and the number of breaks in the sentence. Null where
+ * it may be proposed.
+ */
+export function breaksRefusal(
+  breaks: number,
+  accept: boolean,
+  sentence: string,
+): { why: string; next: string } | null {
+  if (breaks <= 0 || (accept && new RegExp(`\\b${breaks}\\b`, "u").test(sentence))) return null;
+  return {
+    why: `it breaks ${breaks} answer${breaks === 1 ? "" : "s"} people gave (right to wrong)`,
+    next: "Say so and propose nothing; only if the person asks for it knowing that, propose with accept_breaks true and the number of answers it breaks in the sentence.",
+  };
+}
+
 function proposeOverlay(args: Record<string, unknown>, ctx: ToolCtx, sentence: string): Out {
   const r = ctx.convo.rehearsal;
   if (!r)
@@ -2057,6 +2139,10 @@ function proposeOverlay(args: Record<string, unknown>, ctx: ToolCtx, sentence: s
     );
   if (r.diff.verdict === "revert")
     return refuse(`the rehearsal did not hold: ${r.diff.why}`, "Say so and propose nothing.");
+  // record 56 section 5.6: a change that breaks answers people gave is not proposed as it is, unless the person
+  // asks for it knowing them, the breaks named in the sentence
+  const broken = breaksRefusal(r.breaks, args.accept_breaks === true, sentence);
+  if (broken) return refuse(broken.why, broken.next);
   const name = str(args.name) ?? `tune-${r.prediction.list}`;
   // record 56: approved, it becomes the engine's proposed rule change, which an operator adopts on the Rules page
   return propose(ctx, {
@@ -2165,7 +2251,7 @@ function proposeRule(args: Record<string, unknown>, ctx: ToolCtx, sentence: stri
 const proposeChange: OneTool = {
   name: "propose_change",
   description:
-    "Propose a change for the person to approve on a card; it never changes anything by itself. `kind` and `sentence` (what it will do, in their words) always; then by kind: query_version (`document`, `parent`), job_plan (`instruction` and `steps`, each {verb, args, when}), analysis_plan (`pipeline`, `params`, `selection` or `cohorts` with `sessions` all, first or latest, `question`, `why`), overlay (the rehearsed sorting words as a typed rule change, which an operator adopts on the Rules page; `name`, `why`), identity_merge (`subjects`, the two codes, `canonical`, `why`), identity_rule (`rule`, `path_is_direct_identifier`, `new_type`).",
+    "Propose a change for the person to approve on a card; it never changes anything by itself. `kind` and `sentence` (what it will do, in their words) always; then by kind: query_version (`document`, `parent`), job_plan (`instruction` and `steps`, each {verb, args, when}), analysis_plan (`pipeline`, `params`, `selection` or `cohorts` with `sessions` all, first or latest, `question`, `why`), overlay (the rehearsed sorting words as a typed rule change, which an operator adopts on the Rules page; `name`, `why`; one that breaks answers people gave only with `accept_breaks` and the breaks named in the sentence, when the person asks for it), identity_merge (`subjects`, the two codes, `canonical`, `why`), identity_rule (`rule`, `path_is_direct_identifier`, `new_type`).",
   input: v.object({
     kind: v.picklist(KINDS),
     sentence: v.string(),
@@ -2194,6 +2280,7 @@ const proposeChange: OneTool = {
     canonical: v.optional(v.string()),
     rule: v.optional(v.record(v.string(), v.unknown())),
     path_is_direct_identifier: v.optional(v.nullable(v.boolean())),
+    accept_breaks: v.optional(v.boolean()),
     new_type: v.optional(v.nullable(v.object({ name: v.string(), description: v.string() }))),
   }),
   salient: ["kind", "document", "steps", "pipeline", "cohorts", "selection", "subjects", "rule"],

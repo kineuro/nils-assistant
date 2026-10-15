@@ -20,6 +20,7 @@ import { hintLine, routeOf } from "../src/one/route.ts";
 import { bodyFor, findExamples, loadSkills, parseSkill } from "../src/one/skills.ts";
 import { conversationOf, newTurn } from "../src/one/state.ts";
 import {
+  breaksRefusal,
   casesOf,
   draftNext,
   isWorker,
@@ -31,7 +32,9 @@ import {
   searchCatalog,
   selectionNamed,
   selectionNote,
+  signalsScopeOf,
   TOOLS,
+  unknownOrigin,
   verdictOf,
 } from "../src/one/tools.ts";
 import { plainly, unplainWords } from "../src/one/words.ts";
@@ -628,6 +631,45 @@ describe("sorting words as a typed rule change (record 56)", () => {
     expect(verdictOf(prediction, breaks).why).toContain("breaks 1 answer");
     const failing = rehearsedOf({ ...report, patch: { cases: { held: false, failures: "x" } } });
     expect(verdictOf(prediction, failing).verdict).toBe("revert");
+  });
+
+  it("takes a report that does not say its cases held as not holding (review of PR #73)", () => {
+    const r = rehearsedOf({ moved: { stacks: 1 }, answers: { fixes: 1, breaks: 0, net: 1 } });
+    expect(r.cases.held).toBe(false);
+    expect(verdictOf(prediction, r).verdict).toBe("revert");
+    expect(rehearsedOf({ patch: { cases: { held: true } } }).cases.held).toBe(true);
+  });
+
+  it("never proposes a change that breaks answers people gave, unless asked with the breaks named", () => {
+    expect(breaksRefusal(0, false, "Add zorvex.")).toBeNull();
+    expect(breaksRefusal(2, false, "Add zorvex.")?.why).toContain("breaks 2 answers");
+    expect(breaksRefusal(2, true, "Add zorvex.")).not.toBeNull();
+    expect(breaksRefusal(2, true, "Add zorvex, though it breaks 12 answers.")).not.toBeNull();
+    expect(breaksRefusal(2, true, "Add zorvex, knowing it breaks 2 answers people gave.")).toBeNull();
+  });
+
+  it("reads the signals for every scope, and refuses a scanner the registry does not hold", () => {
+    expect(signalsScopeOf("batch:7", null)?.scope).toBe("batch:7");
+    expect(signalsScopeOf("origin:Siemens", null)).toEqual({
+      scope: "origin:Siemens",
+      origin: { kind: null, name: "Siemens" },
+    });
+    expect(signalsScopeOf("station:MR1", null)?.origin).toEqual({ kind: "station", name: "MR1" });
+    for (const s of ["dataset:a", "site:b", "pack", "scanner:station=MR1"])
+      expect(signalsScopeOf(s, "1.2.0")?.scope, s).toBe("pack:1.2.0");
+    expect(signalsScopeOf("dataset:a", null)).toBeNull();
+    const body = {
+      origins: [
+        { name: "SIEMENS", kind: "manufacturer", stacks: 4 },
+        { name: "MR1", kind: "station", stacks: 4 },
+      ],
+    };
+    expect(unknownOrigin(signalsScopeOf("manufacturer:siemens", null) ?? { origin: null }, body)).toBeNull();
+    const refused = unknownOrigin(signalsScopeOf("manufacturer:Siemenz", null) ?? { origin: null }, body);
+    expect(refused?.why).toContain("Siemenz");
+    expect(refused?.next).toContain("SIEMENS");
+    expect(unknownOrigin(signalsScopeOf("model:MR1", null) ?? { origin: null }, body)).not.toBeNull();
+    expect(unknownOrigin(signalsScopeOf("batch:7", null) ?? { origin: null }, body)).toBeNull();
   });
 
   it("names the pack's rule doors in the grant's words, and no station holds the decision", () => {

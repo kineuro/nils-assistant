@@ -82,6 +82,8 @@ export interface Rehearsal {
   reason: string;
   evidence: Record<string, JsonValue>;
   diff: { verdict: "keep" | "partial" | "revert"; why: string };
+  /** The answers people gave that the change breaks, right to wrong. */
+  breaks: number;
   at: number;
 }
 
@@ -99,6 +101,10 @@ export interface ConversationState {
   /** The values the signals report per axis. */
   values: Map<string, Set<string>>;
   packLists: Map<string, string[]>;
+  /** The pack's version as its door said, which whole-pack signals are read under. */
+  packVersion: string | null;
+  /** The signals scopes read in this conversation. */
+  signalsRead: Set<string>;
   rehearsal: Rehearsal | null;
   probes: Probe[];
   types: string[] | null;
@@ -148,6 +154,8 @@ export function conversationOf(id: string): ConversationState {
       groups: new Set(),
       values: new Map(),
       packLists: new Map(),
+      packVersion: null,
+      signalsRead: new Set(),
       rehearsal: null,
       probes: [],
       types: null,
