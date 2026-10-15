@@ -6,7 +6,7 @@
 // the engine with the person's own token (the host's guard), never from a
 // model's arguments; the engine still authorises every call with that token.
 
-import { type Detail, holds, isAdmin } from "../host/grants.ts";
+import { type Detail, holds } from "../host/grants.ts";
 import type { SkillId } from "./route.ts";
 
 export const TOOL_ORDER = [
@@ -50,8 +50,6 @@ export interface Mounted {
   tools: ToolName[];
   skills: SkillId[];
   detail: Detail;
-  /** Record 55, ruling 24: an admin, whose access the assistant acts with, undiminished by a station's ceiling. */
-  admin?: boolean;
 }
 
 const any = (grants: readonly string[], ...need: string[]) => need.some((g) => holds(grants, g));
@@ -98,12 +96,7 @@ export function toolsFor(grants: readonly string[]): ToolName[] {
 }
 
 export function mountFor(a: Access): Mounted {
-  return {
-    tools: toolsFor(a.grants),
-    skills: skillsFor(a.grants),
-    detail: a.detail,
-    ...(isAdmin(a.grants) ? { admin: true } : {}),
-  };
+  return { tools: toolsFor(a.grants), skills: skillsFor(a.grants), detail: a.detail };
 }
 
 const SKILL_WORDS: Record<SkillId, string> = {

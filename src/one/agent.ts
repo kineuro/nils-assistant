@@ -493,8 +493,9 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
 
     const [held, setHeld] = usePersistentState<Mounted | null>("mounted", null);
     const mounted = held ?? mountFor(accessOf(id));
-    // record 55, ruling 24: an admin's conversation acts with the admin's access, read fresh each turn
-    actsAsAdmin(id, mounted.admin === true || isAdmin(accessOf(id).grants));
+    // record 55, ruling 24: an admin's conversation acts with the admin's access, read fresh each turn and never
+    // from the saved mount, so an admin no longer, or a fork's reader, does not keep it
+    actsAsAdmin(id, isAdmin(accessOf(id).grants));
     const [told, setTold] = usePersistentState<Told>("told", TOLD_NOTHING);
     // what the conversation remembers across conversations: read at its first turn and held for its life, for its
     // own person only (a share its reader continues reads the reader's own) (2026-10-12)

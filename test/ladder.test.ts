@@ -25,7 +25,7 @@ import {
   whenOf,
 } from "../src/host/ladder.ts";
 import { LadderStore } from "../src/host/ladder-store.ts";
-import { inboxOf, Scheduler } from "../src/host/scheduler.ts";
+import { inboxOf, personNow, Scheduler } from "../src/host/scheduler.ts";
 import { Seam } from "../src/seam/client.ts";
 import { GrantKeeper } from "../src/seam/grant.ts";
 import { Ledger } from "../src/seam/ledger.ts";
@@ -124,8 +124,8 @@ async function stubEngine() {
     };
     const url = req.url ?? "";
     if (url === "/api/capabilities")
+      // a person signed in, no admin: an engine serving with its authentication off makes everyone one
       return json(200, {
-        auth: "off",
         principal: "anna@lab",
         grants: ["assistant:use", "data:work", "pipelines:work", "query:work"],
         detail: "sensitive",
@@ -678,7 +678,12 @@ describe("the overnight instruction runs as a plan (bar 3)", () => {
     // and a person with a grant for another page only waits, in words
     plan("plan-other", "cy@lab");
     store.grant("cy@lab", pageScope("places"));
-    const scheduler = new Scheduler({ store, seamFor, isAdmin: (s) => s === "nima@lab" });
+    const scheduler = new Scheduler({
+      store,
+      seamFor,
+      // who each is now, as the engine would say it with their token when the step fires
+      personOf: async (_seam, s) => ({ admin: s === "nima@lab", policy: POLICY }),
+    });
     const fired = await scheduler.tick();
     const of = (id: string) => fired.find((f) => store.step(f.step)?.plan === id);
     expect(of("plan-page")).toMatchObject({ outcome: "queued" });
@@ -688,7 +693,9 @@ describe("the overnight instruction runs as a plan (bar 3)", () => {
     expect(of("plan-other")?.reason).not.toMatch(/\/api\//u);
     // the admin's step is queued under no grant, the page's under its own
     expect(store.steps("plan-admin")[0].grant).toBeNull();
-    expect(store.steps("plan-page")[0].grant).toBe(store.grantCovering("anna@lab", "POST /api/jobs")?.id);
+    expect(store.steps("plan-page")[0].grant).toBe(
+      store.grantCovering("anna@lab", "POST /api/jobs", POLICY)?.id,
+    );
   });
 
   it("record 55, ruling 24: every grant is kept with its words and page, and one kept by door before then gains them", () => {
@@ -716,7 +723,7 @@ describe("the overnight instruction runs as a plan (bar 3)", () => {
       ["campaigns", "Change a campaign's raters"],
     ]);
     // the kept door stays, so a step still finds its grant
-    expect(store.grantCovering("nima@lab", "PUT /api/places/{id}")?.words).toBe("Change places");
+    expect(store.grantCovering("nima@lab", "PUT /api/places/{id}", [])?.words).toBe("Change places");
     expect(store.grant("nima@lab", pageScope("data"))).toMatchObject({
       page: "data",
       words: "Everything on Data",
@@ -768,5 +775,34 @@ describe("the overnight instruction runs as a plan (bar 3)", () => {
     const reader = offerOf(policy, SETS.reader.grants);
     expect(reader.map((p) => p.page)).toEqual(["query"]);
     expect(JSON.stringify(admin.map((p) => p.actions.map((a) => a.words)))).not.toMatch(/\/api\//u);
+  });
+
+  it("record 55, ruling 24: the scheduler reads who the person is from the engine when a step fires, never from memory", async () => {
+    const { stubEngine: stub, seamOf } = await import("./child/stub-engine.ts");
+    let grants = ["assistant:use", "identity:work"];
+    const e = await stub((c) =>
+      c.path.startsWith("/api/capabilities")
+        ? { body: { principal: "nima@lab", grants, detail: "sensitive", policy: POLICY } }
+        : null,
+    );
+    closers.push(() => e.close());
+    const seam = seamOf(
+      e.url,
+      {
+        id: "scheduler",
+        grant: { capabilities: {} },
+        ceiling: "operator",
+        content: "catalog",
+        standing: true,
+      },
+      "c-now",
+    );
+    const first = await personNow(seam);
+    expect(first.admin).toBe(true);
+    expect(first.policy.map((r) => r.door)).toContain("POST /api/jobs");
+    // the role changed at the desk: the next read says so
+    grants = ["assistant:use", "data:work"];
+    seam.resetGrant();
+    expect((await personNow(seam)).admin).toBe(false);
   });
 });

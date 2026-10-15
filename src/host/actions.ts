@@ -6,7 +6,6 @@
 // (`page:<id>`), or everything (`*`), and an admin needs none: they hold
 // everything, and the assistant acting for them acts with their access.
 
-import { holds } from "./grants.ts";
 import { opens, type PolicyRow, rungOf } from "./ladder.ts";
 
 /** The pages a grant names, as the desk's People page lists them. */
@@ -163,11 +162,6 @@ export function covers(scope: string, door: string, policy: PolicyRow[]): boolea
       policy.find((r) => r.door === door),
     ).page === page
   );
-}
-
-/** Whether a person may give a page's whole grant: they hold that page's grant. */
-export function mayGivePage(grants: readonly string[], page: PageId): boolean {
-  return holds(grants, `${page}:see`) || holds(grants, `${page}:use`);
 }
 
 /** The rung-two actions a person's grants open, by page in the desk's order, each with its words. */

@@ -227,14 +227,10 @@ const scheduler = new Scheduler({
   seamFor: (conversation) =>
     tokens.get(conversation) || engineAuthOffNow() ? seamFor("scheduler", conversation) : null,
   mayRun: c.requireAssistRun ? (subject) => assistRun.get(subject) === true : undefined,
-  // record 55, ruling 24: an admin's steps need no standing grant; known from their last call with their token
-  isAdmin: (subject) => admins.get(subject) === true,
 });
 if (process.env.NODE_ENV !== "test") scheduler.start(Number(process.env.ASSISTANT_SCHEDULER_MS ?? 15_000));
 /** C49: the persons the deployment's entitlements open rung two to, read from the engine's capabilities with their token. */
 const assistRun = new Map<string, boolean>();
-/** Record 55, ruling 24: who is an admin, as the engine said with their token on their last call. */
-const admins = new Map<string, boolean>();
 function engineAuthOffNow(): boolean {
   return engineAuthOff;
 }
@@ -296,7 +292,6 @@ const people = new People(async (token) => {
 /** Rows written under a person's older key become their principal's, once per process: notes, plans, conversations. */
 const adopted = new Set<string>();
 function adopt(p: Person): void {
-  admins.set(p.principal, isAdmin(p.grants));
   if (adopted.has(p.principal)) return;
   adopted.add(p.principal);
   const bare = bareOf(p.principal);
@@ -1230,7 +1225,6 @@ async function personOf(ctx: { req: { header: (k: string) => string | undefined 
   if (!p) return null;
   adopt(p);
   assistRun.set(p.principal, p.entitlements.includes("assist-run"));
-  admins.set(p.principal, isAdmin(p.grants));
   return { subject: p.principal, grants: p.grants, entitlements: p.entitlements, policy: p.policy };
 }
 

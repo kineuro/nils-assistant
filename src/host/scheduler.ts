@@ -11,8 +11,10 @@
 
 import type { Answer, Seam } from "../seam/client.ts";
 import { actionOf } from "./actions.ts";
-import { VERBS, type When } from "./ladder.ts";
+import { isAdmin } from "./grants.ts";
+import { type PolicyRow, VERBS, type When } from "./ladder.ts";
 import type { LadderStore, StepRow } from "./ladder-store.ts";
+import { accessIn } from "./people.ts";
 
 export interface SchedulerOptions {
   store: LadderStore;
@@ -20,9 +22,30 @@ export interface SchedulerOptions {
   seamFor: (conversation: string) => Seam | null;
   /** C49: whether rung two is open to this person at all. */
   mayRun?: (subject: string) => boolean;
-  /** Record 55, ruling 24: an admin holds everything, so a step of theirs needs no standing grant. */
-  isAdmin?: (subject: string) => boolean;
+  /**
+   * Record 55, ruling 24: who the plan's person is now, read when a step fires with their own token, never kept from
+   * an earlier call: whether they are an admin, whose steps need no standing grant, and the engine's policy, whose
+   * rows say which page a door is on. By default the engine's capabilities, read through the step's seam.
+   */
+  personOf?: (seam: Seam, subject: string) => Promise<Now>;
   now?: () => number;
+}
+
+/** What the scheduler reads of a plan's person when a step fires. */
+export interface Now {
+  admin: boolean;
+  policy: PolicyRow[];
+}
+
+/** The person a seam's token names, as the engine's capabilities say it now: no admin and no policy when it does not answer. */
+export async function personNow(seam: Seam, toolCallId = "schedule-person"): Promise<Now> {
+  const a = await seam.call({ method: "GET", path: "/api/capabilities", toolCallId, phase: "schedule" });
+  if (a.kind !== "ok") return { admin: false, policy: [] };
+  const doc = (a.body ?? {}) as Record<string, unknown>;
+  return {
+    admin: isAdmin(accessIn(doc).grants),
+    policy: Array.isArray(doc.policy) ? (doc.policy as PolicyRow[]) : [],
+  };
 }
 
 export interface Fired {
@@ -73,6 +96,7 @@ export class Scheduler {
   /** One pass over every open step of every confirmed plan: fire what is due, follow what was queued. */
   async tick(): Promise<Fired[]> {
     const out: Fired[] = [];
+    const people = new Map<string, Now>();
     for (const step of this.o.store.openSteps()) {
       const plan = this.o.store.planById(step.plan);
       if (!plan) continue;
@@ -90,13 +114,22 @@ export class Scheduler {
         out.push(await this.follow(seam, step));
         continue;
       }
-      const due = await this.due(seam, plan.subject, step);
+      // the person as they are now, once per tick: a role changed since, or a restart, is read again
+      let now = people.get(plan.subject);
+      if (!now) {
+        now = await (this.o.personOf ?? ((s) => personNow(s, `schedule-person-${this.now()}`)))(
+          seam,
+          plan.subject,
+        );
+        people.set(plan.subject, now);
+      }
+      const due = await this.due(seam, plan.subject, step, now);
       if (!due.ok) {
         if (due.reason !== step.reason) this.o.store.setStep(step.id, { reason: due.reason });
         out.push({ step: step.id, outcome: "waiting", reason: due.reason, job: null });
         continue;
       }
-      out.push(await this.fire(seam, plan.subject, step));
+      out.push(await this.fire(seam, plan.subject, step, now));
     }
     return out;
   }
@@ -106,17 +139,21 @@ export class Scheduler {
     seam: Seam,
     subject: string,
     step: StepRow,
+    now: Now,
   ): Promise<{ ok: true } | { ok: false; reason: string }> {
     if (this.o.mayRun && !this.o.mayRun(subject))
       return {
         ok: false,
         reason: "rung two is closed to this person: the assist-run entitlement is required here (C49)",
       };
-    const grant = this.o.isAdmin?.(subject) ? true : this.o.store.grantCovering(subject, step.door);
+    const grant = now.admin ? true : this.o.store.grantCovering(subject, step.door, now.policy);
     if (!grant)
       return {
         ok: false,
-        reason: `the assistant may not yet ${actionOf(step.door).words.toLowerCase()} for you; give it under Standing grants and the step runs`,
+        reason: `the assistant may not yet ${actionOf(
+          step.door,
+          now.policy.find((r) => r.door === step.door),
+        ).words.toLowerCase()} for you; give it under Standing grants and the step runs`,
       };
     const w = step.when ?? "now";
     const holds = await this.holds(seam, step, w);
@@ -156,9 +193,9 @@ export class Scheduler {
   }
 
   /** Queue the step's job under the grant; the actor header names the person's grant. */
-  private async fire(seam: Seam, subject: string, step: StepRow): Promise<Fired> {
+  private async fire(seam: Seam, subject: string, step: StepRow, now: Now): Promise<Fired> {
     // an admin's step runs under no standing grant, since they hold everything; the actor header then names none
-    const grant = this.o.store.grantCovering(subject, step.door);
+    const grant = this.o.store.grantCovering(subject, step.door, now.policy);
     const spec = VERBS[step.verb];
     const call = spec.call(step.args);
     if ("refused" in call) {

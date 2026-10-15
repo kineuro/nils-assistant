@@ -29,6 +29,7 @@ const { loadManifests } = await import("../src/stations/manifest.ts");
 const { ChangeStore, useChangeStore } = await import("../src/one/changes.ts");
 const { oneAgent, notePerson } = await import("../src/one/agent.ts");
 const { SETS } = await import("../src/host/grants.ts");
+const { admitPath } = await import("../src/seam/redactor.ts");
 
 /** The site's ctrl-id map, as the engine keeps it: Ctrl0042 is subject ab12cd34 (a made-up code). */
 const MAP: Record<string, string> = { Ctrl0042: "ab12cd34" };
@@ -43,17 +44,24 @@ const engine = await stubEngine((c) => {
         { name: "patient-id", identifiers: 0 },
         { name: "study-instance-uid", identifiers: 0 },
         { name: "subject-code", identifiers: 0 },
+        { name: "personnummer", identifiers: 0 },
         { name: "ctrl-id", identifiers: 78, subjects: 78 },
       ],
     };
   if (p === "/api/linkage/resolve") {
     const b = c.body as { id_type?: string; value?: string };
-    if (!["patient-id", "ctrl-id", "personnummer"].includes(String(b.id_type)))
+    // an ID that identifies a person anywhere needs every detail, which the person's call here does not carry,
+    // and a value that is not a personnummer is refused as one: both are refusals the tool moves past
+    if (b.id_type === "patient-id")
+      return { status: 403, body: { error: "resolving a patient-id needs detail sensitive" } };
+    if (b.id_type === "personnummer")
+      return { status: 400, body: { error: "not an ID that is the same everywhere" } };
+    if (b.id_type !== "ctrl-id")
       return {
         status: 404,
         body: { error: `no ID type named ${b.id_type}; the types are patient-id, ctrl-id` },
       };
-    const code = b.id_type === "ctrl-id" ? MAP[String(b.value)] : undefined;
+    const code = MAP[String(b.value)];
     return {
       body: code
         ? { id_type: b.id_type, known: true, subject_code: code, scans: 9, datasets: ["controls"] }
@@ -161,8 +169,13 @@ describe("a subject named by an ID (record 55, ruling 24)", () => {
     const reply = await h.read(await h.dispatch(QUESTION));
     expect(reply.text).toMatch(/ab12cd34/u);
     // the types are read once, and each a person names subjects by is tried until one knows the ID
+    // one call per type, past the refusals of the ones this person may not resolve or the value is not one of
     const asked = resolves().map((d) => d.body);
-    expect(asked).toContainEqual({ id_type: "ctrl-id", value: "Ctrl0042" });
+    expect(asked).toEqual([
+      { id_type: "patient-id", value: "Ctrl0042" },
+      { id_type: "personnummer", value: "Ctrl0042" },
+      { id_type: "ctrl-id", value: "Ctrl0042" },
+    ]);
     expect(asked.some((b) => (b as { id_type?: string }).id_type === "subject-code")).toBe(false);
     // the answer the model reads names the subject code, and says to ask of it, never of a cohort
     const answered = toolAnswer("subject_resolve");
@@ -204,4 +217,10 @@ describe("a subject named by an ID (record 55, ruling 24)", () => {
     expect(answered).toMatch(/never answer for a whole cohort/u);
     expect(answered).not.toMatch(/ab12cd34/u);
   }, 60_000);
+
+  it("is dialled only by the one agent acting for the person, never by a station", () => {
+    expect(admitPath("/api/linkage/resolve", "POST").ok).toBe(false);
+    expect(admitPath("/api/linkage/resolve", "POST", false, true).ok).toBe(true);
+    expect(admitPath("/api/linkage/held/reveal", "POST", false, true).ok).toBe(false);
+  });
 });

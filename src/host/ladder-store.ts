@@ -9,7 +9,7 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { covers, scopeWords } from "./actions.ts";
-import type { Planned, When } from "./ladder.ts";
+import type { Planned, PolicyRow, When } from "./ladder.ts";
 
 export interface GrantRow {
   id: number;
@@ -131,12 +131,15 @@ export class LadderStore {
     return this.grantById(Number(r.lastInsertRowid)) as GrantRow;
   }
 
-  /** The active grant of a person that covers a door: that door's own, its page's, or everything; null when none does. */
-  grantCovering(subject: string, door: string): GrantRow | null {
+  /**
+   * The active grant of a person that covers a door: that door's own, its page's, or everything; null when none
+   * does. The door's page is read from the engine's policy row, as the offer and the grant door read it.
+   */
+  grantCovering(subject: string, door: string, policy: PolicyRow[]): GrantRow | null {
     const rows = this.db
       .prepare("SELECT * FROM grant_ WHERE subject = ? AND revoked_at IS NULL ORDER BY id DESC")
       .all(subject) as unknown as GrantRow[];
-    return rows.find((g) => g.door === door) ?? rows.find((g) => covers(g.door, door, [])) ?? null;
+    return rows.find((g) => g.door === door) ?? rows.find((g) => covers(g.door, door, policy)) ?? null;
   }
 
   grantById(id: number): GrantRow | null {

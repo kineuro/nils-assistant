@@ -36,6 +36,8 @@ export interface Station {
   decides?: boolean;
   /** The Kvasir purpose the station's model calls are filed under, when it is not `assistant.<id>`. */
   purpose?: string;
+  /** Record 55, ruling 24: the one agent's seam acting for the person in the chat, which may resolve an ID they name; never a station's. */
+  forPerson?: boolean;
 }
 
 export interface Call {
@@ -136,7 +138,12 @@ export class Seam {
 
   async call(c: Call): Promise<Answer> {
     const started = this.now();
-    const path = admitPath(c.path, c.method, this.o.station.decides === true);
+    const path = admitPath(
+      c.path,
+      c.method,
+      this.o.station.decides === true,
+      this.o.station.forPerson === true,
+    );
     if (!path.ok) {
       const operation = operationOf(c.method, c.path);
       this.record(

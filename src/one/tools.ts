@@ -169,8 +169,6 @@ const BEYOND: Partial<Record<SeamId, Station["grant"]>> = {
   "ask-help": {
     selections: { calls: 12 },
     "selections/{name}": { calls: 12 },
-    // record 55, ruling 24: one ID a person names, turned into its subject code
-    "linkage/resolve": { calls: 12 },
   },
 };
 /**
@@ -199,12 +197,39 @@ export function oneSeam(id: SeamId, conversation: string): Seam {
     );
     st = {
       ...base,
-      id: `nils.${id}`,
+      // an admin's seam is a seam of its own, so a turn after an admin is no longer one never reuses it
+      id: admin ? `nils.${id}.admin` : `nils.${id}`,
       grant: { ...grant, ...BEYOND[id] },
       purpose: undefined,
       ...(admin ? { ceiling: "admin" as const, content: "identifiers" as const } : {}),
     };
     derived.set(key, st);
+  }
+  return seamWith(st, conversation);
+}
+
+/**
+ * Record 55, ruling 24: the seam an ID the person names is resolved through, ask-help's ceiling and content class (an
+ * admin's own for an admin), acting for the person in the chat, which alone may dial the resolve; its one door is not
+ * counted against ask-help's caps, so trying each ID type costs nothing else of the turn.
+ */
+const resolveStations = new Map<string, Station>();
+export function resolveSeam(conversation: string): Seam {
+  const admin = asAdmin.has(conversation);
+  const key = admin ? "admin" : "person";
+  let st = resolveStations.get(key);
+  if (!st) {
+    const base = stationList().find((s) => s.id === "ask-help");
+    if (!base) throw new Error("the work of ask-help is not configured here");
+    st = {
+      ...base,
+      id: admin ? "nils.resolve.admin" : "nils.resolve",
+      grant: { "linkage/resolve": {} },
+      purpose: undefined,
+      forPerson: true,
+      ...(admin ? { ceiling: "admin" as const, content: "identifiers" as const } : {}),
+    };
+    resolveStations.set(key, st);
   }
   return seamWith(st, conversation);
 }
@@ -470,7 +495,7 @@ const subjectResolve: OneTool = {
       types = typeNames(t.body).filter((n) => !["subject-code", "study-instance-uid"].includes(n));
     }
     for (const id_type of types) {
-      const a = await seam(ctx, "ask-help").call({
+      const a = await resolveSeam(ctx.conversation).call({
         method: "POST",
         path: "/api/linkage/resolve",
         body: { id_type, value },
@@ -478,7 +503,9 @@ const subjectResolve: OneTool = {
         phase: PHASE,
       });
       if (a.kind !== "ok") {
-        if (a.kind === "refused" && a.status === 404 && !named) continue;
+        // tried in turn: a type that is not there, a value that is not one of it, or a type this person may not
+        // resolve (an ID that identifies a person anywhere needs every detail) moves on to the next type
+        if (a.kind === "refused" && [400, 403, 404, 422].includes(a.status) && !named) continue;
         return notOk(
           a,
           a.kind === "refused" && a.status === 404
