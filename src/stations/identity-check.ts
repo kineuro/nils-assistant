@@ -189,9 +189,20 @@ export function datasetName(value: unknown): string | null {
 }
 
 /** The identifier types a types door answers, by name; a list of names or of {name}, bare or under types. */
-export function typeNames(body: unknown): string[] {
+function typeList(body: unknown): unknown[] {
   const list = Array.isArray(body) ? body : ((body as { types?: unknown } | null)?.types ?? []);
-  return (Array.isArray(list) ? list : [])
+  return Array.isArray(list) ? list : [];
+}
+
+/** The names of the types the engine says identify a person wherever they are met, from the same list. */
+export function identifyingTypeNames(body: unknown): string[] {
+  return typeList(body)
+    .filter((t) => (t as { identifying?: unknown } | null)?.identifying === true)
+    .map((t) => String((t as { name?: unknown }).name));
+}
+
+export function typeNames(body: unknown): string[] {
+  return typeList(body)
     .map((t) => (typeof t === "string" ? t : String((t as { name?: unknown })?.name ?? "")))
     .filter((n) => /^[a-z][a-z0-9-]*$/u.test(n));
 }

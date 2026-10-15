@@ -914,4 +914,51 @@ describe("the overnight instruction runs as a plan (bar 3)", () => {
     fired = await due.tick();
     expect(fired.find((f) => store2.step(f.step)?.plan === "plan-down")?.reason).toMatch(/may not yet/u);
   });
+  it("record 55, ruling 24: a kept reading of a person drops when their grants are seen to change, and ends after a minute", async () => {
+    const e = await stubEngine();
+    closers.push(() => e.server.close());
+    const { store, seamFor } = harness(e.url);
+    store.plan({
+      id: "plan-obs",
+      conversation: "c-obs",
+      subject: "nima@lab",
+      instruction: "digest",
+      planned: planFrom([{ verb: "digest", args: { place: "scanner" } }], POLICY),
+    });
+    store.confirm("plan-obs", "nima@lab");
+    let clock = Date.parse("2026-10-15T08:00:00Z");
+    let reads = 0;
+    let done = 0;
+    const s = new Scheduler({
+      store,
+      seamFor,
+      personSeamFor: (c) => seamFor(c),
+      personSeamDone: () => {
+        done += 1;
+      },
+      personOf: async () => {
+        reads += 1;
+        return { admin: true, policy: POLICY, sig: "a,b" };
+      },
+      now: () => clock,
+    });
+    await s.tick();
+    expect([reads, done]).toEqual([1, 1]);
+    // the same grants seen elsewhere keep it; other grants drop it
+    s.observe("nima@lab", ["b", "a"]);
+    const again = () =>
+      (s as unknown as { personFor: (c: string, x: unknown, p: string) => Promise<unknown> }).personFor(
+        "c-obs",
+        seamFor("c-obs"),
+        "nima@lab",
+      );
+    await again();
+    expect(reads).toBe(1);
+    s.observe("nima@lab", ["a"]);
+    await again();
+    expect(reads).toBe(2);
+    clock += 61_000;
+    await again();
+    expect(reads).toBe(3);
+  });
 });

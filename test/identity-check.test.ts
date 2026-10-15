@@ -15,6 +15,7 @@ import {
   heldReading,
   heldShapesOf,
   heldVerdict,
+  identifyingTypeNames,
   identityCheckChecks,
   identityCheckTools,
   mergeOf,
@@ -694,5 +695,17 @@ describe("identity-check", () => {
     );
     // a location's probe never names subjects: nothing alike is read from it
     expect(alikeOf("c-location")).toEqual([]);
+  });
+});
+
+describe("identifyingTypeNames", () => {
+  it("reads the flag from the same list typeNames reads, a bare array or under types", () => {
+    const list = [
+      { name: "ctrl-id", identifying: false },
+      { name: "hospital-id", identifying: true },
+    ];
+    expect(identifyingTypeNames(list)).toEqual(["hospital-id"]);
+    expect(identifyingTypeNames({ types: list })).toEqual(["hospital-id"]);
+    expect(identifyingTypeNames(null)).toEqual([]);
   });
 });

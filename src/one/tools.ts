@@ -38,6 +38,7 @@ import {
   datasetView,
   heldReading,
   heldShapesOf,
+  identifyingTypeNames,
   type ProbeCandidate,
   ruleComplaint,
   shapeCounts,
@@ -494,11 +495,7 @@ const subjectResolve: OneTool = {
       if (t.kind !== "ok") return notOk(t, "Say the ID types could not be read.");
       // a person names a subject by a study's own ID: an ID that identifies a person anywhere (a type flagged
       // identifying, or one of the built-in ones on an engine that flags none) is tried only when they name its type
-      const flagged = new Set(
-        (Array.isArray(t.body) ? t.body : [])
-          .filter((x) => (x as { identifying?: unknown })?.identifying === true)
-          .map((x) => String((x as { name?: unknown }).name)),
-      );
+      const flagged = new Set(identifyingTypeNames(t.body));
       types = typeNames(t.body).filter((n) => !NOT_TRIED.includes(n) && !flagged.has(n));
     }
     let refused = 0;

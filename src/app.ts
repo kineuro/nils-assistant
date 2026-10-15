@@ -230,6 +230,7 @@ const scheduler = new Scheduler({
   // record 55, ruling 24: the person's own access, under the people seam's admin ceiling, which narrows nothing
   personSeamFor: (conversation) =>
     tokens.get(conversation) || engineAuthOffNow() ? seamFor("people", conversation) : null,
+  personSeamDone: (conversation) => forgetSeam("people", conversation),
 });
 if (process.env.NODE_ENV !== "test") scheduler.start(Number(process.env.ASSISTANT_SCHEDULER_MS ?? 15_000));
 /** C49: the persons the deployment's entitlements open rung two to, read from the engine's capabilities with their token. */
@@ -1228,6 +1229,7 @@ async function personOf(ctx: { req: { header: (k: string) => string | undefined 
   if (!p) return null;
   adopt(p);
   assistRun.set(p.principal, p.entitlements.includes("assist-run"));
+  scheduler.observe(p.principal, p.grants);
   return { subject: p.principal, grants: p.grants, entitlements: p.entitlements, policy: p.policy };
 }
 

@@ -34,6 +34,8 @@ export interface SchedulerOptions {
    * the engine's capabilities through `personSeamFor`.
    */
   personOf?: (seam: Seam, subject: string) => Promise<Now | null>;
+  /** Called when the person's seam is done with, so a seam made for one look is not kept. */
+  personSeamDone?: (conversation: string) => void;
   /** How long a person's access read once is used again; a minute by default. */
   personMs?: number;
   now?: () => number;
@@ -43,6 +45,13 @@ export interface SchedulerOptions {
 export interface Now {
   admin: boolean;
   policy: PolicyRow[];
+  /** The grants this was read from, sorted, so a later look at the same person can tell their access changed. */
+  sig?: string;
+}
+
+/** A person's grants as one comparable string. */
+export function grantSig(grants: readonly string[]): string {
+  return [...grants].sort().join(",");
 }
 
 /** The person a seam's token names, as the engine's capabilities say it now; null when the engine does not answer. */
@@ -50,8 +59,10 @@ export async function personNow(seam: Seam, toolCallId = "schedule-person"): Pro
   const a = await seam.call({ method: "GET", path: "/api/capabilities", toolCallId, phase: "schedule" });
   if (a.kind !== "ok") return null;
   const doc = (a.body ?? {}) as Record<string, unknown>;
+  const grants = accessIn(doc).grants;
   return {
-    admin: isAdmin(accessIn(doc).grants),
+    admin: isAdmin(grants),
+    sig: grantSig(grants),
     policy: Array.isArray(doc.policy) ? (doc.policy as PolicyRow[]) : [],
   };
 }
@@ -136,17 +147,33 @@ export class Scheduler {
   /** A person's access as read, by subject, with when it was read (record 55, ruling 24). */
   private readonly people = new Map<string, { now: Now; at: number }>();
 
-  /** The plan's person as they are now: read with their own token under no ceiling, kept for a minute. */
+  /**
+   * A look at a person's grants made elsewhere (the desk's request carrying their token): when they differ from
+   * the ones the kept reading was made from, the reading is dropped and read again at the next step.
+   */
+  observe(subject: string, grants: readonly string[]): void {
+    const kept = this.people.get(subject);
+    if (kept?.now.sig !== undefined && kept.now.sig !== grantSig(grants)) this.people.delete(subject);
+  }
+
+  /** The plan's person as they are now: read with their own token under no ceiling, kept for a minute at most. */
   private async personFor(conversation: string, seam: Seam, subject: string): Promise<Now | null> {
     const kept = this.people.get(subject);
     const ttl = this.o.personMs ?? 60_000;
     if (kept && this.now() - kept.at < ttl) return kept.now;
+    this.people.delete(subject);
     const via = this.o.personSeamFor?.(conversation) ?? seam;
-    const now = await (this.o.personOf ?? ((s) => personNow(s, `schedule-person-${this.now()}`)))(
-      via,
-      subject,
-    );
-    if (now) this.people.set(subject, { now, at: this.now() });
+    let now: Now | null;
+    try {
+      now = await (this.o.personOf ?? ((s) => personNow(s, `schedule-person-${this.now()}`)))(via, subject);
+    } finally {
+      if (via !== seam) this.o.personSeamDone?.(conversation);
+    }
+    if (now) {
+      // the old readings of other people go with this one, so the map holds only what is still good
+      for (const [who, k] of this.people) if (this.now() - k.at >= ttl) this.people.delete(who);
+      this.people.set(subject, { now, at: this.now() });
+    }
     return now;
   }
 
@@ -172,7 +199,7 @@ export class Scheduler {
     if (!now)
       return {
         ok: false,
-        reason: step.reason ?? "waiting: what your account may do could not be read; trying again",
+        reason: "waiting: what your account may do could not be read; trying again",
       };
     const grant = now.admin ? true : this.o.store.grantCovering(subject, step.door, now.policy);
     if (!grant)
