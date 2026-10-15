@@ -492,8 +492,16 @@ const subjectResolve: OneTool = {
       // every type a person could name a subject by: the ones a map or a dataset filed, not the registry's own
       const t = await get(ctx, "identity-check", "/api/linkage/types");
       if (t.kind !== "ok") return notOk(t, "Say the ID types could not be read.");
-      types = typeNames(t.body).filter((n) => !["subject-code", "study-instance-uid"].includes(n));
+      // a person names a subject by a study's own ID: an ID that identifies a person anywhere (a type flagged
+      // identifying, or one of the built-in ones on an engine that flags none) is tried only when they name its type
+      const flagged = new Set(
+        (Array.isArray(t.body) ? t.body : [])
+          .filter((x) => (x as { identifying?: unknown })?.identifying === true)
+          .map((x) => String((x as { name?: unknown }).name)),
+      );
+      types = typeNames(t.body).filter((n) => !NOT_TRIED.includes(n) && !flagged.has(n));
     }
+    let refused = 0;
     for (const id_type of types) {
       const a = await resolveSeam(ctx.conversation).call({
         method: "POST",
@@ -505,7 +513,10 @@ const subjectResolve: OneTool = {
       if (a.kind !== "ok") {
         // tried in turn: a type that is not there, a value that is not one of it, or a type this person may not
         // resolve (an ID that identifies a person anywhere needs every detail) moves on to the next type
-        if (a.kind === "refused" && [400, 403, 404, 422].includes(a.status) && !named) continue;
+        if (a.kind === "refused" && [400, 403, 404, 422].includes(a.status) && !named) {
+          if (a.status === 403) refused += 1;
+          continue;
+        }
         return notOk(
           a,
           a.kind === "refused" && a.status === 404
@@ -534,6 +545,12 @@ const subjectResolve: OneTool = {
         };
       if (named) break;
     }
+    // every type refused this person: they may not look IDs up, which is not the ID being unknown
+    if (!named && types.length > 0 && refused === types.length)
+      return refuse(
+        "this account may not look IDs up",
+        "Say in one sentence that their account cannot look a subject up by an ID here, and that an admin can give it; never say the ID is unknown, and never answer for a whole cohort instead.",
+      );
     return {
       output: {
         id: value,
@@ -543,6 +560,9 @@ const subjectResolve: OneTool = {
     };
   },
 };
+
+/** The types an unnamed ID is never tried as: the registry's own, and those that identify a person anywhere on an engine that flags none. */
+const NOT_TRIED = ["subject-code", "study-instance-uid", "patient-id", "personnummer"];
 
 const registrySearch: OneTool = {
   name: "registry_search",

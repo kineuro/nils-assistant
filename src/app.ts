@@ -227,6 +227,9 @@ const scheduler = new Scheduler({
   seamFor: (conversation) =>
     tokens.get(conversation) || engineAuthOffNow() ? seamFor("scheduler", conversation) : null,
   mayRun: c.requireAssistRun ? (subject) => assistRun.get(subject) === true : undefined,
+  // record 55, ruling 24: the person's own access, under the people seam's admin ceiling, which narrows nothing
+  personSeamFor: (conversation) =>
+    tokens.get(conversation) || engineAuthOffNow() ? seamFor("people", conversation) : null,
 });
 if (process.env.NODE_ENV !== "test") scheduler.start(Number(process.env.ASSISTANT_SCHEDULER_MS ?? 15_000));
 /** C49: the persons the deployment's entitlements open rung two to, read from the engine's capabilities with their token. */

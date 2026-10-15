@@ -23,11 +23,19 @@ export interface SchedulerOptions {
   /** C49: whether rung two is open to this person at all. */
   mayRun?: (subject: string) => boolean;
   /**
-   * Record 55, ruling 24: who the plan's person is now, read when a step fires with their own token, never kept from
-   * an earlier call: whether they are an admin, whose steps need no standing grant, and the engine's policy, whose
-   * rows say which page a door is on. By default the engine's capabilities, read through the step's seam.
+   * Record 55, ruling 24: the seam a plan's person's own access is read through: their token under no station's
+   * ceiling (an admin ceiling narrows nothing), since a lower one would strip the grant that makes them an admin. The
+   * step's own seam when not given.
    */
-  personOf?: (seam: Seam, subject: string) => Promise<Now>;
+  personSeamFor?: (conversation: string) => Seam | null;
+  /**
+   * Who the plan's person is now, read with their own token: whether they are an admin, whose steps need no standing
+   * grant, and the engine's policy, whose rows say which page a door is on; null when it could not be read. By default
+   * the engine's capabilities through `personSeamFor`.
+   */
+  personOf?: (seam: Seam, subject: string) => Promise<Now | null>;
+  /** How long a person's access read once is used again; a minute by default. */
+  personMs?: number;
   now?: () => number;
 }
 
@@ -37,10 +45,10 @@ export interface Now {
   policy: PolicyRow[];
 }
 
-/** The person a seam's token names, as the engine's capabilities say it now: no admin and no policy when it does not answer. */
-export async function personNow(seam: Seam, toolCallId = "schedule-person"): Promise<Now> {
+/** The person a seam's token names, as the engine's capabilities say it now; null when the engine does not answer. */
+export async function personNow(seam: Seam, toolCallId = "schedule-person"): Promise<Now | null> {
   const a = await seam.call({ method: "GET", path: "/api/capabilities", toolCallId, phase: "schedule" });
-  if (a.kind !== "ok") return { admin: false, policy: [] };
+  if (a.kind !== "ok") return null;
   const doc = (a.body ?? {}) as Record<string, unknown>;
   return {
     admin: isAdmin(accessIn(doc).grants),
@@ -96,7 +104,6 @@ export class Scheduler {
   /** One pass over every open step of every confirmed plan: fire what is due, follow what was queued. */
   async tick(): Promise<Fired[]> {
     const out: Fired[] = [];
-    const people = new Map<string, Now>();
     for (const step of this.o.store.openSteps()) {
       const plan = this.o.store.planById(step.plan);
       if (!plan) continue;
@@ -114,37 +121,58 @@ export class Scheduler {
         out.push(await this.follow(seam, step));
         continue;
       }
-      // the person as they are now, once per tick: a role changed since, or a restart, is read again
-      let now = people.get(plan.subject);
-      if (!now) {
-        now = await (this.o.personOf ?? ((s) => personNow(s, `schedule-person-${this.now()}`)))(
-          seam,
-          plan.subject,
-        );
-        people.set(plan.subject, now);
-      }
-      const due = await this.due(seam, plan.subject, step, now);
+      const due = await this.due(seam, plan, step);
       if (!due.ok) {
         if (due.reason !== step.reason) this.o.store.setStep(step.id, { reason: due.reason });
         out.push({ step: step.id, outcome: "waiting", reason: due.reason, job: null });
         continue;
       }
+      const now = due.now;
       out.push(await this.fire(seam, plan.subject, step, now));
     }
     return out;
   }
 
-  /** Whether a step's condition holds and its grant stands; the reason when not. */
+  /** A person's access as read, by subject, with when it was read (record 55, ruling 24). */
+  private readonly people = new Map<string, { now: Now; at: number }>();
+
+  /** The plan's person as they are now: read with their own token under no ceiling, kept for a minute. */
+  private async personFor(conversation: string, seam: Seam, subject: string): Promise<Now | null> {
+    const kept = this.people.get(subject);
+    const ttl = this.o.personMs ?? 60_000;
+    if (kept && this.now() - kept.at < ttl) return kept.now;
+    const via = this.o.personSeamFor?.(conversation) ?? seam;
+    const now = await (this.o.personOf ?? ((s) => personNow(s, `schedule-person-${this.now()}`)))(
+      via,
+      subject,
+    );
+    if (now) this.people.set(subject, { now, at: this.now() });
+    return now;
+  }
+
+  /**
+   * Whether a step's condition holds and its grant stands; the reason when not. Its time and its condition are read
+   * first, the person's access only once those hold; an access that could not be read keeps the step's reason and is
+   * tried again, never said to be a missing grant.
+   */
   private async due(
     seam: Seam,
-    subject: string,
+    plan: { subject: string; conversation: string },
     step: StepRow,
-    now: Now,
-  ): Promise<{ ok: true } | { ok: false; reason: string }> {
+  ): Promise<{ ok: true; now: Now } | { ok: false; reason: string }> {
+    const subject = plan.subject;
     if (this.o.mayRun && !this.o.mayRun(subject))
       return {
         ok: false,
         reason: "rung two is closed to this person: the assist-run entitlement is required here (C49)",
+      };
+    const w = step.when ?? "now";
+    if (!(await this.holds(seam, step, w))) return { ok: false, reason: `waiting: ${describe(w)}` };
+    const now = await this.personFor(plan.conversation, seam, subject);
+    if (!now)
+      return {
+        ok: false,
+        reason: step.reason ?? "waiting: what your account may do could not be read; trying again",
       };
     const grant = now.admin ? true : this.o.store.grantCovering(subject, step.door, now.policy);
     if (!grant)
@@ -155,9 +183,7 @@ export class Scheduler {
           now.policy.find((r) => r.door === step.door),
         ).words.toLowerCase()} for you; give it under Standing grants and the step runs`,
       };
-    const w = step.when ?? "now";
-    const holds = await this.holds(seam, step, w);
-    return holds ? { ok: true } : { ok: false, reason: `waiting: ${describe(w)}` };
+    return { ok: true, now };
   }
 
   private async holds(seam: Seam, step: StepRow, w: When): Promise<boolean> {

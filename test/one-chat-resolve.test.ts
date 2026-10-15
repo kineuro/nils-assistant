@@ -41,10 +41,11 @@ const engine = await stubEngine((c) => {
   if (p === "/api/linkage/types")
     return {
       body: [
-        { name: "patient-id", identifiers: 0 },
-        { name: "study-instance-uid", identifiers: 0 },
+        { name: "patient-id", identifiers: 0, identifying: true },
+        { name: "study-instance-uid", identifiers: 0, identifying: true },
         { name: "subject-code", identifiers: 0 },
-        { name: "personnummer", identifiers: 0 },
+        { name: "personnummer", identifiers: 0, identifying: true },
+        { name: "hospital-id", identifiers: 3, identifying: true },
         { name: "ctrl-id", identifiers: 78, subjects: 78 },
       ],
     };
@@ -56,6 +57,8 @@ const engine = await stubEngine((c) => {
       return { status: 403, body: { error: "resolving a patient-id needs detail sensitive" } };
     if (b.id_type === "personnummer")
       return { status: 400, body: { error: "not an ID that is the same everywhere" } };
+    // a person whose account may not look IDs up
+    if (String(b.value).startsWith("Locked")) return { status: 403, body: { error: "needs detail quasi" } };
     if (b.id_type !== "ctrl-id")
       return {
         status: 404,
@@ -169,13 +172,9 @@ describe("a subject named by an ID (record 55, ruling 24)", () => {
     const reply = await h.read(await h.dispatch(QUESTION));
     expect(reply.text).toMatch(/ab12cd34/u);
     // the types are read once, and each a person names subjects by is tried until one knows the ID
-    // one call per type, past the refusals of the ones this person may not resolve or the value is not one of
     const asked = resolves().map((d) => d.body);
-    expect(asked).toEqual([
-      { id_type: "patient-id", value: "Ctrl0042" },
-      { id_type: "personnummer", value: "Ctrl0042" },
-      { id_type: "ctrl-id", value: "Ctrl0042" },
-    ]);
+    // an unnamed ID is never tried as one that identifies a person anywhere (flagged, or built in)
+    expect(asked).toEqual([{ id_type: "ctrl-id", value: "Ctrl0042" }]);
     expect(asked.some((b) => (b as { id_type?: string }).id_type === "subject-code")).toBe(false);
     // the answer the model reads names the subject code, and says to ask of it, never of a cohort
     const answered = toolAnswer("subject_resolve");
@@ -223,4 +222,28 @@ describe("a subject named by an ID (record 55, ruling 24)", () => {
     expect(admitPath("/api/linkage/resolve", "POST", false, true).ok).toBe(true);
     expect(admitPath("/api/linkage/held/reveal", "POST", false, true).ok).toBe(false);
   });
+
+  it("tries an identifying type only when the person names it, and says when the account may not look IDs up", async () => {
+    notePerson("oc-ctrl-named", { grants: SETS.admin.grants, detail: "sensitive" });
+    play([
+      { tool: "activate_skill", args: { name: "find-data" } },
+      { tool: "subject_resolve", args: { value: "PX-0077", id_type: "patient-id" } },
+      { text: "That patient ID cannot be looked up here." },
+    ]);
+    let h = init(Nils, { id: "oc-ctrl-named" });
+    await h.read(await h.dispatch("which subject is patient-id PX-0077?"));
+    expect(resolves().map((d) => d.body)).toEqual([{ id_type: "patient-id", value: "PX-0077" }]);
+    // every type refused: the account may not, which is not the ID being unknown
+    notePerson("oc-ctrl-locked", { grants: SETS.reviewer.grants, detail: "quasi" });
+    play([
+      { tool: "activate_skill", args: { name: "find-data" } },
+      { tool: "subject_resolve", args: { value: "Locked0042" } },
+      { text: "Your account cannot look a subject up by an ID here." },
+    ]);
+    h = init(Nils, { id: "oc-ctrl-locked" });
+    await h.read(await h.dispatch("how many scans does Locked0042 have?"));
+    const answered = toolAnswer("subject_resolve");
+    expect(answered).toMatch(/may not look IDs up/u);
+    expect(answered).not.toMatch(/no subject you may see/u);
+  }, 60_000);
 });

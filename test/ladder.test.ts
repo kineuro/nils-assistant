@@ -746,6 +746,41 @@ describe("the overnight instruction runs as a plan (bar 3)", () => {
     expect(scopeWords("POST /api/whatever", []).words).not.toMatch(/\/api\//u);
     expect(covers(pageScope("data"), "POST /api/linkage/imports", [])).toBe(true);
     expect(covers(pageScope("places"), "POST /api/linkage/imports", [])).toBe(false);
+    // a grant given by its words covers every door the offer folded under those words, and no other
+    const twins = [
+      {
+        door: "POST /api/one",
+        grant: "review:work",
+        writes: true,
+        idempotent: true,
+        cost: "job",
+        label: { present: "Doing a thing" },
+      },
+      {
+        door: "POST /api/two",
+        grant: "review:work",
+        writes: true,
+        idempotent: true,
+        cost: "job",
+        label: { present: "Doing a thing" },
+      },
+      {
+        door: "POST /api/three",
+        grant: "review:work",
+        writes: true,
+        idempotent: true,
+        cost: "job",
+        label: { present: "Doing another" },
+      },
+      { door: "POST /api/four", grant: "review:work", writes: true, idempotent: true, cost: "job" },
+      { door: "POST /api/five", grant: "review:work", writes: true, idempotent: true, cost: "job" },
+    ] as never[];
+    expect(covers("POST /api/one", "POST /api/two", twins)).toBe(true);
+    expect(covers("POST /api/one", "POST /api/three", twins)).toBe(false);
+    expect(covers("POST /api/four", "POST /api/five", twins)).toBe(false);
+    const store2 = new LadderStore(":memory:");
+    store2.grant("nima@lab", "POST /api/one");
+    expect(store2.grantCovering("nima@lab", "POST /api/two", twins)?.door).toBe("POST /api/one");
   });
 
   it("record 55, ruling 24: what a person may give is offered in words by page, campaigns among them, never beyond the person", () => {
@@ -777,32 +812,106 @@ describe("the overnight instruction runs as a plan (bar 3)", () => {
     expect(JSON.stringify(admin.map((p) => p.actions.map((a) => a.words)))).not.toMatch(/\/api\//u);
   });
 
-  it("record 55, ruling 24: the scheduler reads who the person is from the engine when a step fires, never from memory", async () => {
+  it("record 55, ruling 24: the scheduler reads the person's own access under no ceiling, when a step is due, kept a minute", async () => {
     const { stubEngine: stub, seamOf } = await import("./child/stub-engine.ts");
-    let grants = ["assistant:use", "identity:work"];
-    const e = await stub((c) =>
-      c.path.startsWith("/api/capabilities")
-        ? { body: { principal: "nima@lab", grants, detail: "sensitive", policy: POLICY } }
-        : null,
-    );
+    let grants = ["assistant:use", "identity:work", "data:work"];
+    let up = true;
+    // an engine that honours the ceiling: below admin, the grant that makes an admin is stripped
+    const e = await stub((c) => {
+      if (!c.path.startsWith("/api/capabilities")) return null;
+      if (!up) return { status: 503, body: { error: "down" } };
+      const ceiling = String(c.headers?.["x-nils-ceiling"] ?? "");
+      const held = ceiling === "admin" ? grants : grants.filter((g) => g !== "identity:work");
+      return { body: { principal: "nima@lab", grants: held, detail: "sensitive", policy: POLICY } };
+    });
     closers.push(() => e.close());
-    const seam = seamOf(
-      e.url,
-      {
-        id: "scheduler",
-        grant: { capabilities: {} },
-        ceiling: "operator",
-        content: "catalog",
-        standing: true,
-      },
-      "c-now",
-    );
-    const first = await personNow(seam);
-    expect(first.admin).toBe(true);
-    expect(first.policy.map((r) => r.door)).toContain("POST /api/jobs");
-    // the role changed at the desk: the next read says so
+    const station = (ceiling: "operator" | "admin") =>
+      seamOf(
+        e.url,
+        { id: `s-${ceiling}`, grant: { capabilities: {} }, ceiling, content: "catalog", standing: true },
+        `c-${ceiling}`,
+      );
+    // under the scheduler's operator ceiling the admin would be lost; under none, they are an admin
+    expect((await personNow(station("operator")))?.admin).toBe(false);
+    expect((await personNow(station("admin")))?.admin).toBe(true);
+    const { store } = harness(e.url);
+    store.plan({
+      id: "plan-nima",
+      conversation: "c-nima",
+      subject: "nima@lab",
+      instruction: "digest",
+      planned: planFrom(
+        [{ verb: "digest", args: { place: "scanner" }, when: { at: "2999-01-01T00:00:00Z" } }],
+        POLICY,
+      ),
+    });
+    store.confirm("plan-nima", "nima@lab");
+    let clock = Date.parse("2026-10-15T08:00:00Z");
+    const scheduler = new Scheduler({
+      store,
+      seamFor: () => station("operator"),
+      personSeamFor: () => station("admin"),
+      now: () => clock,
+    });
+    const reads = () => e.seen.filter((d) => d.path.startsWith("/api/capabilities")).length;
+    const before = reads();
+    // a step not yet due reads no capabilities
+    let fired = await scheduler.tick();
+    expect(fired[0]).toMatchObject({ outcome: "waiting", reason: expect.stringMatching(/^waiting: until/u) });
+    expect(reads()).toBe(before);
+    // due now: the admin's step needs no standing grant
+    clock = Date.parse("2999-01-01T00:00:01Z");
+    const engine = await stubEngine();
+    closers.push(() => engine.server.close());
+    const { store: store2, seamFor } = harness(engine.url);
+    store2.plan({
+      id: "plan-due",
+      conversation: "c-due",
+      subject: "nima@lab",
+      instruction: "digest",
+      planned: planFrom([{ verb: "digest", args: { place: "scanner" } }], POLICY),
+    });
+    store2.confirm("plan-due", "nima@lab");
+    const due = new Scheduler({
+      store: store2,
+      seamFor,
+      personSeamFor: () => station("admin"),
+      now: () => clock,
+    });
+    fired = await due.tick();
+    expect(fired[0]).toMatchObject({ outcome: "queued" });
+    // read once and kept: a second plan of the same person within the minute reads nothing again
+    const after = reads();
+    store2.plan({
+      id: "plan-due-2",
+      conversation: "c-due",
+      subject: "nima@lab",
+      instruction: "digest",
+      planned: planFrom([{ verb: "digest", args: { place: "scanner" } }], POLICY),
+    });
+    store2.confirm("plan-due-2", "nima@lab");
+    await due.tick();
+    expect(reads()).toBe(after);
+    // a minute on, the role changed and the engine is down: the step keeps its reason, and no missing grant is claimed
+    clock += 61_000;
     grants = ["assistant:use", "data:work"];
-    seam.resetGrant();
-    expect((await personNow(seam)).admin).toBe(false);
+    up = false;
+    store2.plan({
+      id: "plan-down",
+      conversation: "c-due",
+      subject: "nima@lab",
+      instruction: "digest",
+      planned: planFrom([{ verb: "digest", args: { place: "scanner" } }], POLICY),
+    });
+    store2.confirm("plan-down", "nima@lab");
+    fired = await due.tick();
+    const down = fired.find((f) => store2.step(f.step)?.plan === "plan-down");
+    expect(down?.outcome).toBe("waiting");
+    expect(down?.reason).toMatch(/could not be read; trying again/u);
+    expect(down?.reason).not.toMatch(/may not yet/u);
+    // up again: no longer an admin, and no grant stands, so it waits for one
+    up = true;
+    fired = await due.tick();
+    expect(fired.find((f) => store2.step(f.step)?.plan === "plan-down")?.reason).toMatch(/may not yet/u);
   });
 });

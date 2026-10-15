@@ -151,17 +151,23 @@ export function scopeWords(scope: string, policy: PolicyRow[]): { page: PageId |
   );
 }
 
-/** Whether a kept scope covers a door: the door itself, its page, or everything. */
+/** Whether a kept scope covers a door: the door itself or another with its words on its page, its page, or everything. */
 export function covers(scope: string, door: string, policy: PolicyRow[]): boolean {
   if (scope === door || scope === EVERYTHING_SCOPE) return true;
-  const page = scopePage(scope);
-  if (!page) return false;
-  return (
+  const of = (d: string) =>
     actionOf(
-      door,
-      policy.find((r) => r.door === door),
-    ).page === page
-  );
+      d,
+      policy.find((r) => r.door === d),
+    );
+  const page = scopePage(scope);
+  // a grant given by its words covers every door the offer folded under those words, on the same page
+  if (!page) {
+    const given = of(scope);
+    const asked = of(door);
+    // the generic words of a door nothing names are no action of their own
+    return given.page === asked.page && given.words === asked.words && !given.words.startsWith("A step on ");
+  }
+  return of(door).page === page;
 }
 
 /** The rung-two actions a person's grants open, by page in the desk's order, each with its words. */
