@@ -20,18 +20,26 @@ import { hintLine, routeOf } from "../src/one/route.ts";
 import { bodyFor, findExamples, loadSkills, parseSkill } from "../src/one/skills.ts";
 import { conversationOf, newTurn } from "../src/one/state.ts";
 import {
+  breaksRefusal,
+  casesOf,
   draftNext,
   isWorker,
   jobsOf,
+  operationsOf,
+  patchScope,
+  rehearsedOf,
   runScope,
   searchCatalog,
   selectionNamed,
   selectionNote,
+  signalsScopeOf,
   TOOLS,
+  unknownOrigin,
+  verdictOf,
 } from "../src/one/tools.ts";
 import { plainly, unplainWords } from "../src/one/words.ts";
 import { withoutTask } from "../src/providers/kvasir.ts";
-import { GrantKeeper } from "../src/seam/grant.ts";
+import { GrantKeeper, operationOf } from "../src/seam/grant.ts";
 import { Ledger } from "../src/seam/ledger.ts";
 import { cohortsOf, cohortsText } from "../src/stations/pipelines.ts";
 import { renderCatalog } from "../src/stations/prelude.ts";
@@ -542,13 +550,146 @@ describe("searching the registry's names", () => {
   });
 });
 
+describe("sorting words as a typed rule change (record 56)", () => {
+  const prediction = {
+    axis: "post_contrast",
+    bucket: "contrast_positive",
+    value: null,
+    list: "contrast_positive",
+    add: ["zorvex"],
+    remove: [],
+    flip: [],
+    must_not_regress: [],
+    at: 1,
+  };
+
+  it("names the rule change's scope from the person's", () => {
+    expect(patchScope("batch:7")).toBe("batch:7");
+    expect(patchScope("origin:Siemens")).toBe("scanner:manufacturer=Siemens");
+    expect(patchScope("station:MR1")).toBe("scanner:station=MR1");
+    expect(patchScope("dataset:partner-2026")).toBe("dataset:partner-2026");
+    expect(patchScope("site:partner")).toBe("site:partner");
+    expect(patchScope("pack")).toBe("pack");
+    expect(patchScope("batch:seven")).toBeNull();
+    expect(patchScope("cohort:x")).toBeNull();
+  });
+
+  it("writes one change to one list as add_words and remove_words, each with its scope, reason and evidence", () => {
+    const ev = { assistant: "tune-sorting-words", conversation: "c" };
+    expect(operationsOf(prediction, "batch:7", "the site's agent", ev)).toEqual([
+      {
+        op: "add_words",
+        bucket: "contrast_positive",
+        words: ["zorvex"],
+        scope: "batch:7",
+        reason: "the site's agent",
+        evidence: ev,
+      },
+    ]);
+    const onValue = {
+      ...prediction,
+      bucket: null,
+      value: "given",
+      list: "post_contrast.given",
+      remove: ["kontrast"],
+    };
+    const ops = operationsOf(onValue, "dataset:a", "r", ev);
+    expect(ops.map((o) => [o.op, o.axis, o.value])).toEqual([
+      ["add_words", "post_contrast", "given"],
+      ["remove_words", "post_contrast", "given"],
+    ]);
+    expect(casesOf(prediction, "T1 MPRAGE zorvex", "given")).toEqual([
+      {
+        name: "the site's contrast_positive word",
+        stack: { text_series_description: "T1 MPRAGE zorvex" },
+        axes: { post_contrast: "given" },
+      },
+    ]);
+  });
+
+  it("reads the effect report as the diff does, and never keeps a change that breaks a settled answer", () => {
+    const report = {
+      moved: { stacks: 4 },
+      axes: [
+        {
+          axis: "post_contrast",
+          transitions: [{ from: "not_given", to: "given", stacks: 4, examples: [{ stack: 9 }] }],
+        },
+      ],
+      review: { by_kind: [{ kind: "post_contrast:missing", appear: 0, disappear: 2 }] },
+      answers: { fixes: 3, breaks: 0, net: 3 },
+      patch: { cases: { held: true, failures: null } },
+      ships: { as: "overlay" },
+    };
+    const r = rehearsedOf(report);
+    expect(r.moves).toEqual([{ axis: "post_contrast", from: "not_given", to: "given", stacks: 4 }]);
+    expect(r.review_items).toEqual({ close: 2, open: 0 });
+    expect(JSON.stringify(r)).not.toContain('"stack"');
+    expect(verdictOf(prediction, r).verdict).toBe("keep");
+    const breaks = rehearsedOf({ ...report, answers: { fixes: 3, breaks: 1, net: 2 } });
+    expect(verdictOf(prediction, breaks)).toMatchObject({ verdict: "partial" });
+    expect(verdictOf(prediction, breaks).why).toContain("breaks 1 answer");
+    const failing = rehearsedOf({ ...report, patch: { cases: { held: false, failures: "x" } } });
+    expect(verdictOf(prediction, failing).verdict).toBe("revert");
+  });
+
+  it("takes a report that does not say its cases held as not holding (review of PR #73)", () => {
+    const r = rehearsedOf({ moved: { stacks: 1 }, answers: { fixes: 1, breaks: 0, net: 1 } });
+    expect(r.cases.held).toBe(false);
+    expect(verdictOf(prediction, r).verdict).toBe("revert");
+    expect(rehearsedOf({ patch: { cases: { held: true } } }).cases.held).toBe(true);
+  });
+
+  it("never proposes a change that breaks answers people gave, unless asked with the breaks named", () => {
+    expect(breaksRefusal(0, false, "Add zorvex.")).toBeNull();
+    expect(breaksRefusal(2, false, "Add zorvex.")?.why).toContain("breaks 2 answers");
+    expect(breaksRefusal(2, true, "Add zorvex.")).not.toBeNull();
+    expect(breaksRefusal(2, true, "Add zorvex, though it breaks 12 answers.")).not.toBeNull();
+    expect(breaksRefusal(2, true, "Add zorvex, knowing it breaks 2 answers people gave.")).toBeNull();
+  });
+
+  it("reads the signals for every scope, and refuses a scanner the registry does not hold", () => {
+    expect(signalsScopeOf("batch:7", null)?.scope).toBe("batch:7");
+    expect(signalsScopeOf("origin:Siemens", null)).toEqual({
+      scope: "origin:Siemens",
+      origin: { kind: null, name: "Siemens" },
+    });
+    expect(signalsScopeOf("station:MR1", null)?.origin).toEqual({ kind: "station", name: "MR1" });
+    for (const s of ["dataset:a", "site:b", "pack", "scanner:station=MR1"])
+      expect(signalsScopeOf(s, "1.2.0")?.scope, s).toBe("pack:1.2.0");
+    expect(signalsScopeOf("dataset:a", null)).toBeNull();
+    const body = {
+      origins: [
+        { name: "SIEMENS", kind: "manufacturer", stacks: 4 },
+        { name: "MR1", kind: "station", stacks: 4 },
+      ],
+    };
+    expect(unknownOrigin(signalsScopeOf("manufacturer:siemens", null) ?? { origin: null }, body)).toBeNull();
+    const refused = unknownOrigin(signalsScopeOf("manufacturer:Siemenz", null) ?? { origin: null }, body);
+    expect(refused?.why).toContain("Siemenz");
+    expect(refused?.next).toContain("SIEMENS");
+    expect(unknownOrigin(signalsScopeOf("model:MR1", null) ?? { origin: null }, body)).not.toBeNull();
+    expect(unknownOrigin(signalsScopeOf("batch:7", null) ?? { origin: null }, body)).toBeNull();
+  });
+
+  it("names the pack's rule doors in the grant's words, and no station holds the decision", () => {
+    expect(operationOf("POST", "/api/packs/mri/rehearse")).toBe("packs/{name}/rehearse");
+    expect(operationOf("POST", "/api/packs/mri/proposals")).toBe("packs/{name}/proposals");
+    expect(operationOf("GET", "/api/packs/mri/proposals/12")).toBe("packs/{name}/proposals/{id}");
+    expect(operationOf("POST", "/api/packs/mri/proposals/12/decide")).toBe(
+      "packs/{name}/proposals/{id}/decide",
+    );
+    expect(() => new GrantKeeper({ "packs/{name}/proposals/{id}/decide": {} })).toThrow(/decision apply/u);
+  });
+});
+
 describe("a proposed change, decided by the person", () => {
   const dir = mkdtempSync(join(tmpdir(), "one-changes-"));
 
   it("records the approval first, then applies sorting words and a merge at the engine, under the person's seam", async () => {
     const engine = await stubEngine((c) =>
-      c.method === "POST" && c.path === "/api/overlays"
-        ? { body: { id: 31, review_item: 7 } }
+      c.method === "POST" && c.path === "/api/packs/mri/proposals"
+        ? { status: 201, body: { id: 31, status: "proposed" } }
         : c.method === "POST" && c.path === "/api/linkage/merge"
           ? { body: { merged: true } }
           : null,
@@ -561,7 +702,7 @@ describe("a proposed change, decided by the person", () => {
           engine.url,
           {
             id: "one-decide",
-            grant: { jobs: {}, overlays: {}, "linkage/merge": {} },
+            grant: { jobs: {}, overlays: {}, "packs/{name}/proposals": {}, "linkage/merge": {} },
             ceiling: "operator",
             content: "catalog",
             decides: true,
@@ -569,6 +710,17 @@ describe("a proposed change, decided by the person", () => {
           "conv-a",
         );
       const deps = { changes, ledger, seam, confirmPlan: async () => ({ refused: "no plan" }) };
+      // record 56: the rehearsed typed operations, proposed to the pack for an operator to adopt
+      const operations = [
+        {
+          op: "add_words",
+          bucket: "contrast_positive",
+          words: ["zorvex"],
+          scope: "batch:4",
+          reason: "the site's agent",
+          evidence: { assistant: "tune-sorting-words", conversation: "conv-a" },
+        },
+      ];
       const overlay = changes.propose({
         conversation: "conv-a",
         subject: "anna@n",
@@ -576,9 +728,13 @@ describe("a proposed change, decided by the person", () => {
         sentence: "Add zorvex to the contrast words.",
         payload: {
           name: "zorvex",
-          overlay: { buckets: { contrast_positive: { add: ["zorvex"] } } },
+          pack: "mri",
+          title: "Add zorvex to the contrast words.",
+          operations,
+          cases: [],
+          reason: "the site's agent",
+          evidence: { assistant: "tune-sorting-words", conversation: "conv-a" },
           scope: "batch:4",
-          why: "the site's agent",
         },
       });
       // a stranger cannot decide it
@@ -588,9 +744,28 @@ describe("a proposed change, decided by the person", () => {
       });
       const r = await decide(deps, overlay.id, "anna@n", "approved");
       expect(r.ok).toBe(true);
-      expect(engine.seen.find((c) => c.path === "/api/overlays")?.body).toMatchObject({
-        name: "zorvex",
-        scope: "batch:4",
+      expect(engine.seen.find((c) => c.path === "/api/packs/mri/proposals")?.body).toMatchObject({
+        title: "Add zorvex to the contrast words.",
+        operations,
+        reason: "the site's agent",
+      });
+      // a word change kept before the typed operations carries its overlay, which the engine reads as words
+      const older = changes.propose({
+        conversation: "conv-a",
+        subject: "anna@n",
+        kind: "overlay",
+        sentence: "Add zorvex.",
+        payload: {
+          name: "zorvex-old",
+          overlay: { buckets: { contrast_positive: { add: ["zorvex"] } } },
+          scope: "batch:4",
+          why: "the site's agent",
+        },
+      });
+      expect((await decide(deps, older.id, "anna@n", "approved")).ok).toBe(true);
+      expect(engine.seen.filter((c) => c.path === "/api/packs/mri/proposals").at(-1)?.body).toMatchObject({
+        title: "zorvex-old",
+        overlay: { buckets: { contrast_positive: { add: ["zorvex"] } } },
       });
       // decided once only
       expect(await decide(deps, overlay.id, "anna@n", "declined")).toMatchObject({ ok: false, status: 409 });

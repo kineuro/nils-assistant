@@ -23,6 +23,8 @@ export const FORBIDDEN = [
   "decisions/{id}/commit",
   "decisions/{id}/withdraw",
   "overlays/{id}/adopt",
+  // record 56, section 5.3: a person decides a rule change, and the system applies it
+  "packs/{name}/proposals/{id}/decide",
   "handles/{id}/promote",
   "releases",
   "handovers",
@@ -50,6 +52,9 @@ export function operationOf(method: string, path: string): string {
   const m = /^catalog\/([^/]+)(\/([^/]+)\/values)?$/u.exec(named);
   if (m) return m[2] ? "catalog/{level}/{field}/values" : "catalog/{level}";
   if (/^packs\/[^/]+$/u.test(named)) return "packs/{name}";
+  // record 56: a pack's rehearsal, its quality and its proposed rule changes
+  const pack = /^packs\/[^/]+\/(rehearse|quality|proposals(\/\{id\}(\/(rehearse|decide))?)?)$/u.exec(named);
+  if (pack) return `packs/{name}/${pack[1]}`;
   // a saved selection is named by its name or name@version (record 55 K6)
   if (/^selections\/[^/]+$/u.test(named)) return "selections/{name}";
   // a pipeline is named by its id, its name or name@version (record 49)

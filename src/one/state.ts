@@ -8,6 +8,7 @@
 // rehearsed, the identity probes). Held in the process like the stations'
 // own readings; a restart forgets them, and the next turn reads again.
 
+import type { JsonValue } from "@flue/runtime";
 import type { HeldBack } from "../seam/shaped.ts";
 import type { HeldShape, ProbeCandidate } from "../stations/identity-check.ts";
 import type { Prediction } from "../stations/keyword-tune.ts";
@@ -71,11 +72,18 @@ export interface TurnState {
 
 export interface Rehearsal {
   prediction: Prediction;
+  /** The rule change's scope (contracts/patch/v1): pack, site:, dataset:, scanner: or batch:. */
   scope: string;
   case_text: string;
   case_value: string;
-  overlay: Record<string, unknown>;
+  /** The typed operations rehearsed (record 56, section 5.5), with the patch's own case. */
+  operations: Record<string, JsonValue>[];
+  cases: Record<string, JsonValue>[];
+  reason: string;
+  evidence: Record<string, JsonValue>;
   diff: { verdict: "keep" | "partial" | "revert"; why: string };
+  /** The answers people gave that the change breaks, right to wrong. */
+  breaks: number;
   at: number;
 }
 
@@ -93,6 +101,10 @@ export interface ConversationState {
   /** The values the signals report per axis. */
   values: Map<string, Set<string>>;
   packLists: Map<string, string[]>;
+  /** The pack's version as its door said, which whole-pack signals are read under. */
+  packVersion: string | null;
+  /** The signals scopes read in this conversation. */
+  signalsRead: Set<string>;
   rehearsal: Rehearsal | null;
   probes: Probe[];
   types: string[] | null;
@@ -142,6 +154,8 @@ export function conversationOf(id: string): ConversationState {
       groups: new Set(),
       values: new Map(),
       packLists: new Map(),
+      packVersion: null,
+      signalsRead: new Set(),
       rehearsal: null,
       probes: [],
       types: null,
