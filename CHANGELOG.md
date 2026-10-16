@@ -4,6 +4,10 @@ All notable changes to the NILS assistant are recorded here. The format follows 
 
 ## [Unreleased]
 
+### Added
+
+- Teaching (Wave 5 section 9.5) gains the two doors the desk's Teaching page needs. `GET /teaching/jobs` lists every fine-tune job, whoever started it, newest first, so an administrator can follow one until it ends (the inbox lists only a person's own). `POST /teaching/candidates/{id}/retire` retires a candidate through Kvasir's lifecycle; retiring the promoted one rolls the promotion back, so the backend's purposes go back to the model it is configured with, and the answer says so (`rolled_back`) with the promoted model per backend after it. The model the promotion replaced stays retired, as Kvasir never promotes a retired candidate again. Retiring needs `kvasir:work`, like the other lifecycle verbs; a candidate already retired is refused with a sentence.
+
 ### Fixed
 
 - `subject_resolve` no longer tells the chat that no subject has an ID when the value is a subject code. The T10 bench of 2026-10-16 asked it to erase subject SYN0005: 9 of 12 runs called the tool on the code and 7 of those, told that no subject has the ID, did not propose the erasure; 5 of 12 runs proposed it, against 12 of 12 before the tool existed. A value no ID type knows is now asked last as a subject code too, and the answer says when a value is one (the registry has that subject, or its subject was merged into another). A site with no map was never asked at all, because every type it keeps is flagged or the registry's own, and the tool answered that no subject had the ID without a call; and an engine that lists nothing to ask is no longer reported as an ID no subject has. The tool's description, the agent's rules and the find-data and check-identities skills say a subject code is no ID and needs no resolving, and the answer's next step serves work on the subject as well as a question about its scans. It needs the engine of the same wave, which answers a subject's own code at `POST /api/linkage/resolve` as the type `subject-code`; an older engine answers a code no row filed as unknown, as before.

@@ -1514,6 +1514,13 @@ app.post("/teaching/sets/:id/fine-tune", async (ctx) => {
   return ctx.json(jobView(job), 202);
 });
 
+// every fine-tune job, whoever started it, so the desk can follow one until it ends
+app.get("/teaching/jobs", async (ctx) => {
+  const who = await personOf(ctx);
+  if (!who) return ctx.json({ error: "no token" }, 401);
+  return ctx.json({ jobs: teaching.jobs().map(jobView) });
+});
+
 app.get("/teaching/candidates", async (ctx) => {
   const who = await personOf(ctx);
   if (!who) return ctx.json({ error: "no token" }, 401);
@@ -1547,6 +1554,13 @@ app.post("/teaching/candidates/:id/:verb", async (ctx) => {
       const r = await teaching.promote(cand, { id: pid, principal: who.subject }, kv);
       return r.ok
         ? ctx.json({ promoted: id, result: r.result })
+        : ctx.json({ error: r.refused, refused: true }, 409);
+    }
+    // the roll back of a promotion: the backend goes back to its configured model
+    if (verb === "retire") {
+      const r = await teaching.retire(cand, kv);
+      return r.ok
+        ? ctx.json({ retired: id, rolled_back: r.rolledBack, candidate: r.candidate, promoted: r.promoted })
         : ctx.json({ error: r.refused, refused: true }, 409);
     }
     return ctx.json({ error: `${verb} is not a teaching verb` }, 404);
