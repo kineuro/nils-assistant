@@ -42,7 +42,7 @@ export interface Config {
   version: string;
 }
 
-export const VERSION = "1.0.0-alpha.29";
+export const VERSION = "1.0.0-alpha.30";
 
 export function config(env: NodeJS.ProcessEnv = process.env): Config {
   const keyFile = env.KVASIR_KEY_FILE;
