@@ -253,6 +253,45 @@ describe("teaching, the loop once on the bench", () => {
     expect(gates(candidates[0], null, (of) => of).refused).toMatch(/has not run/);
   });
 
+  it("rolls a promotion back by retiring it, lists every job, and refuses to retire twice", async () => {
+    const h = harness();
+    const { kv, candidates } = stubKvasir(() => true);
+    const t = new Teaching({
+      store: h.store,
+      runner: async (_s, recipe) => ({
+        dry: true,
+        base: recipe.base,
+        steps: 0,
+        adapter: null,
+        set_digest: "d",
+        note: "dry",
+      }),
+      bench: async () => ({ passed: 36, of: 36, strict: 36, median_seconds: 15, dry: true, note: null }),
+      backend: "card0",
+      threshold: (of) => of,
+    });
+    const set = h.store.curate("s", "anna", []);
+    await t.fineTune(set, "anna", { base: "b", method: "lora", steps: 1, rank: 1, lr: 0.001 }, kv).done;
+    await t.fineTune(set, "ben", { base: "b", method: "lora", steps: 2, rank: 1, lr: 0.001 }, kv).done;
+    // every job, whoever started it, newest first
+    expect(t.jobs().map((j) => [j.id, j.subject, j.state])).toEqual([
+      [2, "ben", "done"],
+      [1, "anna", "done"],
+    ]);
+    await kv.admit(1);
+    await t.bench(candidates[0], "anna");
+    expect(await t.promote(candidates[0], { id: "p", principal: "anna" }, kv)).toMatchObject({ ok: true });
+    const r = await t.retire(candidates[0], kv);
+    expect(r).toMatchObject({ ok: true, rolledBack: true, promoted: [{ backend: "card0", model: null }] });
+    expect(candidates[0].state).toBe("retired");
+    expect(await t.retire(candidates[0], kv)).toEqual({
+      ok: false,
+      refused: "candidate 1 (b) is already retired",
+    });
+    // a candidate never promoted is retired, and nothing is rolled back
+    expect(await t.retire(candidates[1], kv)).toMatchObject({ ok: true, rolledBack: false });
+  });
+
   it("benches from the recording when the model is not served, and says it is dry", async () => {
     const bench = recordedBench("/gate", (p) =>
       p.endsWith("baseline-qwen38-27b-fast.json")

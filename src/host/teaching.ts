@@ -482,6 +482,37 @@ export class Teaching {
     return { ok: true, result: await kvasir.promote(c.id, proposal) };
   }
 
+  /**
+   * Retirement, and the roll back of a promotion: Kvasir's retire. Retiring
+   * the promoted candidate sends its backend's purposes back to the model the
+   * backend is configured with; the model the promotion replaced stays
+   * retired, since a retired candidate is never promoted again.
+   */
+  async retire(
+    c: Candidate,
+    kvasir: KvasirLifecycle,
+  ): Promise<
+    | {
+        ok: true;
+        candidate: Candidate;
+        rolledBack: boolean;
+        promoted: { backend: string; model: string | null }[];
+      }
+    | { ok: false; refused: string }
+  > {
+    if (c.state === "retired")
+      return { ok: false, refused: `candidate ${c.id} (${c.model}) is already retired` };
+    const rolledBack = c.state === "promoted";
+    const { candidate } = await kvasir.retire(c.id);
+    const { promoted } = await kvasir.list();
+    return { ok: true, candidate, rolledBack, promoted };
+  }
+
+  /** Every fine-tune job, newest first, whoever started it: what an administrator watches. */
+  jobs(): FineTuneRow[] {
+    return this.d.store.jobs(null);
+  }
+
   /** Every candidate with both gates beside each other. */
   async candidates(kvasir: KvasirLifecycle): Promise<{
     candidates: (Candidate & {

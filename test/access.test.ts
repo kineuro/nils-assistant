@@ -137,6 +137,7 @@ describe("a door that needs a grant", () => {
       "/teaching/candidates/4/admit",
       "/teaching/candidates/4/bench",
       "/teaching/candidates/4/promote",
+      "/teaching/candidates/4/retire",
     ])
       expect(doorOf("POST", path), path).toEqual({ kind: "person", needs: "kvasir:work" });
     // the ladder's and teaching's other doors are a person's, and need the assistant's grant alone
@@ -144,6 +145,7 @@ describe("a door that needs a grant", () => {
       ["GET", "/teaching/corrections"],
       ["GET", "/teaching/sets"],
       ["GET", "/teaching/candidates"],
+      ["GET", "/teaching/jobs"],
       ["GET", "/grants"],
       ["POST", "/grants"],
       ["DELETE", "/grants/2"],
@@ -180,6 +182,7 @@ describe("a door that needs a grant", () => {
       ["POST", "/teaching/sets", "review:work"],
       ["POST", "/teaching/sets/3/fine-tune", "kvasir:work"],
       ["POST", "/teaching/candidates/4/promote", "kvasir:work"],
+      ["POST", "/teaching/candidates/4/retire", "kvasir:work"],
       ["GET", "/instructions", null],
       ["GET", "/memory", null],
       ["GET", "/grants", null],
