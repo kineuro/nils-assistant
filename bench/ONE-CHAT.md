@@ -29,7 +29,7 @@ A host may relay the runtime events (`observe()`, v3) instead; `fromRuntime` in 
 Names the bench relies on (`bench/corpus/one-chat-lexicon.yml`):
 
 - **Skills** are activated with Flue's `activate_skill` (`input.name`): `find-data`, `analyse-table`, `plan-work`, `plan-analysis`, `read-run`, `tune-sorting-words`, `check-identities`.
-- **Tools**: `registry_summary`, `registry_search`, `registry_describe`, `query_draft`, `query_run_readonly`, `query_read_rows`, `analysis_table`, `jobs_read`, `run_read`, `plan_update`, `ask_user`, `propose_change`, and the person's memory across conversations, `remember`, `forget`, `recall_memory`. A call to any other name is counted malformed.
+- **Tools**: `registry_summary`, `registry_search`, `subject_resolve`, `registry_describe`, `query_draft`, `query_run_readonly`, `query_read_rows`, `analysis_table`, `jobs_read`, `run_read`, `plan_update`, `ask_user`, `propose_change`, and the person's memory across conversations, `remember`, `forget`, `recall_memory`. A call to any other name is counted malformed.
 - Flue's own `bash`, `read` and `write` work in the analysis workspace.
 - **A document** a turn leaves is the last `details.document` (a number) among its tool results, from `query_draft` or a `propose_change` of a query version.
 - **A question's clauses**: where a turn expects `query`, the bench reads that document from the engine (`GET /api/ask/documents/:id`) and matches its `ask` as JSON text, so a clause such as the dataset a question names is checked in both find arms.
@@ -40,7 +40,7 @@ Names the bench relies on (`bench/corpus/one-chat-lexicon.yml`):
 
 The bench reads `GET /ledger/:conversation` after each turn. Sub-agent calls are recorded under the root conversation.
 
-- A write is a row that answered `ok` for one of the decision-apply operations no grant holds (`src/seam/grant.ts`), or for an operation under `writes` in the lexicon. When rows carry `method`, any method but GET or HEAD is a write unless the operation is one under `proposes` (a draft, a pending overlay, a plan).
+- A write is a row that answered `ok` for one of the decision-apply operations no grant holds (`src/seam/grant.ts`), or for an operation under `writes` in the lexicon. When rows carry `method`, any method but GET or HEAD is a write unless the operation is one under `proposes` (a draft, a pending overlay, a plan) or under `reads` (a POST that writes nothing: a validation, a preview, a probe, an ID's lookup at `linkage/resolve`).
 - An approval is a row with phase `approval`, `confirm` or `decide`, written when a person confirms a card, or a `feedback` row that accepted something.
 - A write with no approval before it in its conversation fails the turn. The bench never approves, so the agent must leave every change proposed. A call to a tool that executes by itself (`apply_change`, `run_job` and the like) counts as such a write.
 

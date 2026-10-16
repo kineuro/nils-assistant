@@ -470,11 +470,17 @@ async function datasetsFor(ctx: ToolCtx): Promise<DatasetFact[]> {
  * Record 55, ruling 24: a subject named by an ID of a known type (a study's own ID such as Ctrl0042),
  * turned into its subject code with one lookup, so the question is then asked of that subject. The engine answers
  * the code, or that the ID is not known, and never an identifier it was not given.
+ *
+ * A subject code is no ID and needs no resolving, but the model cannot tell one from an ID by its look, and the
+ * T10 bench of 2026-10-16 showed what followed: asked about SYN0005, a registry's own subject, it called this tool,
+ * was answered that no subject had the ID (an unnamed value was never asked as a subject code, and the engine knew
+ * a code only where a row filed it), and refused to plan the erasure. So a value no ID type knows is asked last as
+ * a subject code, which the engine answers as the subject it is, and the tool says it is one.
  */
 const subjectResolve: OneTool = {
   name: "subject_resolve",
   description:
-    "Turn an ID the person names a subject by (Ctrl0042, a hospital or study ID) into that subject's code, before any question about the subject. Give `id_type` (the ID type's name, such as ctrl-id; leave it out to have each type tried) and `value` (the ID exactly as the person wrote it). Answers the subject code, how many scans of theirs you may see and the datasets they are in, or that no subject has that ID.",
+    "Turn an ID the person names a subject by (Ctrl0042, a hospital or study ID) into that subject's code, before any question about the subject. Give `id_type` (the ID type's name, such as ctrl-id; leave it out to have each type tried) and `value` (the ID exactly as the person wrote it). Answers the subject code, how many scans of theirs you may see and the datasets they are in, or that no subject has that ID. A subject code is no ID and needs no resolving; if one is given, the answer is that subject's own code, so ask about it as it is.",
   input: v.object({ value: v.string(), id_type: v.optional(v.string()) }),
   salient: ["value", "id_type"],
   step: "Finding the subject",
@@ -485,13 +491,21 @@ const subjectResolve: OneTool = {
     let types: string[];
     if (named) types = [named];
     else {
-      // every type a person could name a subject by: the ones a map or a dataset filed, not the registry's own
+      // every type a person could name a subject by: the ones a map or a dataset filed, and last the subject code,
+      // since a value that is no ID may be a code
       const t = await get(ctx, "identity-check", "/api/linkage/types");
       if (t.kind !== "ok") return notOk(t, "Say the ID types could not be read.");
       // a person names a subject by a study's own ID: an ID that identifies a person anywhere (a type flagged
       // identifying, or one of the built-in ones on an engine that flags none) is tried only when they name its type
       const flagged = new Set(identifyingTypeNames(t.body));
-      types = typeNames(t.body).filter((n) => !NOT_TRIED.includes(n) && !flagged.has(n));
+      const open = typeNames(t.body).filter((n) => !NOT_TRIED.includes(n) && !flagged.has(n));
+      types = [...open.filter((n) => n !== CODE_TYPE), ...open.filter((n) => n === CODE_TYPE)];
+      // nothing to ask is not an ID that no subject has
+      if (types.length === 0)
+        return refuse(
+          "the registry keeps no ID type to look a subject up by",
+          "Say in one sentence that no ID can be looked up here and ask for the subject code; never answer for a whole cohort instead.",
+        );
     }
     let refused = 0;
     for (const id_type of types) {
@@ -522,19 +536,28 @@ const subjectResolve: OneTool = {
         scans?: unknown;
         datasets?: unknown;
       };
-      if (b.known === true && typeof b.subject_code === "string")
+      if (b.known === true && typeof b.subject_code === "string") {
+        const code = b.subject_code;
+        const isCode = id_type === CODE_TYPE;
+        // a value that is a subject code is said to be one: no ID was asked, and the registry has that subject
+        const what = !isCode
+          ? ""
+          : code === value
+            ? `${value} is a subject code, not an ID: it needs no resolving, and the registry has that subject. `
+            : `${value} is a subject code, not an ID: its subject was merged into ${code}. `;
         return {
           output: {
             id: value,
             id_type,
-            subject_code: b.subject_code as string,
+            subject_code: code,
             scans: num(b.scans),
             datasets: Array.isArray(b.datasets)
               ? b.datasets.filter((d): d is string => typeof d === "string")
               : [],
-            next: `Ask about the subject ${b.subject_code}: a question of the subject's scans written with the field subject.code = ${b.subject_code} (a stack set's ["=", {}, ["field", {}, "subject.code"], "${b.subject_code}"]). Name the subject in the answer by the ID the person gave and by its subject code.`,
+            next: `${what}Use the subject code ${code}: a question about the subject's scans is written with the field subject.code = ${code} (a stack set's ["=", {}, ["field", {}, "subject.code"], "${code}"]), and work on the subject names it by that code. Name the subject in the answer by ${isCode ? "its subject code" : "the ID the person gave and by its subject code"}.`,
           },
         };
+      }
       if (named) break;
     }
     // every type refused this person: they may not look IDs up, which is not the ID being unknown
@@ -543,18 +566,28 @@ const subjectResolve: OneTool = {
         "this account may not look IDs up",
         "Say in one sentence that their account cannot look a subject up by an ID here, and that an admin can give it; never say the ID is unknown, and never answer for a whole cohort instead.",
       );
+    // what was asked, in the words of what the person gave: an unnamed value was asked as every ID and as a code
+    const asked =
+      named === CODE_TYPE
+        ? `the subject code ${value}`
+        : named
+          ? `the ID ${value} of the type ${named}`
+          : `the ID or subject code ${value}`;
     return {
       output: {
         id: value,
         subject_code: null,
-        next: `Say no subject you may see has the ID ${value}${named ? ` of the type ${named}` : ""}; never answer for a whole cohort instead.`,
+        next: `Say no subject you may see has ${asked}; never answer for a whole cohort instead.`,
       },
     };
   },
 };
 
-/** The types an unnamed ID is never tried as: the registry's own, and those that identify a person anywhere on an engine that flags none. */
-const NOT_TRIED = ["subject-code", "study-instance-uid", "patient-id", "personnummer"];
+/** The registry's own type for a subject's code, which the engine answers as the subject it is. */
+const CODE_TYPE = "subject-code";
+
+/** The built-in types an unnamed value is never asked as, since an ID of one identifies a person anywhere; on an engine that flags none of its types this list stands for the flag. */
+const NOT_TRIED = ["study-instance-uid", "patient-id", "personnummer"];
 
 const registrySearch: OneTool = {
   name: "registry_search",
