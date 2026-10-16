@@ -8,7 +8,7 @@ A dataset's identity rule says which identifier makes a subject: a DICOM tag suc
 
 ## The loop
 
-0. **A subject named by an ID.** When the person names a subject by an ID (`Ctrl0042`), resolve it first with `subject_resolve`: it answers the subject code, or that no subject has that ID, and never another identifier.
+0. **A subject named by an ID.** When the person names a subject by an ID (`Ctrl0042`), resolve it first with `subject_resolve`: it answers the subject code, or that no subject has that ID, and never another identifier. A subject code needs no resolving.
 
 1. **`query_run_readonly`** with `what: identity_rules` and `dataset` (its name). Leave `rules` out: the host probes the dataset's current rule beside one candidate (give `candidate` when the person names one, such as `PatientName` or `path segment 1`), reads what is held back, and waits for the answer. Read its `say` first.
 2. Read the answer:

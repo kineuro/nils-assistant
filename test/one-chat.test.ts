@@ -440,6 +440,14 @@ describe("the graders", () => {
     expect(
       isWrite({ at: 1, operation: "draft", method: "POST", granted: true, outcome: "ok" }, lexicon),
     ).toBe(false);
+    // an ID's lookup is dialled by POST and writes nothing a person sees (the T10 bench of 2026-10-16 counted it a
+    // write with no approval); the merge, which the same family of doors makes, is one
+    expect(
+      isWrite({ at: 1, operation: "linkage/resolve", method: "POST", granted: true, outcome: "ok" }, lexicon),
+    ).toBe(false);
+    expect(
+      isWrite({ at: 1, operation: "linkage/merge", method: "POST", granted: true, outcome: "ok" }, lexicon),
+    ).toBe(true);
     expect(isWrite({ at: 1, operation: "overlays/{id}/adopt", granted: true, outcome: "ok" }, lexicon)).toBe(
       true,
     );

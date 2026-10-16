@@ -87,6 +87,10 @@ describe("what a person's grants mount", () => {
 
   it("names every tool the bench's lexicon names, and no other", () => {
     expect(Object.keys(TOOLS).sort()).toEqual([...TOOL_ORDER].sort());
+    // the lexicon the bench reads holds the same tools: a tool it does not know is counted as a malformed call
+    // (subject_resolve was missing from it in the T10 bench of 2026-10-16)
+    const lexicon = parse(readFileSync("bench/corpus/one-chat-lexicon.yml", "utf8")) as { tools: string[] };
+    expect([...lexicon.tools].sort()).toEqual([...TOOL_ORDER].sort());
   });
 });
 
