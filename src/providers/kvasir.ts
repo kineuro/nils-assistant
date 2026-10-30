@@ -24,6 +24,7 @@ import {
   type TranscriptContext,
 } from "@earendil-works/pi-ai";
 import { stream, streamSimple } from "@earendil-works/pi-ai/api/pi-messages";
+import { clampMaxTokensToContext } from "@earendil-works/pi-ai/api/simple-options";
 
 export interface Catalog {
   baseUrl: string;
@@ -126,6 +127,15 @@ export function kvasirProvider(opts: {
     contextWindow: m.contextWindow,
     maxTokens: m.maxTokens,
   }));
+  // a call names its longest answer (7b, call-cap): Flue's agent loop asks for none and pi-messages sends only the
+  // caller's, so Kvasir sent the model server none either, and a thinking model answered as long as its context held
+  // (89,972 tokens in 65 minutes, 2026-10-16). The catalog's longest answer, inside what the context leaves.
+  const capped = (model: Model<"pi-messages">, context: TranscriptContext, options: unknown): unknown => {
+    const o = (options ?? {}) as { maxTokens?: unknown };
+    if (typeof o.maxTokens === "number" && o.maxTokens > 0) return options;
+    if (!(model.maxTokens > 0)) return options;
+    return { ...o, maxTokens: clampMaxTokensToContext(model, context, model.maxTokens) };
+  };
   const headers = (options: unknown) => withHeaders(options, opts.purpose, opts.person?.() ?? null);
   const wire = (context: TranscriptContext | Context) => {
     const collapsed = kvasirContext(context);
@@ -141,9 +151,10 @@ export function kvasirProvider(opts: {
     },
     models,
     api: {
-      stream: (model, context, options) => stream(model as never, wire(context), headers(options)),
+      stream: (model, context, options) =>
+        stream(model as never, wire(context), headers(capped(model as never, context, options))),
       streamSimple: (model, context, options) =>
-        streamSimple(model as never, wire(context), headers(options)),
+        streamSimple(model as never, wire(context), headers(capped(model as never, context, options))),
     },
   });
 }
