@@ -56,6 +56,7 @@ import {
 import { factsOf, factsSummary, TOLD_NOTHING, type Told, toldSince } from "./facts.ts";
 import { memoryFacts } from "./memory.ts";
 import { type Access, grantsLine, type Mounted, mountFor, SKILL_ORDER } from "./mount.ts";
+import { AGENT } from "./purpose.ts";
 import { hintLine, routeOf } from "./route.ts";
 import { bodyFor, findExamples, loadSkills, skillOf } from "./skills.ts";
 import { answerOf, conversationOf, keptDocument, newTurn, turnOf } from "./state.ts";
@@ -74,9 +75,7 @@ import {
 import { plainly } from "./words.ts";
 import { analysisWorkspace } from "./workspace.ts";
 
-/** The agent's id on the host, and the Kvasir purpose its model calls are filed under (Kvasir and setup need no change). */
-export const AGENT = "nils";
-export const PURPOSE = "assistant.concierge";
+export { AGENT, PURPOSE } from "./purpose.ts";
 
 /** How finding data is reached: a skill of the one agent (the default), or a read-only sub-agent named `find`. */
 export type FindArm = "skill" | "subagent";
