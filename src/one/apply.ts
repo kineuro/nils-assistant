@@ -15,6 +15,7 @@
 import type { Seam } from "../seam/client.ts";
 import type { Ledger } from "../seam/ledger.ts";
 import type { ChangeRow, ChangeStore } from "./changes.ts";
+import { PURPOSE } from "./purpose.ts";
 
 export interface ApplyDeps {
   changes: ChangeStore;
@@ -85,9 +86,14 @@ async function apply(
     }
     case "analysis_plan": {
       // record 57 P7: a workflow the engine planned runs at its own door, over the same scope and choices
+      // and the engine is told the run came from this proposal (record 57 P9), beside what it runs
+      const proposed_by = { agent: PURPOSE, proposal: c.id };
       const wf = p.workflow as { label?: unknown; body?: unknown } | null | undefined;
       if (wf && typeof wf.label === "string")
-        return call(`/api/workflows/${encodeURIComponent(wf.label)}/run`, wf.body ?? {});
+        return call(`/api/workflows/${encodeURIComponent(wf.label)}/run`, {
+          ...((wf.body as Record<string, unknown> | null | undefined) ?? {}),
+          proposed_by,
+        });
       if (!Array.isArray(p.command))
         return {
           result: {
@@ -96,7 +102,7 @@ async function apply(
           },
           failed: true,
         };
-      return call("/api/jobs", { command: p.command });
+      return call("/api/jobs", { command: p.command, proposed_by });
     }
     case "overlay": {
       // record 56: the rehearsed typed operations, proposed to the pack; a change kept before them carries the
