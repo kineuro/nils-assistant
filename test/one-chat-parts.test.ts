@@ -823,7 +823,7 @@ describe("a proposed change, decided by the person", () => {
       runScope(["run", "synthseg@2", "--handle", "55"], { cohorts: ["cohort-d", "ms"], sessions: "first" }),
     ).toEqual([
       "runs over the first session of each subject of cohort-d and ms",
-      "settings: the analysis's own defaults",
+      "settings: the analysis's own defaults and rules",
     ]);
     // no run to queue, nothing to name
     expect(runScope(null, { cohorts: ["cohort-d"], sessions: "all" })).toEqual([]);

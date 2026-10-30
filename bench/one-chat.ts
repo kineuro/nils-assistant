@@ -36,7 +36,13 @@ import {
   type KindSummary,
   type LedgerRow,
   type Lexicon,
+  type PlanBar,
+  type PlanScore,
   planIdsIn,
+  planScores,
+  planTable,
+  REGISTRIES,
+  type Registry,
   type RunGrade,
   summarize,
   type TurnGrade,
@@ -49,18 +55,21 @@ const root = process.cwd();
 
 export function loadCorpus(dir = join(root, "bench")): {
   conversations: Conversation[];
+  bars: { plan?: PlanBar };
   lexicon: Lexicon;
   golds: Record<string, { content_hash: string | null }>;
 } {
-  const conversations = (
-    parse(readFileSync(join(dir, "corpus", "one-chat.yml"), "utf8")) as { conversations: Conversation[] }
-  ).conversations;
+  const corpus = parse(readFileSync(join(dir, "corpus", "one-chat.yml"), "utf8")) as {
+    conversations: Conversation[];
+    bars?: { plan?: PlanBar };
+  };
+  const conversations = corpus.conversations;
   const lexicon = parse(readFileSync(join(dir, "corpus", "one-chat-lexicon.yml"), "utf8")) as Lexicon;
   const golds = JSON.parse(readFileSync(join(dir, "gold", "expect.json"), "utf8")) as Record<
     string,
     { content_hash: string | null }
   >;
-  return { conversations, lexicon, golds };
+  return { conversations, bars: corpus.bars ?? {}, lexicon, golds };
 }
 
 /** The host and the engine as the bench reads them, with one person's token on every call. */
@@ -243,11 +252,13 @@ export async function runConversation(
 export interface BenchResult {
   at: string;
   model: string;
-  registry: "gold" | "seeded";
+  registry: Registry;
   arm: "skill" | "subagent";
   k: number;
   host: { assistant: string; engine: string };
   summary: KindSummary[];
+  /** G13 per run, where the corpus sets a bar and the run held plan questions (record 57 P9). */
+  plan?: { bar: PlanBar; scores: PlanScore[] };
   runs: RunGrade[];
   unmeasured: { conversation: string; why: string }[];
 }
@@ -255,7 +266,14 @@ export interface BenchResult {
 /** Every conversation of the registry run k times, in order, one run after another (one card, one stream). */
 export async function bench(
   conversations: Conversation[],
-  o: { k: number; model: string; registry: "gold" | "seeded"; endpoints: Endpoints; ctx: RunContext },
+  o: {
+    k: number;
+    model: string;
+    registry: Registry;
+    endpoints: Endpoints;
+    ctx: RunContext;
+    planBar?: PlanBar;
+  },
   log: (line: string) => void = () => {},
 ): Promise<BenchResult> {
   const runs: RunGrade[] = [];
@@ -303,6 +321,9 @@ export async function bench(
     k: o.k,
     host: { assistant: o.endpoints.assistant, engine: o.endpoints.engine },
     summary: summarize(runs, o.k),
+    ...(o.planBar && runs.some((r) => r.turns.some((t) => t.plan))
+      ? { plan: { bar: o.planBar, scores: planScores(runs, o.planBar) } }
+      : {}),
     runs,
     unmeasured,
   };
@@ -317,6 +338,7 @@ export function page(r: BenchResult): string {
     "",
     table(r.summary, r.k),
     "",
+    ...(r.plan ? [planTable(r.plan.scores, r.plan.bar), ""] : []),
     ...(r.unmeasured.length
       ? ["Unmeasured:", "", ...r.unmeasured.map((u) => `- ${u.conversation}: ${u.why}`), ""]
       : []),
@@ -369,8 +391,8 @@ function options(argv: string[]) {
     },
   });
   if (!values.model) throw new Error("--model names the model the host serves, for the record");
-  if (values.registry !== "gold" && values.registry !== "seeded")
-    throw new Error("--registry is gold or seeded: the registry the host's engine serves");
+  if (!(REGISTRIES as readonly string[]).includes(values.registry ?? ""))
+    throw new Error(`--registry is ${REGISTRIES.join(", ")}: the registry the host's engine serves`);
   if (values.arm && values.arm !== "skill" && values.arm !== "subagent")
     throw new Error("--arm is skill or subagent");
   const allow = values["allow-remote"] === true;
@@ -390,7 +412,7 @@ function options(argv: string[]) {
       runs[r.case] = r.run;
   return {
     model: values.model,
-    registry: values.registry as "gold" | "seeded",
+    registry: values.registry as Registry,
     assistant: endpoint(values.assistant ?? "", allow, "--assistant"),
     engine: endpoint(values.engine ?? "", allow, "--engine"),
     k: Math.max(1, Number(values.k ?? "3")),
@@ -413,7 +435,7 @@ export async function armOf(e: Endpoints): Promise<"skill" | "subagent"> {
 
 export async function main(argv: string[]): Promise<void> {
   const o = options(argv);
-  const { conversations, lexicon, golds } = loadCorpus();
+  const { conversations, bars, lexicon, golds } = loadCorpus();
   const problems = corpusProblems(conversations, lexicon, golds);
   if (problems.length) throw new Error(`the corpus does not hold:\n${problems.join("\n")}`);
   const endpoints: Endpoints = { assistant: o.assistant, engine: o.engine, token: o.tokens.default };
@@ -430,6 +452,7 @@ export async function main(argv: string[]): Promise<void> {
       model: o.model,
       registry: o.registry,
       endpoints,
+      planBar: bars.plan,
       ctx: {
         lexicon,
         golds,

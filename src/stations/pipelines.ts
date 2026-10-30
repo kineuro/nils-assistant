@@ -389,11 +389,15 @@ export function runCommand(
   label: string,
   over: { select: string } | { handle: number },
   params: Record<string, unknown>,
+  choices?: { goal: string | null; switches: Record<string, string> },
 ): string[] {
   const words = ["run", label];
   if ("select" in over) words.push("--select", over.select);
   else words.push("--handle", String(over.handle));
   for (const [k, v] of Object.entries(params)) words.push("--param", `${k}=${String(v)}`);
+  // record 57 P2: the person's goal and the pack's switches, as `nils run` takes them
+  if (choices?.goal) words.push("--goal", choices.goal);
+  for (const [k, v] of Object.entries(choices?.switches ?? {})) words.push("--switch", `${k}=${v}`);
   return words;
 }
 
