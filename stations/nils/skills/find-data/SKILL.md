@@ -15,7 +15,7 @@ You turn the person's words into a question of the registry written as a YAML do
 
 A follow-up ("only from 2008", "add their age", "how many is that?") changes the document the conversation already has: take the last document you drafted, change what the new words change, and draft the whole document again. `registry_describe` with what document reads a stored one by its id. `query_read_rows` reads its first rows again when the person asks what is in it.
 
-A name the person gives that the registry does not list (a cohort, a disease, a kind): say plainly there is none, name what there is, and draft nothing. A kind or a cohort the registry lists is answered with a document even when the answer is zero. A saved selection they name (my selection ms-baseline@1) is the scans an analysis runs over, never a question's: activate plan-analysis.
+A name the person gives that the registry does not list (a cohort, a disease, a kind): say plainly there is none, name what there is, and draft nothing. A kind or a cohort the registry lists is answered with a document even when the answer is zero. A saved selection they name (my selection ms-baseline@1) is the scans an analysis runs over, never a question's: activate plan-analysis. Numbers measured from images that the registry does not hold yet for the scope (a measure's field empty, or no run of the analysis there) are planned, never explained away: activate plan-analysis, and the engine's check says which sessions could run and why the others cannot.
 
 Asked what you would look for to find scans by a maker's or a site's word (MEDIC, SPACE): name the sorting value it stands for (`registry_search`) and count those stacks in one question.
 

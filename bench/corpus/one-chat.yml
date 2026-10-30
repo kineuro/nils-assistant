@@ -925,7 +925,7 @@ conversations:
             skips:
               - {match: "\\b(2|two)\\b[^.\\n]{0,160}(2D|two-dimensional)|(2D|two-dimensional)[^.\\n]{0,160}\\b(2|two)\\b"}
               - {match: "\\b(2|two)\\b[^.\\n]{0,160}(no (main )?T1|holds? no t1w|without (a )?T1|lack\\w* (a )?T1|no T1w)|(no (main )?T1|holds? no t1w|without (a )?T1|lack\\w* (a )?T1|no T1w)[^.\\n]{0,160}\\b(2|two)\\b"}
-              - {match: "\\b(2|two)\\b[^.\\n]{0,160}(none (is )?picked|not picked|no .{0,20}picked|isn'?t picked|unpicked)|(none (is )?picked|not picked|no .{0,20}picked|isn'?t picked|unpicked)[^.\\n]{0,160}\\b(2|two)\\b"}
+              - {match: "\\b(2|two)\\b[^.\\n]{0,160}(none (is |was |were |has been )?(picked|chosen|selected)|not (been )?(picked|chosen|selected)|no .{0,30}(picked|chosen|selected)|isn'?t (picked|chosen|selected)|unpicked)|(none (is |was |were |has been )?(picked|chosen|selected)|not (been )?(picked|chosen|selected)|no .{0,30}(picked|chosen|selected)|isn'?t (picked|chosen|selected)|unpicked)[^.\\n]{0,160}\\b(2|two)\\b"}
   - id: plan-pack-mriqc-resume
     kind: analysis
     registry: dev
@@ -976,9 +976,9 @@ conversations:
   - id: plan-pack-synthseg-fresh
     kind: analysis
     registry: dev
-    from: "4 of 4 sessions ready; nothing skipped"
+    from: "4 of 4 sessions ready; nothing skipped. SynthSeg results are kept for these sessions already, so the question asks for a new run (asked what the volumes are, the chat rightly answered from the kept ones)"
     turns:
-      - say: "What are the hippocampal volumes in study-fresh?"
+      - say: "Plan a new SynthSeg run over study-fresh for the hippocampal volumes."
         expect:
           skill: plan-analysis
           also: [find-data]
