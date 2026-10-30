@@ -151,6 +151,38 @@ export function activeSkills(t: TurnState): Set<string> {
   return s;
 }
 
+/** The lines of an analysis plan that say who is skipped, routed or left out: a pipeline's own, or every step's of a workflow. */
+export function skipsOf(details: Record<string, unknown>): string[] {
+  if (Array.isArray(details.skipped_and_routed)) return details.skipped_and_routed.map(String);
+  const plan = details.plan as { steps?: { lines?: unknown[] }[] } | null | undefined;
+  return (plan?.steps ?? []).flatMap((s) => (Array.isArray(s.lines) ? s.lines.map(String) : []));
+}
+
+const SMALL = [
+  "zero",
+  "one",
+  "two",
+  "three",
+  "four",
+  "five",
+  "six",
+  "seven",
+  "eight",
+  "nine",
+  "ten",
+  "eleven",
+  "twelve",
+];
+
+/** Whether an answer says a skip line's count: the number after the line's first colon, in digits or in words. */
+export function countSaid(answer: string, line: string): boolean {
+  const m = /:\s*(\d+)\b/u.exec(line);
+  if (!m) return true;
+  const n = Number(m[1]);
+  const words = [m[1], ...(n < SMALL.length ? [SMALL[n]] : [])];
+  return words.some((w) => new RegExp(`\\b${w}\\b`, "iu").test(answer));
+}
+
 /** What is wrong with the turn as it would settle; empty when nothing is. */
 export async function complaintsOf(c: CheckContext): Promise<string[]> {
   const out: string[] = [];
@@ -224,10 +256,14 @@ export async function complaintsOf(c: CheckContext): Promise<string[]> {
   if (active.has("plan-analysis")) {
     const plan = c.turn.proposed.find((p) => p.kind === "analysis_plan");
     const pf = plan?.details.preflight as { units?: { ready?: number } } | null | undefined;
-    if (plan && !answer.toLowerCase().includes(String(plan.details.pipeline ?? "").toLowerCase()))
-      out.push(`say which analysis it is: ${String(plan.details.pipeline)}`);
+    const named = String(plan?.details.workflow ?? plan?.details.pipeline ?? "");
+    if (plan && !answer.toLowerCase().includes(named.toLowerCase()))
+      out.push(`say which ${plan.details.workflow ? "workflow" : "analysis"} it is: ${named}`);
     if (plan && typeof pf?.units?.ready === "number" && !answer.includes(String(pf.units.ready)))
       out.push(`restate the check's own number: ${pf.units.ready} units ready`);
+    // record 57 P9: every session skipped, routed or left out is said with its count and its reason
+    for (const line of plan ? skipsOf(plan.details) : [])
+      if (!countSaid(answer, line)) out.push(`say this line's count and reason: ${line}`);
   }
   if (active.has("read-run")) {
     const r = c.turn.runs.at(-1);

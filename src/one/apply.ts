@@ -84,6 +84,10 @@ async function apply(
         : { result: { applied: true, plan: r }, failed: false };
     }
     case "analysis_plan": {
+      // record 57 P7: a workflow the engine planned runs at its own door, over the same scope and choices
+      const wf = p.workflow as { label?: unknown; body?: unknown } | null | undefined;
+      if (wf && typeof wf.label === "string")
+        return call(`/api/workflows/${encodeURIComponent(wf.label)}/run`, wf.body ?? {});
       if (!Array.isArray(p.command))
         return {
           result: {

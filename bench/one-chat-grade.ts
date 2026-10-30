@@ -71,6 +71,12 @@ export interface Expect {
   sentences?: number;
   /** What the turn's analysis hands the person: true, at least one chart or file part; false, none. */
   outputs?: { chart?: boolean; file?: boolean };
+  /**
+   * Record 57 P9, gate G13: the analysis or workflow a plan must name (its proposal's `pipeline` or `workflow`), and
+   * the reasons the answer must give for the sessions the pre-flight skips, routes or leaves out, each a matcher on
+   * the answer. Scored apart from the turn's pass, against the corpus's bar.
+   */
+  plan?: { names: string | string[]; skips?: Says[] };
 }
 
 export interface Turn {
@@ -80,11 +86,17 @@ export interface Turn {
   corrections?: string[];
 }
 
+export const REGISTRIES = ["gold", "seeded", "dev"] as const;
+export type Registry = (typeof REGISTRIES)[number];
+
 export interface Conversation {
   id: string;
   kind: Kind;
-  /** gold: the registry ask-help's golds were derived on; seeded: the one bench/seed.ts builds. */
-  registry: "gold" | "seeded";
+  /**
+   * gold: the registry ask-help's golds were derived on; seeded: the one bench/seed.ts builds; dev: a development
+   * install's test corpus with the first packs and workflows (record 57 P9).
+   */
+  registry: Registry;
   /** A person the run names a token for (--person <name>=<token>); the default person otherwise. */
   person?: string;
   /** Where the conversation comes from: a chain, an authored shape, a station's case. */
@@ -123,7 +135,7 @@ export function corpusProblems(
     if (ids.has(c.id)) out.push(`${c.id}: the id is used twice`);
     ids.add(c.id);
     if (!KINDS.includes(c.kind)) out.push(`${c.id}: no kind ${c.kind}`);
-    if (c.registry !== "gold" && c.registry !== "seeded") out.push(`${c.id}: no registry ${c.registry}`);
+    if (!REGISTRIES.includes(c.registry)) out.push(`${c.id}: no registry ${c.registry}`);
     if (c.turns.length === 0) out.push(`${c.id}: no turns`);
     for (const [i, t] of c.turns.entries()) {
       const e = t.expect ?? {};
@@ -138,6 +150,7 @@ export function corpusProblems(
       if (e.gold && c.registry !== "gold")
         out.push(`${c.id} turn ${i + 1}: a gold is scored on the gold registry only`);
       if (t.corrections?.length && !e.gold) out.push(`${c.id} turn ${i + 1}: corrections without a gold`);
+      if (e.plan && e.proposal === false) out.push(`${c.id} turn ${i + 1}: a plan to name and no proposal`);
       if (e.query && e.document === "none")
         out.push(`${c.id} turn ${i + 1}: a question's clauses and no document`);
     }
@@ -697,6 +710,8 @@ export interface TurnGrade {
   metrics: TurnMetrics;
   gold_reached: boolean | null;
   corrections: number | null;
+  /** G13: whether the plan named the right analysis or workflow, and how many of the skip reasons it gave. */
+  plan: { named: boolean; skips: { named: number; of: number } } | null;
 }
 
 /**
@@ -794,6 +809,33 @@ export function gradeTurn(
       if (why) misses.push(why);
     } else if (!holds(read, s)) misses.push(`the answer does not hold ${JSON.stringify(s)}`);
   }
+  let plan: TurnGrade["plan"] = null;
+  if (e.plan) {
+    const names = ([] as string[]).concat(e.plan.names);
+    // the plan the engine checked: a refused proposal names nothing
+    const named = m.proposals.some(
+      (p) =>
+        p.kind === "analysis_plan" &&
+        p.refused !== true &&
+        names.includes(String(p.workflow ?? p.pipeline ?? "")),
+    );
+    if (!named)
+      misses.push(
+        `the plan names ${m.proposals.map((p) => String(p.workflow ?? p.pipeline ?? p.kind)).join(", ") || "nothing"}, not ${names.join(" or ")}`,
+      );
+    const want = e.plan.skips ?? [];
+    let said = 0;
+    for (const s of want) {
+      const why = isCount(s)
+        ? countMiss(read, s)
+        : holds(read, s)
+          ? null
+          : `the answer gives no ${JSON.stringify(s)}`;
+      if (why) misses.push(`skip reason: ${why}`);
+      else said++;
+    }
+    plan = { named, skips: { named: said, of: want.length } };
+  }
   if (e.sentences !== undefined && sentencesIn(m.answer) > e.sentences)
     misses.push(`${sentencesIn(m.answer)} sentences, more than ${e.sentences}`);
   for (const name of ["chart", "file"] as const) {
@@ -809,7 +851,59 @@ export function gradeTurn(
     metrics: m,
     gold_reached: e.gold ? o.goldReached === true : null,
     corrections: e.gold ? (o.corrections ?? 0) : null,
+    plan,
   };
+}
+
+/** The bar G13 is held to, as the corpus sets it when its questions are written. */
+export interface PlanBar {
+  /** At least this many of the questions name the right analysis or workflow. */
+  named: number;
+  of: number;
+  /** Every skip reason named (all), or at least this share of them. */
+  skips: "all" | number;
+}
+
+export interface PlanScore {
+  run: number;
+  questions: number;
+  named: number;
+  skips: { named: number; of: number };
+  met: boolean;
+}
+
+/** G13 per run: the plans that named the right analysis, the skip reasons named, and whether the bar holds. */
+export function planScores(runs: RunGrade[], bar: PlanBar): PlanScore[] {
+  const byRun = new Map<number, TurnGrade[]>();
+  for (const r of runs)
+    for (const t of r.turns) if (t.plan) byRun.set(r.run, [...(byRun.get(r.run) ?? []), t]);
+  return [...byRun.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([run, ts]) => {
+      const named = ts.filter((t) => t.plan?.named).length;
+      const skips = {
+        named: ts.reduce((n, t) => n + (t.plan?.skips.named ?? 0), 0),
+        of: ts.reduce((n, t) => n + (t.plan?.skips.of ?? 0), 0),
+      };
+      const scaled = Math.ceil((bar.named / bar.of) * ts.length);
+      const skipsMet = bar.skips === "all" ? skips.named === skips.of : skips.named >= bar.skips * skips.of;
+      return { run, questions: ts.length, named, skips, met: named >= scaled && skipsMet };
+    });
+}
+
+/** The G13 lines of a page: each run against the bar. */
+export function planTable(scores: PlanScore[], bar: PlanBar): string {
+  if (!scores.length) return "";
+  return [
+    `G13 bar: ${bar.named} of ${bar.of} plans name the right analysis or workflow, and ${bar.skips === "all" ? "every" : `${Math.round(bar.skips * 100)} % of the`} skip reasons named.`,
+    "",
+    "| run | questions | right analysis | skip reasons named | bar met |",
+    "|---|---|---|---|---|",
+    ...scores.map(
+      (s) =>
+        `| ${s.run} | ${s.questions} | ${s.named} | ${s.skips.named} of ${s.skips.of} | ${s.met ? "yes" : "no"} |`,
+    ),
+  ].join("\n");
 }
 
 // ---- runs, kinds and the report -------------------------------------------

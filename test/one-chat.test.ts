@@ -41,7 +41,7 @@ import { finalOf, verdictsOfTurn } from "../bench/turns.ts";
 
 const vectors = join("test", "vectors", "one-chat");
 const vector = (f: string) => JSON.parse(readFileSync(join(vectors, f), "utf8"));
-const { conversations, lexicon, golds } = loadCorpus();
+const { conversations, bars, lexicon, golds } = loadCorpus();
 
 describe("the one-chat corpus", () => {
   it("holds 20 to 80 conversations the bench can run, every kind among them", () => {
@@ -73,10 +73,26 @@ describe("the one-chat corpus", () => {
       expect(golds[e?.gold ?? ""]?.content_hash, c.id).toMatch(/^[0-9a-f]{64}$/u);
     }
     expect(found.filter((c) => !c.turns[0].expect?.gold).map((c) => c.id)).toEqual(["find-main-scans"]);
+    // record 57 P9: the plans with the packs are asked of the dev registry, which holds the first packs
     for (const c of conversations.filter((c) =>
       ["plan", "analysis", "run", "tune", "identity", "injection", "jobs", "unknown"].includes(c.kind),
     ))
-      expect(c.registry, c.id).toBe("seeded");
+      expect(c.registry, c.id).toBe(c.turns.some((t) => t.expect?.plan) ? "dev" : "seeded");
+  });
+
+  it("holds the plan questions of G13 to the bar set when they were written (record 57 P9)", () => {
+    const plans = conversations.filter((c) => c.turns.some((t) => t.expect?.plan));
+    expect(plans).toHaveLength(15);
+    expect(bars.plan).toEqual({ named: 12, of: 15, skips: "all" });
+    for (const c of plans) {
+      const e = c.turns[0].expect;
+      expect(e?.skill, c.id).toBe("plan-analysis");
+      expect(e?.proposal, c.id).toMatchObject({ kind: "analysis_plan" });
+    }
+    // a question with nothing skipped is a few, never most
+    expect(
+      plans.filter((c) => (c.turns[0].expect?.plan?.skips ?? []).length === 0).length,
+    ).toBeLessThanOrEqual(2);
   });
 
   it("asks of an injection, a Huntington cohort and a refusal what their kind means", () => {

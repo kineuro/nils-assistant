@@ -45,6 +45,15 @@
 #              words (bench/one-chat-grade.ts countsStated, round 4)
 #   sentences  at most this many sentences in the answer
 
+# bars: what a group of conversations is held to beside each turn's own pass.
+#   plan  record 57 P9, gate G13: the plan-analysis questions on the dev
+#         registry (a development install's test corpus with the first packs
+#         and workflows). Set when the questions were written (2026-10-30):
+#         12 of the 15 plans name the right analysis or workflow, and every
+#         skip reason is named. A run with fewer questions holds the same share.
+bars:
+  plan: {named: 12, of: 15, skips: all}
+
 conversations:
   # --- questions the registry summary answers: no skill, at most the summary
   - id: summary-cohorts
@@ -896,3 +905,234 @@ conversations:
             - {match: "\\b(shapes?|detail|cannot|can't|not able|no access|isn't open|is not open|not shown|does not show|doesn't show|masked|hidden)\\b"}
             - {match: "\\badmin"}
             - {not: {match: "(?<![\\d.])(?!40\\.[78]|4\\.[78])\\d{1,3}(\\.\\d+)?\\s*(years?|yrs?|y/o)\\b|\\baged? \\d{1,3}\\b|\\b\\d{1,3}(\\.\\d+)?\\s*(and|to|-|\u2013)\\s*\\d{1,3}(\\.\\d+)?\\b|\\b(youngest|oldest)\\b[^.;]{0,30}\\b(is|was|were|are)\\s+(about\\s+|around\\s+)?\\d{1,3}\\b|\\b9{2,3}\\b"}}
+
+  # --- record 57 P9, gate G13: plan-analysis reads the analyses' own needs and the workflows, and names who the
+  # engine's check skips, routes or leaves out and why. The dev registry: a development install's test corpus
+  # (71 subjects, 76 sessions) with the first packs and workflows; every expected count is that install's own
+  # pre-flight or workflow plan, read on 2026-10-30, and `from` says it in counts.
+  - id: plan-pack-mriqc-identified
+    kind: analysis
+    registry: dev
+    from: "the pre-flight: 5 of 9 visits with a main T1, 2 skipped by its needs (the T1 is 2D); 4 left out (2 hold no T1w, 2 hold one and none is picked)"
+    turns:
+      - say: "How good is the image quality of the T1 scans in study-identified?"
+        expect:
+          skill: plan-analysis
+          also: [find-data]
+          proposal: {kind: analysis_plan, match: {dataset: study-identified}}
+          plan:
+            names: mriqc
+            skips:
+              - {match: "\\b(2|two)\\b[^.\\n]{0,160}(2D|two-dimensional)|(2D|two-dimensional)[^.\\n]{0,160}\\b(2|two)\\b"}
+              - {match: "\\b(2|two)\\b[^.\\n]{0,160}(no (main )?T1|holds? no t1w|without (a )?T1|lack\\w* (a )?T1|no T1w)|(no (main )?T1|holds? no t1w|without (a )?T1|lack\\w* (a )?T1|no T1w)[^.\\n]{0,160}\\b(2|two)\\b"}
+              - {match: "\\b(2|two)\\b[^.\\n]{0,160}(none (is |was |were |has been )?(picked|chosen|selected)|not (been )?(picked|chosen|selected)|no .{0,30}(picked|chosen|selected)|isn'?t (picked|chosen|selected)|unpicked)|(none (is |was |were |has been )?(picked|chosen|selected)|not (been )?(picked|chosen|selected)|no .{0,30}(picked|chosen|selected)|isn'?t (picked|chosen|selected)|unpicked)[^.\\n]{0,160}\\b(2|two)\\b"}
+  - id: plan-pack-mriqc-resume
+    kind: analysis
+    registry: dev
+    from: "24 of 62 visits with a main T1: 4 skipped (2D), 1 the registry cannot tell 2D or 3D, 2 cannot run (T1w released as UNIT1); 38 left out (29 no T1w, 9 none picked)"
+    turns:
+      - say: "Run a quality check on the T1s of the study-resume dataset."
+        expect:
+          skill: plan-analysis
+          also: [find-data]
+          proposal: {kind: analysis_plan, match: {dataset: study-resume}}
+          plan:
+            names: mriqc
+            skips:
+              - {match: "\\b(4|four)\\b[^.\\n]{0,160}(2D|two-dimensional)|(2D|two-dimensional)[^.\\n]{0,160}\\b(4|four)\\b"}
+              - {match: "\\b(1|one)\\b[^.\\n]{0,160}(cannot tell|can'?t tell|unable to tell|could not tell|unknown)|(cannot tell|can'?t tell|unable to tell|could not tell|unknown)[^.\\n]{0,160}\\b(1|one)\\b"}
+              - {match: "\\b(2|two)\\b[^.\\n]{0,160}(UNIT1)|(UNIT1)[^.\\n]{0,160}\\b(2|two)\\b"}
+              - {match: "\\b(29|twenty-nine)\\b[^.\\n]{0,160}(no (main )?T1|holds? no t1w|without (a )?T1|lack\\w* (a )?T1|no T1w)|(no (main )?T1|holds? no t1w|without (a )?T1|lack\\w* (a )?T1|no T1w)[^.\\n]{0,160}\\b(29|twenty-nine)\\b"}
+  - id: plan-pack-cortical-fresh
+    kind: analysis
+    registry: dev
+    from: "recon-all skips all 4 (a side of the T1 voxel is over 1.5 mm; recon-all-clinical takes it); blocked by memory and the FreeSurfer licence"
+    turns:
+      - say: "I want cortical thickness for the study-fresh dataset."
+        expect:
+          skill: plan-analysis
+          also: [find-data]
+          proposal: {kind: analysis_plan, match: {dataset: study-fresh}}
+          plan:
+            names: [freesurfer-recon-all, cortical]
+            skips:
+              - {match: "\\b(4|four)\\b[^.\\n]{0,160}(1\\.5 ?mm)|(1\\.5 ?mm)[^.\\n]{0,160}\\b(4|four)\\b"}
+              - {match: "licen[cs]e|32 GB|memory"}
+  - id: plan-pack-n4-identified
+    kind: analysis
+    registry: dev
+    from: "5 sessions: 2 skipped (the T1 is 2D; N4 fits a 3D field); 4 left out"
+    turns:
+      - say: "Bias-correct the T1 images in study-identified."
+        expect:
+          skill: plan-analysis
+          also: [find-data]
+          proposal: {kind: analysis_plan, match: {dataset: study-identified}}
+          plan:
+            names: n4-bias-correction
+            skips:
+              - {match: "\\b(2|two)\\b[^.\\n]{0,160}(2D|two-dimensional)|(2D|two-dimensional)[^.\\n]{0,160}\\b(2|two)\\b"}
+              - {match: "\\b(2|two)\\b[^.\\n]{0,160}(no (main )?T1|holds? no t1w|without (a )?T1|lack\\w* (a )?T1|no T1w)|(no (main )?T1|holds? no t1w|without (a )?T1|lack\\w* (a )?T1|no T1w)[^.\\n]{0,160}\\b(2|two)\\b"}
+  - id: plan-pack-synthseg-fresh
+    kind: analysis
+    registry: dev
+    from: "4 of 4 sessions ready; nothing skipped. SynthSeg results are kept for these sessions already, so the question asks for a new run (asked what the volumes are, the chat rightly answered from the kept ones)"
+    turns:
+      - say: "Plan a new SynthSeg run over study-fresh for the hippocampal volumes."
+        expect:
+          skill: plan-analysis
+          also: [find-data]
+          proposal: {kind: analysis_plan, match: {dataset: study-fresh}}
+          plan: {names: synthseg, skips: []}
+  - id: plan-pack-lesions-fresh
+    kind: analysis
+    registry: dev
+    from: "the flair-lesions workflow: registration routes all 4 to SynthMorph (2D or coarser than 1.5 mm); segcsvd skips 4 (the T1 voxel over 1.2 mm for the PVS model)"
+    turns:
+      - say: "Lesion load in study-fresh, with each FLAIR registered to its T1 first."
+        expect:
+          skill: plan-analysis
+          also: [find-data]
+          proposal: {kind: analysis_plan, match: {dataset: study-fresh}}
+          plan:
+            names: flair-lesions
+            skips:
+              - {match: "\\b(4|four)\\b[^.\\n]{0,160}(SynthMorph)|(SynthMorph)[^.\\n]{0,160}\\b(4|four)\\b"}
+              - {match: "\\b(4|four)\\b[^.\\n]{0,160}(1\\.2 ?mm|perivascular|PVS)|(1\\.2 ?mm|perivascular|PVS)[^.\\n]{0,160}\\b(4|four)\\b"}
+  - id: plan-pack-wml-identified
+    kind: analysis
+    registry: dev
+    from: "3 of 9 visits with a main T1w and FLAIR; 6 left out (5 hold no FLAIR, 2 no T1w, 2 none picked)"
+    turns:
+      - say: "White-matter lesion volumes in study-identified, please."
+        expect:
+          skill: plan-analysis
+          also: [find-data]
+          proposal: {kind: analysis_plan, match: {dataset: study-identified}}
+          plan:
+            names: [samseg-lesions, flair-lesions]
+            skips:
+              - {match: "\\b(5|five)\\b[^.\\n]{0,160}(no FLAIR|without (a )?FLAIR|lack\\w* (a )?FLAIR|FLAIR (is )?missing|missing (a )?FLAIR)|(no FLAIR|without (a )?FLAIR|lack\\w* (a )?FLAIR|FLAIR (is )?missing|missing (a )?FLAIR)[^.\\n]{0,160}\\b(5|five)\\b"}
+  - id: plan-pack-samseg-selection
+    kind: analysis
+    registry: dev
+    from: "23 sessions, none can run: no FLAIR picked in 23, the T1w released as UNIT1 in 2"
+    turns:
+      - say: "Run SAMSEG with lesions on my selection t1-3d-stacks@1."
+        expect:
+          skill: plan-analysis
+          also: [find-data]
+          proposal: {kind: analysis_plan, match: {selection: "selection:t1-3d-stacks@1"}}
+          plan:
+            names: samseg-lesions
+            skips:
+              - {match: "\\b(23|twenty-three)\\b[^.\\n]{0,160}(FLAIR)|(FLAIR)[^.\\n]{0,160}\\b(23|twenty-three)\\b"}
+              - {match: "\\b(2|two)\\b[^.\\n]{0,160}(UNIT1)|(UNIT1)[^.\\n]{0,160}\\b(2|two)\\b"}
+  - id: plan-pack-strip-resume
+    kind: analysis
+    registry: dev
+    from: "22 of 24 ready; 2 cannot run (UNIT1); 38 left out (29 no T1w, 9 none picked)"
+    turns:
+      - say: "Skull-strip the T1s in study-resume."
+        expect:
+          skill: plan-analysis
+          also: [find-data]
+          proposal: {kind: analysis_plan, match: {dataset: study-resume}}
+          plan:
+            names: synthstrip
+            skips:
+              - {match: "\\b(2|two)\\b[^.\\n]{0,160}(UNIT1)|(UNIT1)[^.\\n]{0,160}\\b(2|two)\\b"}
+              - {match: "\\b(29|twenty-nine)\\b[^.\\n]{0,160}(no (main )?T1|holds? no t1w|without (a )?T1|lack\\w* (a )?T1|no T1w)|(no (main )?T1|holds? no t1w|without (a )?T1|lack\\w* (a )?T1|no T1w)[^.\\n]{0,160}\\b(29|twenty-nine)\\b"}
+  - id: plan-pack-flair-resume
+    kind: analysis
+    registry: dev
+    from: "registration: 14 routed (8 ANTs, 6 SynthMorph), 1 skipped (cannot tell the FLAIR body part); SAMSEG and SynthSeg 13 of 15 (2 UNIT1); segcsvd 5 ready, skipped for 1.2 mm, 2D and cannot tell post-contrast"
+    turns:
+      - say: "Plan the flair-lesions workflow over study-resume."
+        expect:
+          skill: plan-analysis
+          also: [find-data]
+          proposal: {kind: analysis_plan, match: {dataset: study-resume}}
+          plan:
+            names: flair-lesions
+            skips:
+              - {match: "\\b(1|one)\\b[^.\\n]{0,160}(cannot tell|can'?t tell|unable to tell|could not tell|unknown)|(cannot tell|can'?t tell|unable to tell|could not tell|unknown)[^.\\n]{0,160}\\b(1|one)\\b"}
+              - {match: "\\b(2|two)\\b[^.\\n]{0,160}(UNIT1)|(UNIT1)[^.\\n]{0,160}\\b(2|two)\\b"}
+              - {match: "2D|two-dimensional"}
+              - {match: "1\\.2 ?mm"}
+  - id: plan-pack-synthseg-selection
+    kind: analysis
+    registry: dev
+    from: "21 of 23 ready; 2 cannot run (UNIT1)"
+    turns:
+      - say: "Brain structure volumes with SynthSeg for my selection t1-3d-stacks@1."
+        expect:
+          skill: plan-analysis
+          also: [find-data]
+          proposal: {kind: analysis_plan, match: {selection: "selection:t1-3d-stacks@1"}}
+          plan:
+            names: synthseg
+            skips:
+              - {match: "\\b(2|two)\\b[^.\\n]{0,160}(UNIT1)|(UNIT1)[^.\\n]{0,160}\\b(2|two)\\b"}
+  - id: plan-pack-cortical-identified
+    kind: analysis
+    registry: dev
+    from: "recon-all: 3 of 5 (2 skipped, the T1 is 2D); blocked by memory and the licence"
+    turns:
+      - say: "Cortical thickness for study-identified."
+        expect:
+          skill: plan-analysis
+          also: [find-data]
+          proposal: {kind: analysis_plan, match: {dataset: study-identified}}
+          plan:
+            names: [freesurfer-recon-all, cortical]
+            skips:
+              - {match: "\\b(2|two)\\b[^.\\n]{0,160}(2D|two-dimensional)|(2D|two-dimensional)[^.\\n]{0,160}\\b(2|two)\\b"}
+              - {match: "licen[cs]e|32 GB|memory"}
+  - id: plan-pack-lesions-anon
+    kind: analysis
+    registry: dev
+    from: "no visit of 10 has a main T1w and FLAIR (10 hold no T1w scan): nothing can run"
+    turns:
+      - say: "Lesion volumes for the study-anon dataset."
+        expect:
+          skill: plan-analysis
+          also: [find-data]
+          proposal: {kind: analysis_plan, match: {dataset: study-anon}}
+          plan:
+            names: [samseg-lesions, flair-lesions]
+            skips:
+              - {match: "\\b(10|ten)\\b[^.\\n]{0,160}(no (main )?T1|holds? no t1w|without (a )?T1|lack\\w* (a )?T1|no T1w|no FLAIR|without (a )?FLAIR|lack\\w* (a )?FLAIR|FLAIR (is )?missing|missing (a )?FLAIR)|(no (main )?T1|holds? no t1w|without (a )?T1|lack\\w* (a )?T1|no T1w|no FLAIR|without (a )?FLAIR|lack\\w* (a )?FLAIR|FLAIR (is )?missing|missing (a )?FLAIR)[^.\\n]{0,160}\\b(10|ten)\\b"}
+  - id: plan-pack-n4-resume
+    kind: analysis
+    registry: dev
+    from: "17 of 24 ready: 4 skipped (2D), 1 cannot tell, 2 UNIT1; 38 left out"
+    turns:
+      - say: "Run N4 bias correction over study-resume."
+        expect:
+          skill: plan-analysis
+          also: [find-data]
+          proposal: {kind: analysis_plan, match: {dataset: study-resume}}
+          plan:
+            names: n4-bias-correction
+            skips:
+              - {match: "\\b(4|four)\\b[^.\\n]{0,160}(2D|two-dimensional)|(2D|two-dimensional)[^.\\n]{0,160}\\b(4|four)\\b"}
+              - {match: "\\b(1|one)\\b[^.\\n]{0,160}(cannot tell|can'?t tell|unable to tell|could not tell|unknown)|(cannot tell|can'?t tell|unable to tell|could not tell|unknown)[^.\\n]{0,160}\\b(1|one)\\b"}
+              - {match: "\\b(2|two)\\b[^.\\n]{0,160}(UNIT1)|(UNIT1)[^.\\n]{0,160}\\b(2|two)\\b"}
+  - id: plan-pack-flair-identified
+    kind: analysis
+    registry: dev
+    from: "registration routes 2 to ANTs and 1 to SynthMorph; segcsvd skips 1 (1.2 mm) and cannot tell post-contrast for 2"
+    turns:
+      - say: "Plan the FLAIR lesion workflow for study-identified."
+        expect:
+          skill: plan-analysis
+          also: [find-data]
+          proposal: {kind: analysis_plan, match: {dataset: study-identified}}
+          plan:
+            names: flair-lesions
+            skips:
+              - {match: "\\b(2|two)\\b[^.\\n]{0,160}(ANTs|rigid)|(ANTs|rigid)[^.\\n]{0,160}\\b(2|two)\\b"}
+              - {match: "\\b(1|one)\\b[^.\\n]{0,160}(SynthMorph)|(SynthMorph)[^.\\n]{0,160}\\b(1|one)\\b"}
+              - {match: "1\\.2 ?mm"}
+              - {match: "\\b(2|two)\\b[^.\\n]{0,160}(cannot tell|can'?t tell|unable to tell|could not tell|unknown)|(cannot tell|can'?t tell|unable to tell|could not tell|unknown)[^.\\n]{0,160}\\b(2|two)\\b"}

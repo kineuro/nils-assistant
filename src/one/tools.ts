@@ -31,7 +31,6 @@ import {
   shapedOf,
   withHeldCounts,
 } from "../seam/shaped.ts";
-import { preflightForDocument } from "../stations/analysis-plan.ts";
 import { compactPreview, unescapeEntities } from "../stations/ask-help.ts";
 import {
   datasetName,
@@ -49,9 +48,23 @@ import { diffOf, listName, listsOfPack, type Prediction, valuesOf } from "../sta
 import { forgetFor, type MemoryPart, recallFor, rememberFor } from "../stations/memory.ts";
 import { ladderStore, policyOf } from "../stations/operator.ts";
 import {
+  caveatLines,
+  familiesOf,
+  familyText,
+  judgedOf,
+  leftOutOf,
+  overviewText,
+  packsOf,
+  packText,
+  planOf,
+  skipLines,
+  withoutUnits,
+  workflowsOf,
+  workflowText,
+} from "../stations/packs.ts";
+import {
   breachDocument,
   campaignDocument,
-  catalogText,
   cohortDocument,
   cohortsOf,
   entriesOf,
@@ -161,6 +174,13 @@ const BEYOND: Partial<Record<SeamId, Station["grant"]>> = {
   "identity-check": { "datasets/{name}/summary": { calls: 12 } },
   // record 56: a word is rehearsed as a typed rule change, at the pack's rehearse door
   "keyword-tune": { "packs/{name}/rehearse": { calls: 12 } },
+  // record 57 P9: the packs, the workflows and a workflow's plan before anything runs
+  "analysis-plan": {
+    "pipelines/{id}/pack": { calls: 12 },
+    workflows: { calls: 12 },
+    "workflows/{name}": { calls: 12 },
+    "workflows/{name}/plan": { calls: 6 },
+  },
   // record 55 K6: a saved selection named with @ is read like a kept answer, its row of the list and its version
   "ask-help": {
     selections: { calls: 12 },
@@ -718,7 +738,7 @@ function noteSignals(c: ConversationState, body: unknown): void {
 const registryDescribe: OneTool = {
   name: "registry_describe",
   description:
-    "Read one kind of thing the registry keeps, by `what`: document (a stored question by `id`, with its parent), documents (the stored questions), batches (the newest batches), cohorts (with their subjects and sessions counted), pipelines (the analyses with their parameters, measures and checks) or pipeline (one by `name`), datasets (each with its state, its subjects, visits and scans, and the cohort it feeds) or dataset (by `name`: those counts, which of its steps have run, what arrives, its identity rule, what is held), identifier_types, held (the identifiers a dataset holds as shapes, by `name`), signals (the sorting's signals over a `scope` such as batch:12), word_lists (the sorting's word lists, `axis` to narrow), review (the open review items, or one by `id`).",
+    "Read one kind of thing the registry keeps, by `what`: document (a stored question by `id`, with its parent), documents (the stored questions), batches (the newest batches), cohorts (with their subjects and sessions counted), pipelines (the analyses, families and workflows, each with its choices, the settings a person may set and the needs that skip a session, in their own words) or pipeline (one analysis, family or workflow by `name`, in full: needs, settings, rules and checks with their sources), datasets (each with its state, its subjects, visits and scans, and the cohort it feeds) or dataset (by `name`: those counts, which of its steps have run, what arrives, its identity rule, what is held), identifier_types, held (the identifiers a dataset holds as shapes, by `name`), signals (the sorting's signals over a `scope` such as batch:12), word_lists (the sorting's word lists, `axis` to narrow), review (the open review items, or one by `id`).",
   input: v.object({
     what: v.picklist(DESCRIBE),
     id: v.optional(v.number()),
@@ -761,19 +781,33 @@ const registryDescribe: OneTool = {
             a,
             "Say the analyses could not be read, and that a person who may see them can plan it.",
           );
+        // record 57 P9: the packs, the families and the workflows, as the catalog says them
+        const w = await get(ctx, "analysis-plan", "/api/workflows");
         const entries = entriesOf(a.body);
+        const packs = packsOf(a.body);
+        const families = familiesOf(a.body);
+        const workflows = w.kind === "ok" ? workflowsOf(w.body) : [];
         if (what === "pipeline") {
+          const f = name ? families.find((x) => x.name === name.trim()) : undefined;
+          if (f) return { output: data(familyText(f), "") };
+          const wf = name
+            ? workflows.find((x) => x.name === name.trim() || x.label === name.trim())
+            : undefined;
+          if (wf) return { output: data(workflowText(wf), "") };
           const e = name ? resolve(entries, name) : null;
           if (!e)
             return refuse(
               `no analysis named ${name ?? "(none)"}`,
-              `Name one of ${newest(entries)
-                .map((x) => x.name)
-                .join(", ")}.`,
+              `Name one of ${[...newest(entries).map((x) => x.name), ...families.map((x) => x.name), ...workflows.map((x) => x.name)].join(", ")}.`,
             );
-          return { output: data(catalogText([e]), "") };
+          return { output: data(packText(e, packs.get(e.id) ?? null), "") };
         }
-        return { output: data(catalogText(newest(entries)), "ask for one analysis by name") };
+        return {
+          output: data(
+            overviewText(entries, packs, families, workflows),
+            "ask for one analysis, family or workflow by name for its needs, rules and sources",
+          ),
+        };
       }
       case "datasets":
       case "dataset": {
@@ -2029,6 +2063,8 @@ function propose(
     payload: Record<string, unknown>;
     ref?: { document?: number; parent?: number | null; plan?: string };
     details: Record<string, unknown>;
+    /** What the model does next, where the kind needs more than the default. */
+    next?: string;
   },
 ): Out {
   const c = theChanges().propose({
@@ -2054,7 +2090,9 @@ function propose(
     output: {
       ...(details as Record<string, JsonValue>),
       pending: true,
-      next: "It waits for the person's approval on the card; nothing has changed yet. Tell them in one or two sentences what it will do, then stop.",
+      next:
+        o.next ??
+        "It waits for the person's approval on the card; nothing has changed yet. Tell them in one or two sentences what it will do, then stop.",
     },
   };
 }
@@ -2120,25 +2158,56 @@ export function runScope(
   const after = (flag: string): string[] =>
     command.flatMap((w, i) => (w === flag && i + 1 < command.length ? [command[i + 1]] : []));
   const [select] = after("--select");
-  const over = select
-    ? `runs over the selection ${select.replace(/^selection:/u, "")}`
-    : cohorts
-      ? `runs over ${cohorts.sessions === "all" ? "every session" : `the ${cohorts.sessions} session of each subject`} of ${cohorts.cohorts.join(" and ")}`
-      : null;
-  const params = after("--param");
+  const main = select ? /^main(?::([a-z0-9]+))?@dataset:(.+)$/u.exec(select) : null;
+  const over = main
+    ? `runs over the main ${main[1] ? `${main[1]} ` : ""}scans of the dataset ${main[2]}`
+    : select
+      ? `runs over the selection ${select.replace(/^selection:/u, "")}`
+      : cohorts
+        ? `runs over ${cohorts.sessions === "all" ? "every session" : `the ${cohorts.sessions} session of each subject`} of ${cohorts.cohorts.join(" and ")}`
+        : null;
+  const params = [...after("--goal").map((g) => `goal=${g}`), ...after("--switch"), ...after("--param")];
   return [
     ...(over ? [over] : []),
-    params.length ? `settings: ${params.join(", ")}` : "settings: the analysis's own defaults",
+    params.length ? `settings: ${params.join(", ")}` : "settings: the analysis's own defaults and rules",
   ];
+}
+
+/** What a workflow's plan becomes on a card and in the model's answer: each step's units, who is skipped or routed and why, the links that are not simply fed. */
+export function planLines(label: string, plan: ReturnType<typeof planOf>): string[] {
+  const out = [`${label}: ${plan.words || (plan.runnable ? "every step planned" : "not runnable")}`];
+  for (const s of plan.steps) {
+    if (s.refused) {
+      out.push(`step ${s.step} (${s.pipeline}): refused, ${s.refused}`);
+      continue;
+    }
+    out.push(
+      `step ${s.step} (${s.pipeline}): ${s.units ? `${s.units.ready} of ${s.units.total} sessions ready` : "no units read"}`,
+      ...s.lines.map((l) => `  ${l}`),
+      ...s.blockers.map((b) => `  blocked: ${b}`),
+    );
+  }
+  for (const l of plan.links) out.push(`link ${l.verdict}: ${l.words}`);
+  return out;
+}
+
+/** The person's choices for a pack: the goal and the pack's switches, as the pre-flight and the run take them. */
+function choicesOf(args: Record<string, unknown>): { goal: string | null; switches: Record<string, string> } {
+  const goal = str(args.goal);
+  const switches: Record<string, string> = {};
+  for (const [k, v] of Object.entries((args.switches as Record<string, unknown> | undefined) ?? {}))
+    if (v !== undefined && v !== null) switches[k] = String(v);
+  return { goal: goal ?? null, switches };
 }
 
 async function proposeAnalysis(args: Record<string, unknown>, ctx: ToolCtx, sentence: string): Promise<Out> {
   const s = seam(ctx, "analysis-plan");
   const pipelineName = str(args.pipeline);
-  if (!pipelineName)
+  const workflowName = str(args.workflow);
+  if (!pipelineName && !workflowName)
     return refuse(
-      "an analysis plan names the analysis",
-      "Give `pipeline`, one of the analyses registry_describe lists.",
+      "an analysis plan names the analysis or the workflow",
+      "Give `pipeline` or `workflow`, one registry_describe, what pipelines, lists.",
     );
   const cat = await s.call({
     method: "GET",
@@ -2149,35 +2218,66 @@ async function proposeAnalysis(args: Record<string, unknown>, ctx: ToolCtx, sent
   if (cat.kind !== "ok")
     return notOk(cat, "Say the analyses could not be read, and that a person who may see them can plan it.");
   const entries = entriesOf(cat.body);
-  const entry = resolve(entries, pipelineName);
-  if (!entry)
-    return refuse(
-      `no analysis named ${pipelineName}`,
-      `Name one of ${newest(entries)
-        .map((e) => e.name)
-        .join(", ")}.`,
-    );
-  const { params, refused } = paramsFor(
-    entry,
-    (args.params as Record<string, unknown> | undefined) ?? undefined,
-  );
-  if (refused.length)
-    return refuse(
-      refused.join("; "),
-      "Leave a parameter out for its default, or give one the analysis takes.",
-    );
+  const families = familiesOf(cat.body);
+  let workflow: ReturnType<typeof workflowsOf>[number] | null = null;
+  let entry: ReturnType<typeof resolve> = null;
+  // a family alone or a workflow's name given as `pipeline` is planned as its workflow
+  const wanted = workflowName ?? pipelineName ?? "";
+  const family = families.find((f) => f.name === wanted);
+  if (workflowName || !resolve(entries, wanted)) {
+    const wf = await s.call({
+      method: "GET",
+      path: "/api/workflows",
+      toolCallId: `${ctx.toolCallId}-workflows`,
+      phase: PHASE,
+    });
+    const workflows = wf.kind === "ok" ? workflowsOf(wf.body) : [];
+    workflow = workflows.find((w) => w.name === wanted || w.label === wanted) ?? null;
+    if (!workflow && family) {
+      const holding = workflows.filter((w) =>
+        w.steps.some((st) => st.of === "family" && st.name === family.name),
+      );
+      return refuse(
+        `${family.name} is a family, which runs as a step of a workflow`,
+        holding.length
+          ? `Propose the workflow that holds it (${holding.map((w) => w.name).join(", ")}) if it answers the question, and say what else it runs; else say the family is planned as a workflow's step on the Pipelines page.`
+          : "Say the family is planned as a workflow's step on the Pipelines page, and propose nothing.",
+      );
+    }
+    if (!workflow)
+      return refuse(
+        `no analysis or workflow named ${wanted}`,
+        `Name one of ${[...newest(entries).map((e) => e.name), ...workflows.map((w) => w.name)].join(", ")}.`,
+      );
+  } else entry = resolve(entries, wanted);
+  const params: Record<string, unknown> = {};
+  if (entry) {
+    const p = paramsFor(entry, (args.params as Record<string, unknown> | undefined) ?? undefined);
+    if (p.refused.length)
+      return refuse(
+        p.refused.join("; "),
+        "Leave a parameter out for its default, or give one the analysis takes.",
+      );
+    // only what the person changed: the pack's rules set the rest per session
+    for (const k of Object.keys((args.params as Record<string, unknown> | undefined) ?? {}))
+      params[k] = p.params[k];
+  }
+  const { goal, switches } = choicesOf(args);
   const cohorts = ((args.cohorts as string[] | undefined) ?? []).map((c) => String(c).trim()).filter(Boolean);
   const selection = str(args.selection);
-  if ((selection ? 1 : 0) + (cohorts.length ? 1 : 0) !== 1)
+  const dataset = str(args.dataset);
+  if ((selection ? 1 : 0) + (cohorts.length ? 1 : 0) + (dataset ? 1 : 0) !== 1)
     return refuse(
-      "an analysis runs over a saved selection or over cohorts, one of the two",
-      "Give `selection`, or `cohorts` with `sessions`.",
+      "an analysis runs over a dataset's main scans, a saved selection or cohorts, one of the three",
+      "Give `dataset`, `selection`, or `cohorts` with `sessions`.",
     );
   const sessions: Sessions = args.sessions === "first" || args.sessions === "latest" ? args.sessions : "all";
   let over: { select: string } | { handle: number } | null = null;
   let proposed: { document: number; cohorts: string[]; sessions: Sessions } | null = null;
   let why: string | null = null;
+  const shown = workflow ? workflow.name : (entry as NonNullable<typeof entry>).name;
   if (selection) over = { select: selectionSpec(selection) };
+  else if (dataset) over = { select: `main@dataset:${datasetName(dataset) ?? dataset}` };
   else {
     const known = await s.call({
       method: "GET",
@@ -2198,7 +2298,7 @@ async function proposeAnalysis(args: Record<string, unknown>, ctx: ToolCtx, sent
     const doc = cohortDocument(
       cohorts,
       sessions,
-      `${sessions === "all" ? "every session" : `the ${sessions} session of each subject`} of ${cohorts.join(" and ")}, for ${entry.name}`,
+      `${sessions === "all" ? "every session" : `the ${sessions} session of each subject`} of ${cohorts.join(" and ")}, for ${shown}`,
     );
     const drafted = await s.call({
       method: "POST",
@@ -2212,7 +2312,7 @@ async function proposeAnalysis(args: Record<string, unknown>, ctx: ToolCtx, sent
     const ran = await s.call({
       method: "POST",
       path: "/api/ask/run",
-      body: { document_id: document, keep: false, name: `analysis plan ${entry.name}` },
+      body: { document_id: document, keep: false, name: `analysis plan ${shown}` },
       toolCallId: `${ctx.toolCallId}-run`,
       phase: PHASE,
     });
@@ -2229,60 +2329,156 @@ async function proposeAnalysis(args: Record<string, unknown>, ctx: ToolCtx, sent
     else over = { handle };
     proposed = { document, cohorts, sessions };
   }
+  const scopeDetails = selection
+    ? { selection: selectionSpec(selection) }
+    : dataset
+      ? { dataset: datasetName(dataset) ?? dataset }
+      : { cohorts, sessions };
+  const scopeBody = over ? ("select" in over ? { select: over.select } : { handle: over.handle }) : null;
+
+  // record 57 P9: a workflow is planned by the engine before anything runs: each step's pre-flight and each link's verdict
+  if (workflow) {
+    const knobs = (args.knobs as Record<string, Record<string, unknown>> | undefined) ?? undefined;
+    const body = scopeBody ? { ...scopeBody, ...(goal ? { goal } : {}), ...(knobs ? { knobs } : {}) } : null;
+    let plan: ReturnType<typeof planOf> | null = null;
+    let kept: Record<string, unknown> | null = null;
+    if (body) {
+      ctx.write.progress("Planning the workflow before anything runs");
+      const pl = await s.call({
+        method: "POST",
+        path: `/api/workflows/${encodeURIComponent(workflow.label)}/plan`,
+        body,
+        toolCallId: `${ctx.toolCallId}-plan`,
+        phase: PHASE,
+      });
+      if (pl.kind === "ok") {
+        plan = planOf(pl.body);
+        kept = withoutUnits(pl.body);
+      } else
+        why = `the plan before the run was refused: ${JSON.stringify(toolResult(pl).output).slice(0, 200)}`;
+    }
+    if (!plan && !proposed && why)
+      return refuse(why, "Say the scope could not be planned, and ask which dataset or selection they mean.");
+    const lines = plan
+      ? [...planLines(workflow.label, plan), ...runScope(null, proposed)]
+      : [`${workflow.label}: ${why ?? "no plan before the run"}`];
+    const scopeWords = selection
+      ? `runs over the selection ${selection}`
+      : dataset
+        ? `runs over the main scans of the dataset ${scopeDetails.dataset}`
+        : `runs over ${sessions === "all" ? "every session" : `the ${sessions} session of each subject`} of ${cohorts.join(" and ")}`;
+    return propose(ctx, {
+      kind: "analysis_plan",
+      sentence,
+      title: str(args.title) ?? `Run the workflow ${workflow.name}`,
+      lines: [...lines, scopeWords],
+      payload: {
+        command: null,
+        workflow: plan?.runnable && body ? { label: workflow.label, body } : null,
+        pipeline: null,
+        params: {},
+        proposed,
+        plan: kept,
+        question: str(args.question),
+        why: str(args.why),
+      },
+      details: {
+        workflow: workflow.name,
+        version: workflow.label,
+        ...scopeDetails,
+        ...(goal ? { goal } : {}),
+        plan: (plan ?? null) as unknown as JsonValue,
+        plan_why: why,
+        say: plan
+          ? `Name the workflow ${workflow.name} and its steps; for each step say how many sessions are ready of how many, and every line under it that says who is left out, cannot run, is skipped or routed, with its count and its reason in those words; name a missing, redundant or refused link in its words; say what blocks a step, if anything; and that it runs when they approve it.`
+          : `Name the workflow ${workflow.name} and why no plan was taken: ${why}.`,
+      },
+      next: "It waits for the person's approval on the card; nothing has changed yet. Answer as `say` asks, in a few short sentences or a short list, then stop.",
+    });
+  }
+
+  const pipe = entry as NonNullable<typeof entry>;
   let preflight: ReturnType<typeof preflightOf> | null = null;
   let engine: Record<string, unknown> | null = null;
+  let skips: string[] = [];
+  let caveats: string[] = [];
   if (over) {
     ctx.write.progress("Checking the run before anything happens");
     const pf = await s.call({
       method: "POST",
-      path: `/api/pipelines/${encodeURIComponent(entry.label)}/preflight`,
-      body: { ...("select" in over ? { select: over.select } : { handle: over.handle }), params },
+      path: `/api/pipelines/${encodeURIComponent(pipe.label)}/preflight`,
+      body: {
+        ...scopeBody,
+        params,
+        ...(goal ? { goal } : {}),
+        ...(Object.keys(switches).length ? { switches } : {}),
+      },
       toolCallId: `${ctx.toolCallId}-preflight`,
       phase: PHASE,
     });
     if (pf.kind === "ok") {
       preflight = preflightOf(pf.body);
-      engine = preflightForDocument(pf.body);
+      engine = withoutUnits(pf.body);
+      const b = pf.body as Record<string, unknown>;
+      const judged = judgedOf(pf.body);
+      caveats = caveatLines(str(b.unit) ?? "session", judged);
+      skips = skipLines({
+        unit: str(b.unit) ?? "session",
+        judged,
+        leftOut: leftOutOf(pf.body),
+        cannot: (Array.isArray(b.cannot) ? (b.cannot as Record<string, unknown>[]) : []).map((c) => ({
+          why: String(c.why ?? ""),
+          units: num(c.units) ?? 0,
+        })),
+      });
     } else
       why = `the check before the run was refused: ${JSON.stringify(toolResult(pf).output).slice(0, 200)}`;
   }
   if (!preflight && !proposed && why)
-    return refuse(why, "Say the selection could not be found, and ask which one they mean.");
-  const command = over ? runCommand(entry.label, over, params) : null;
+    return refuse(why, "Say the selection or dataset could not be found, and ask which one they mean.");
+  const command = over ? runCommand(pipe.label, over, params, { goal, switches }) : null;
   const scope = runScope(command, proposed);
   const lines = preflight
     ? [
-        `${entry.name}: ${preflight.units.ready} of ${preflight.units.total} units ready${preflight.units.missing ? `, ${preflight.units.missing} missing` : ""}`,
+        `${pipe.name}: ${preflight.units.ready} of ${preflight.units.total} units ready${preflight.units.missing ? `, ${preflight.units.missing} missing` : ""}`,
+        ...skips,
+        ...caveats,
         ...scope,
         `time: ${preflight.estimate.words}`,
         preflight.ready ? "ready to run" : `blocked: ${preflight.blockers.join("; ") || "see the check"}`,
       ]
-    : [`${entry.name}: ${why ?? "no check before the run"}`, ...scope];
+    : [`${pipe.name}: ${why ?? "no check before the run"}`, ...scope];
   return propose(ctx, {
     kind: "analysis_plan",
     sentence,
-    title: str(args.title) ?? `Run ${entry.name}`,
+    title: str(args.title) ?? `Run ${pipe.name}`,
     lines,
     payload: {
       command,
-      pipeline: entry.label,
+      pipeline: pipe.label,
       params,
+      choices: { goal, switches },
       proposed,
       preflight: engine,
       question: str(args.question),
       why: str(args.why),
     },
     details: {
-      pipeline: entry.name,
-      version: entry.label,
-      ...(selection ? { selection: selectionSpec(selection) } : { cohorts, sessions }),
+      pipeline: pipe.name,
+      version: pipe.label,
+      ...scopeDetails,
       params: params as JsonValue,
+      ...(goal ? { goal } : {}),
+      ...(Object.keys(switches).length ? { switches } : {}),
       preflight: (preflight ?? null) as unknown as JsonValue,
+      skipped_and_routed: skips,
+      caveats,
       preflight_why: why,
       say: preflight
-        ? `Name ${entry.name}, the ${preflight.units.ready} of ${preflight.units.total} units ready${preflight.units.missing ? `, the ${preflight.units.missing} missing and why` : ""}, the time (${preflight.estimate.words}), and that it runs when they approve it.`
-        : `Name ${entry.name} and why no check was taken: ${why}.`,
+        ? `Name ${pipe.name}, the ${preflight.units.ready} of ${preflight.units.total} units ready, every line of skipped_and_routed with its count and its reason in those words, the time (${preflight.estimate.words}), ${preflight.ready ? "" : `what blocks it (${preflight.blockers.join("; ")}), `}and that it runs when they approve it.`
+        : `Name ${pipe.name} and why no check was taken: ${why}.`,
     },
+    next: "It waits for the person's approval on the card; nothing has changed yet. Answer as `say` asks, in a few short sentences or a short list, then stop.",
   });
 }
 
@@ -2424,7 +2620,7 @@ function proposeRule(args: Record<string, unknown>, ctx: ToolCtx, sentence: stri
 const proposeChange: OneTool = {
   name: "propose_change",
   description:
-    "Propose a change for the person to approve on a card; it never changes anything by itself. `kind` and `sentence` (what it will do, in their words) always; then by kind: query_version (`document`, `parent`), job_plan (`instruction` and `steps`, each {verb, args, when}), analysis_plan (`pipeline`, `params`, `selection` or `cohorts` with `sessions` all, first or latest, `question`, `why`), overlay (the rehearsed sorting words as a typed rule change, which an operator adopts on the Rules page; `name`, `why`; one that breaks answers people gave only with `accept_breaks` and the breaks named in the sentence, when the person asks for it), identity_merge (`subjects`, the two codes, `canonical`, `why`), identity_rule (`rule`, `path_is_direct_identifier`, `new_type`).",
+    "Propose a change for the person to approve on a card; it never changes anything by itself. `kind` and `sentence` (what it will do, in their words) always; then by kind: query_version (`document`, `parent`), job_plan (`instruction` and `steps`, each {verb, args, when}), analysis_plan (`pipeline` or `workflow`; whom: `dataset` (its main scans), `selection`, or `cohorts` with `sessions` all, first or latest; `goal` and `switches` only as the person chose them, `params` only what they changed, `knobs` a workflow's {step: {knob: value}}; `question`, `why`; the engine checks the run first and the answer says who is skipped and why), overlay (the rehearsed sorting words as a typed rule change, which an operator adopts on the Rules page; `name`, `why`; one that breaks answers people gave only with `accept_breaks` and the breaks named in the sentence, when the person asks for it), identity_merge (`subjects`, the two codes, `canonical`, `why`), identity_rule (`rule`, `path_is_direct_identifier`, `new_type`).",
   input: v.object({
     kind: v.picklist(KINDS),
     sentence: v.string(),
@@ -2442,7 +2638,12 @@ const proposeChange: OneTool = {
       ),
     ),
     pipeline: v.optional(v.string()),
+    workflow: v.optional(v.string()),
     params: v.optional(v.record(v.string(), v.unknown())),
+    goal: v.optional(v.picklist(["fast", "standard", "research"])),
+    switches: v.optional(v.record(v.string(), v.unknown())),
+    knobs: v.optional(v.record(v.string(), v.record(v.string(), v.unknown()))),
+    dataset: v.optional(v.string()),
     selection: v.optional(v.string()),
     cohorts: v.optional(v.array(v.string())),
     sessions: v.optional(v.picklist(["all", "first", "latest"])),
@@ -2456,7 +2657,18 @@ const proposeChange: OneTool = {
     accept_breaks: v.optional(v.boolean()),
     new_type: v.optional(v.nullable(v.object({ name: v.string(), description: v.string() }))),
   }),
-  salient: ["kind", "document", "steps", "pipeline", "cohorts", "selection", "subjects", "rule"],
+  salient: [
+    "kind",
+    "document",
+    "steps",
+    "pipeline",
+    "workflow",
+    "dataset",
+    "cohorts",
+    "selection",
+    "subjects",
+    "rule",
+  ],
   step: "Preparing a change for you",
   async run(args, ctx) {
     const kind = args.kind as ChangeKind;
