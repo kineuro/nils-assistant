@@ -225,3 +225,84 @@ export function watchCatalog(o: {
   timer.unref?.();
   return { tick, stop: () => clearInterval(timer) };
 }
+
+/** One structured chat call to Kvasir's completions door, the shape the audit's rater runner sends. */
+export interface ChatCall {
+  model: string;
+  messages: { role: "system" | "user" | "assistant"; content: string }[];
+  /** The answer's JSON schema, sent as the response format. */
+  schema: Record<string, unknown>;
+  /** The chat template's `enable_thinking`, which the model servers read. */
+  thinking: boolean;
+  maxTokens: number;
+  temperature: number;
+  timeoutMs: number;
+}
+
+export interface ChatAnswer {
+  model: string | null;
+  content: string | null;
+  reasoning: string | null;
+  finish_reason: string | null;
+  completion_tokens: number;
+}
+
+/** Kvasir did not answer a chat call: the status where it answered with one, the fault's class where it did not; never the request. */
+export class ChatFailed extends Error {
+  constructor(
+    readonly status: number | null,
+    reason: string,
+  ) {
+    super(reason);
+  }
+}
+
+/**
+ * A chat completion through Kvasir under the app's minted key, filed under `purpose`: one call, one answer,
+ * no stream. The caller retries where that is right; a 401, 403 or 404 is final.
+ */
+export async function kvasirChat(
+  o: { url: string; key: string; purpose: string; dial?: typeof fetch },
+  call: ChatCall,
+): Promise<ChatAnswer> {
+  const dial = o.dial ?? fetch;
+  const body = {
+    model: call.model,
+    messages: call.messages,
+    temperature: call.temperature,
+    max_tokens: call.maxTokens,
+    chat_template_kwargs: { enable_thinking: call.thinking },
+    response_format: { type: "json_schema", json_schema: { name: "answer", schema: call.schema } },
+  };
+  let r: Response;
+  try {
+    r = await dial(`${o.url.replace(/\/+$/u, "")}/v1/chat/completions`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${o.key}`,
+        "x-kvasir-purpose": o.purpose,
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(call.timeoutMs),
+    });
+  } catch (e) {
+    throw new ChatFailed(null, e instanceof Error ? e.name : "network");
+  }
+  if (!r.ok) throw new ChatFailed(r.status, `HTTP ${r.status}`);
+  const doc = (await r.json().catch(() => null)) as {
+    model?: unknown;
+    choices?: { message?: { content?: unknown; reasoning_content?: unknown }; finish_reason?: unknown }[];
+    usage?: { completion_tokens?: unknown };
+  } | null;
+  const choice = doc?.choices?.[0];
+  const content = choice?.message?.content;
+  const reasoning = choice?.message?.reasoning_content;
+  return {
+    model: typeof doc?.model === "string" ? doc.model : null,
+    content: typeof content === "string" ? content : null,
+    reasoning: typeof reasoning === "string" ? reasoning : null,
+    finish_reason: typeof choice?.finish_reason === "string" ? choice.finish_reason : null,
+    completion_tokens: typeof doc?.usage?.completion_tokens === "number" ? doc.usage.completion_tokens : 0,
+  };
+}
