@@ -26,6 +26,8 @@ export const GRANTS: readonly string[] = [
   "data:work",
   "database:see",
   "database:work",
+  "handover-password:see",
+  "handover-password:work",
   "identity:see",
   "identity:work",
   "install:see",
