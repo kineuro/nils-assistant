@@ -225,6 +225,48 @@ describe("a dataset's steps", () => {
       engine.close();
     }
   });
+
+  it("are read again after a short wait while the engine says it is counting, up to three times, then judged", async () => {
+    let asked = 0;
+    const engine = await stubEngine((c) => {
+      if (c.path === "/api/datasets/study-a/summary") {
+        asked++;
+        return {
+          body: asked < 3 ? { ...SUMMARY, steps: [], counting: true } : { ...SUMMARY, counting: false },
+        };
+      }
+      if (c.path === "/api/datasets/busy/summary") return { body: { ...SUMMARY, counting: true } };
+      return null;
+    });
+    try {
+      const seam = seamOf(
+        engine.url,
+        {
+          id: "t-counting",
+          grant: { "datasets/{name}/summary": {} },
+          ceiling: "operator",
+          content: "catalog",
+        },
+        "steps-c",
+      );
+      const o = (dataset: string) =>
+        readSteps({
+          turn: newTurn("steps-c", "N."),
+          dataset,
+          seam: () => seam,
+          toolCallId: "facts",
+          phase: "turn",
+          pauseMs: 1,
+        });
+      expect(await o("study-a")).toEqual(stepsOf(SUMMARY));
+      expect(asked).toBe(3);
+      // still counting after the third new read: that answer stands, four reads in all
+      expect(await o("busy")).toEqual(stepsOf(SUMMARY));
+      expect(engine.seen.filter((x) => x.path === "/api/datasets/busy/summary")).toHaveLength(4);
+    } finally {
+      engine.close();
+    }
+  });
 });
 
 describe("the find skill", () => {

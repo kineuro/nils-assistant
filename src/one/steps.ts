@@ -63,6 +63,10 @@ type Operation = keyof typeof OPERATIONS;
 export const STEPS_WAIT_MS = 2500;
 /** How long a tool waits for them: a dataset's summary counts its pictures on disk, which a share makes slow. */
 export const STEPS_TOOL_WAIT_MS = 8000;
+/** How long a read waits before it asks again of a summary whose counts the engine is reading again. */
+export const STEPS_COUNTING_WAIT_MS = 1500;
+/** How many times a read asks again of such a summary before it judges what it has. */
+export const STEPS_COUNTING_AGAIN = 3;
 /** How many of the datasets a turn is about it reads the steps of. */
 export const STEPS_READ = 3;
 
@@ -170,6 +174,30 @@ export interface StepsOptions {
   seam: () => Seam;
   toolCallId: string;
   phase: string;
+  /** The wait before each new read of a summary that is `counting`; the default is STEPS_COUNTING_WAIT_MS. */
+  pauseMs?: number;
+}
+
+/**
+ * The summary door answers the kept counts at once and says `counting: true` while the engine reads them again: the
+ * steps are read again after a short wait, up to STEPS_COUNTING_AGAIN times, before they are judged, as the desk's
+ * Data page does; the last answer stands where the engine is still counting.
+ */
+async function readCounted(o: StepsOptions): Promise<Step[] | null> {
+  let steps: Step[] | null = null;
+  for (let n = 0; n <= STEPS_COUNTING_AGAIN; n++) {
+    if (n > 0) await new Promise((r) => setTimeout(r, o.pauseMs ?? STEPS_COUNTING_WAIT_MS));
+    const a = await o.seam().call({
+      method: "GET",
+      path: `/api/datasets/${encodeURIComponent(o.dataset)}/summary`,
+      toolCallId: `${o.toolCallId}-steps`,
+      phase: o.phase,
+    });
+    if (a.kind !== "ok") return n === 0 ? null : steps;
+    steps = stepsOf(a.body);
+    if (rec(a.body).counting !== true) break;
+  }
+  return steps;
 }
 
 /** A dataset's steps, read once a turn and kept for the turn's tools; null where the engine gives none. */
@@ -182,15 +210,7 @@ export function readSteps(o: StepsOptions): Promise<Step[] | null> {
   let p = mine.get(o.dataset);
   if (!p) {
     p = Promise.resolve()
-      .then(() =>
-        o.seam().call({
-          method: "GET",
-          path: `/api/datasets/${encodeURIComponent(o.dataset)}/summary`,
-          toolCallId: `${o.toolCallId}-steps`,
-          phase: o.phase,
-        }),
-      )
-      .then((a) => (a.kind === "ok" ? stepsOf(a.body) : null))
+      .then(() => readCounted(o))
       .catch(() => null)
       .then((steps) => {
         let done = ended.get(o.turn);
