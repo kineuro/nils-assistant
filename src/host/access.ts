@@ -78,7 +78,9 @@ export function doorOf(method: string, path: string): Door {
     // one chat: a change the one agent proposed is decided by the person it was proposed to
     /^\/changes\/[^/]+(\/decide)?$/u.test(path) ||
     path === "/inbox" ||
-    /^\/teaching\//u.test(path)
+    /^\/teaching\//u.test(path) ||
+    // the rater of site participation (Wave 7b step 5): the engine's campaign doors decide who may rate
+    /^\/raters\/runs(\/[^/]+)?$/u.test(path)
   )
     return { kind: "person" };
   return { kind: "open" };

@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# rater (Wave 7b step 5, site participation), as contracts/suite/v1/station.schema.json fixes a manifest. Not a
+# chat station: the host drives it through POST /raters/runs, so it has no agent code and no evals cases; the
+# manifest names its purpose for Kvasir, its grant and its ceiling (campaigns:work is held by no ladder step but
+# admin, so the ceiling is admin and the engine authorises with the person's own grants).
+id: rater
+app: nils-assistant
+purpose: assistant.rater
+content: rows
+ceiling: admin
+grant:
+  campaigns/{id}:
+    calls: 1
+  campaigns/{id}/claim: {}
+  campaigns/{id}/items/{id}/why: {}
+  campaigns/{id}/items/{id}/header: {}
+  campaigns/{id}/assignments/{id}/answer: {}
+  campaigns/{id}/assignments/{id}/release: {}
+brief:
+  path: SKILL.md
+  hash: a0e3136c4e521644b2892bb444324983c46a4c3bab31f29ffca0740a2f3afd53
+result:
+  type: object
+  required:
+  - claimed
+  - answered
+  properties:
+    claimed:
+      type: integer
+      description: the items the run claimed
+    answered:
+      type: integer
+      description: the items the run answered, every asked axis named
+checks:
+- blind
+- legal
+budget:
+  turns: 1
+  tool_calls: 0
+  wall_clock_seconds: 86400
+  input_tokens: 1
+writes: []
+phases:
+  initial: read
+  transitions:
+  - from: read
+    to: finish
+evals: evals

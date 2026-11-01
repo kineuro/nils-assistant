@@ -74,6 +74,7 @@ import { ChangeStore, changeView, theChanges, useChangeStore } from "./one/chang
 import { Nils } from "./one/nils-agent.ts";
 import {
   type Catalog,
+  kvasirChat,
   kvasirProvider,
   readCatalog,
   servedCatalog,
@@ -81,6 +82,7 @@ import {
   withoutTask,
 } from "./providers/kvasir.ts";
 import { personInstrumentation, streamingConversation } from "./providers/person.ts";
+import { mountRaters } from "./raters/doors.ts";
 import { agentIds, delegationsOf, delegationView, registerAgent } from "./seam/delegations.ts";
 import {
   engineAuthOff,
@@ -403,6 +405,44 @@ app.get("/runs/:id/verdict", (ctx) => {
 app.get("/runs/:id", (ctx) => {
   const run = runOf(ctx.req.param("id"), ctx.req.raw);
   return run ? ctx.json(run) : ctx.json({ error: `no run ${ctx.req.param("id")}` }, 404);
+});
+
+// the rater of site participation (Wave 7b step 5): a raters' campaign read blind through the engine's campaign
+// doors with the token of the person who started the run, who is the draw's rater and may not settle; the
+// assistant holds no identity of its own against the engine. Its manifest (stations/rater) names the purpose the
+// installer registers at Kvasir, its grant and its ceiling, the highest because campaigns:work is held by no
+// ladder step but admin; the engine still authorises every call with that person's token. A stations directory
+// without the manifest (an older deployment) gets the same station from here. One engine call waits at most two
+// minutes, so an engine that stops answering ends the run as failed with its lease note instead of holding it.
+const raterManifest = manifests.get("rater");
+registerStation({
+  id: "rater",
+  version: c.version,
+  grant: raterManifest?.grant ?? {
+    "campaigns/{id}": {},
+    "campaigns/{id}/claim": {},
+    "campaigns/{id}/items/{id}/why": {},
+    "campaigns/{id}/items/{id}/header": {},
+    "campaigns/{id}/assignments/{id}/answer": {},
+    "campaigns/{id}/assignments/{id}/release": {},
+  },
+  ceiling: raterManifest?.ceiling ?? "admin",
+  content: raterManifest?.content ?? "rows",
+  model,
+  ...(raterManifest ? { purpose: raterManifest.purpose } : {}),
+  timeoutMs: 120_000,
+});
+mountRaters(app, {
+  seam: (conversation) => seamFor("rater", conversation),
+  chat: (call) =>
+    kvasirChat(
+      { url: c.kvasir, key: c.kvasirKey, purpose: raterManifest?.purpose ?? "assistant.rater" },
+      call,
+    ),
+  model: (named) => chosenModel(named ?? model),
+  tokens,
+  lineage: theLineage,
+  say: (line) => console.log(line),
 });
 
 /** Accepted and rejected proposals come back as feedback (§7.7): the next turn's prompt names them, and the ledger counts them. A proposal whose base is no longer where the desk is reads as stale and is refused (Wave 5 D1). */

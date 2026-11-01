@@ -38,6 +38,8 @@ export interface Station {
   purpose?: string;
   /** Record 55, ruling 24: the one agent's seam acting for the person in the chat, which may resolve an ID they name; never a station's. */
   forPerson?: boolean;
+  /** The most milliseconds one engine call may take; an engine that stops answering then ends the call as an error instead of holding the run for ever. Unset, the call waits. */
+  timeoutMs?: number;
 }
 
 export interface Call {
@@ -204,6 +206,7 @@ export class Seam {
         method: c.method,
         headers,
         body: c.body === undefined ? undefined : JSON.stringify(c.body),
+        ...(this.o.station.timeoutMs ? { signal: AbortSignal.timeout(this.o.station.timeoutMs) } : {}),
       });
     } catch (e) {
       this.record(decision.operation, c, decision, "error", null, null, this.now() - started, key);
