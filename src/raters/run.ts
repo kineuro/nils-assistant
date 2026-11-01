@@ -317,15 +317,18 @@ export async function readCampaign(run: RaterRun, deps: RaterDeps): Promise<void
       if (why.blind !== true) {
         c.not_blind += 1;
         // the lease is given back, so the campaign is not held by a run that reads nothing
-        await seam.call({
+        const released = await seam.call({
           method: "POST",
           path: `${base}/assignments/${encodeURIComponent(String(asg.id))}/release`,
           toolCallId: `rater-${run.id}-release-${n}`,
           phase: "read",
         });
         run.state = "refused";
-        run.error =
-          "the item's why does not say blind: true; nothing is read. The rater reads only a campaign made to suggest none (a raters' campaign of an audit draw).";
+        run.error = `the item's why does not say blind: true; nothing is read. The rater reads only a campaign made to suggest none (a raters' campaign of an audit draw).${
+          released.kind === "ok"
+            ? ""
+            : ` The lease was not given back (${reasonOf(released, "the release")}); it ends by itself.`
+        }`;
         break;
       }
       const header = await door(

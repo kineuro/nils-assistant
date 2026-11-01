@@ -124,7 +124,9 @@ export function questionValues(
 ): { axes: string[]; legal: Record<string, Set<string>> } {
   const c = campaignOf(doc);
   const q = (c.question ?? {}) as Question & { axes?: unknown };
-  const raw = (Array.isArray(q.axes) ? q.axes : Array.isArray(c.axes) ? c.axes : fallback) as unknown[];
+  // an empty list is no list, as the runner reads it: the campaign's axes, then the header certificate's
+  const listed = (v: unknown): unknown[] | null => (Array.isArray(v) && v.length > 0 ? v : null);
+  const raw = listed(q.axes) ?? listed(c.axes) ?? fallback;
   const axes: string[] = [];
   const legal: Record<string, Set<string>> = {};
   for (const a of raw) {

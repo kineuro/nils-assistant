@@ -409,12 +409,16 @@ app.get("/runs/:id", (ctx) => {
 
 // the rater of site participation (Wave 7b step 5): a raters' campaign read blind through the engine's campaign
 // doors with the token of the person who started the run, who is the draw's rater and may not settle; the
-// assistant holds no identity of its own against the engine. The ceiling is the highest because campaigns:work is
-// held by no ladder step but admin; the engine still authorises every call with that person's token.
+// assistant holds no identity of its own against the engine. Its manifest (stations/rater) names the purpose the
+// installer registers at Kvasir, its grant and its ceiling, the highest because campaigns:work is held by no
+// ladder step but admin; the engine still authorises every call with that person's token. A stations directory
+// without the manifest (an older deployment) gets the same station from here. One engine call waits at most two
+// minutes, so an engine that stops answering ends the run as failed with its lease note instead of holding it.
+const raterManifest = manifests.get("rater");
 registerStation({
   id: "rater",
   version: c.version,
-  grant: {
+  grant: raterManifest?.grant ?? {
     "campaigns/{id}": {},
     "campaigns/{id}/claim": {},
     "campaigns/{id}/items/{id}/why": {},
@@ -422,13 +426,19 @@ registerStation({
     "campaigns/{id}/assignments/{id}/answer": {},
     "campaigns/{id}/assignments/{id}/release": {},
   },
-  ceiling: "admin",
-  content: "rows",
+  ceiling: raterManifest?.ceiling ?? "admin",
+  content: raterManifest?.content ?? "rows",
   model,
+  ...(raterManifest ? { purpose: raterManifest.purpose } : {}),
+  timeoutMs: 120_000,
 });
 mountRaters(app, {
   seam: (conversation) => seamFor("rater", conversation),
-  chat: (call) => kvasirChat({ url: c.kvasir, key: c.kvasirKey, purpose: "assistant.rater" }, call),
+  chat: (call) =>
+    kvasirChat(
+      { url: c.kvasir, key: c.kvasirKey, purpose: raterManifest?.purpose ?? "assistant.rater" },
+      call,
+    ),
   model: (named) => chosenModel(named ?? model),
   tokens,
   lineage: theLineage,

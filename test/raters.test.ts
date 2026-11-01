@@ -21,10 +21,11 @@ import { violations } from "../src/raters/legal.ts";
 import { checkPacket, packetFromDoors, Refused } from "../src/raters/packet.ts";
 import { composePrompt, extendSchema } from "../src/raters/prompt.ts";
 import { CONSTRAINTS_TEXT, PROMPT_V34, REGISTERED_SHA256, SCHEMA_TEXT } from "../src/raters/registered.ts";
-import { campaignValue, translate, valueCounts } from "../src/raters/values.ts";
+import { campaignValue, questionValues, translate, valueCounts } from "../src/raters/values.ts";
 import { Seam } from "../src/seam/client.ts";
 import { Ledger } from "../src/seam/ledger.ts";
 import { Tokens } from "../src/seam/tokens.ts";
+import { loadManifests } from "../src/stations/manifest.ts";
 import { type Dialled, stubEngine } from "./child/stub-engine.ts";
 
 const closers: (() => void)[] = [];
@@ -110,7 +111,9 @@ function engine() {
             id: Number(c),
             purpose: "audit",
             suggest: c === "7" ? "none" : "rules",
-            question: QUESTION,
+            // campaign 7 says its axes as an empty list, which is no list: the campaign's own then apply
+            question: c === "7" ? { ...QUESTION, axes: [] } : QUESTION,
+            axes: AXES,
           },
         },
       };
@@ -134,6 +137,7 @@ function engine() {
     if (method === "POST" && asg) {
       if (asg[2] === "release") {
         released.push(call);
+        if (c === "9") return { status: 409, body: { error: "the assignment is not leased" } };
         return { body: { assignment: Number(asg[1]), state: "released" } };
       }
       const value = (body as { value?: unknown })?.value;
@@ -390,6 +394,54 @@ describe("the rater's blind read", () => {
     expect(h.e.released).toHaveLength(1);
     expect(h.m.seen).toHaveLength(0);
     expect(h.e.seen.some((c) => c.path.endsWith("/header"))).toBe(false);
+    // a release the engine refuses is said in the run's error, with the engine's sentence and nothing of the item
+    const again = await h.as("t-anna", { method: "POST", body: JSON.stringify({ campaign: 9 }) });
+    const r9 = await h.settled(((await again.json()) as { run: string }).run);
+    expect(r9.state).toBe("refused");
+    expect(r9.error).toMatch(/not given back \(the release: 409 the assignment is not leased\)/u);
+    expect(JSON.stringify(r9)).not.toContain(MARKER);
+  });
+
+  it("ends an engine call that hangs after the station's timeout, so a run fails instead of holding its campaign", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "raters-timeout-"));
+    const hung = (_url: string | URL | Request, init?: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(init.signal?.reason ?? new Error("aborted")));
+      });
+    const seam = new Seam({
+      engine: "http://127.0.0.1:9",
+      station: {
+        id: "rater",
+        version: "t",
+        grant: { "campaigns/{id}": {} },
+        ceiling: "admin",
+        content: "rows",
+        model: "m",
+        timeoutMs: 50,
+      },
+      conversation: "c-hang",
+      token: () => "t",
+      ledger: new Ledger(join(dir, "seam.sqlite")),
+      fetch: hung as typeof fetch,
+    });
+    const a = await seam.call({ method: "GET", path: "/api/campaigns/7", toolCallId: "x", phase: "read" });
+    expect(a).toMatchObject({
+      kind: "error",
+      reason: expect.stringMatching(/did not answer: .*[Tt]imeout/u),
+    });
+  });
+
+  it("ships a manifest that names the purpose the installer registers at Kvasir, the grant and the admin ceiling", () => {
+    const m = loadManifests(["./stations"]).get("rater");
+    expect(m).toMatchObject({ purpose: "assistant.rater", ceiling: "admin", content: "rows", writes: [] });
+    expect(Object.keys(m?.grant ?? {}).sort()).toEqual([
+      "campaigns/{id}",
+      "campaigns/{id}/assignments/{id}/answer",
+      "campaigns/{id}/assignments/{id}/release",
+      "campaigns/{id}/claim",
+      "campaigns/{id}/items/{id}/header",
+      "campaigns/{id}/items/{id}/why",
+    ]);
   });
 
   it("refuses a bad body, a second run on a campaign being read, and a stranger", async () => {
@@ -498,6 +550,15 @@ describe("the registered texts and the ported rules", () => {
       cant_tell_cells: { base: 1, provenance: 1, technique: 1 },
       out_of_vocabulary_cells: { technique: 1 },
       translated_cells: {},
+    });
+    // the asked axes: the question's, else the campaign's, else the header certificate's; an empty list is no list
+    expect(questionValues({ campaign: { question: { axes: [] }, axes: ["base"] } }, AXES).axes).toEqual([
+      "base",
+    ]);
+    expect(questionValues({ campaign: { question: { axes: [] }, axes: [] } }, AXES).axes).toEqual(AXES);
+    expect(questionValues({ question: { axes: [{ axis: "base", values: ["T1w"] }] } }, AXES)).toEqual({
+      axes: ["base"],
+      legal: { base: new Set(["T1w"]) },
     });
   });
 
