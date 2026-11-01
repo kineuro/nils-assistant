@@ -421,7 +421,7 @@ describe("the registered texts and the ported rules", () => {
       SCHEMA_TEXT: sha256(SCHEMA_TEXT),
       CONSTRAINTS_TEXT: sha256(CONSTRAINTS_TEXT),
     });
-    expect(PROMPT_V34).not.toContain("—");
+    expect(PROMPT_V34).not.toContain(String.fromCharCode(0x2014));
   });
 
   it("composes the prompt from the served vocabulary and widens the schema, never narrowing it", () => {
