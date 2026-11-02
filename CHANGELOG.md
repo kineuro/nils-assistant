@@ -4,6 +4,8 @@ All notable changes to the NILS assistant are recorded here. The format follows 
 
 ## [Unreleased]
 
+## [1.0.0-alpha.32] - 2026-11-02
+
 ### Added
 
 - The grants `handover-password:see` and `handover-password:work` (suite contract version 3) are known to the assistant, held by the admin set and by everything, and the grants vectors are the contract's.
