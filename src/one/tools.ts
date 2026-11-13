@@ -78,7 +78,7 @@ import {
   type Sessions,
   selectionSpec,
 } from "../stations/pipelines.ts";
-import { catalogOf, madeOn, prelude } from "../stations/prelude.ts";
+import { catalogOf, derivedRef, madeOn, prelude } from "../stations/prelude.ts";
 import { failedOf, readRun } from "../stations/run-read.ts";
 import { CARD_OF, type ChangeKind, theChanges } from "./changes.ts";
 import { SHAPED_FILE } from "./chart.ts";
@@ -90,6 +90,7 @@ import {
   newestFirst,
   readDatasets,
 } from "./datasets.ts";
+import { parseNext } from "./grammar.ts";
 import type { Mounted, ToolName } from "./mount.ts";
 import { type ConversationState, conversationOf, type Probe, runSteps, type TurnState } from "./state.ts";
 import { readSteps, STEPS_TOOL_WAIT_MS, stepsLine, stepsWithin, unknownSentence } from "./steps.ts";
@@ -550,6 +551,16 @@ const registrySummary: OneTool = {
   },
 };
 
+/** The words that ask whether scans were acquired alike: answered by the derived signature at a comparability level. */
+const PROTOCOL_WORDS = new Set([
+  "protocol",
+  "protocols",
+  "signature",
+  "comparable",
+  "comparability",
+  "alike",
+]);
+
 /** The words that ask for the main scans NILS picked. */
 const MAIN_SCAN_WORDS = new Set(["main", "picked", "pick", "picks", "primary", "role", "roles"]);
 
@@ -592,7 +603,19 @@ export function searchCatalog(
   // a name the ask's catalog lists whose counts the facts do not hold
   for (const n of cat?.datasets ?? [])
     if (hit(n) && !datasets.some((d) => d.name === n)) out.push(`dataset ${n}`);
-  for (const d of cat?.derived ?? []) if (hit(d.name)) out.push(`derived ${d.name} (${d.grain})`);
+  // a derived field with how it is written, and the comparability levels its signature takes: asked for "loose
+  // signature", a search once answered "derived signature (stack)" and no way to write it (2026-11-13)
+  const alike = ws.some((w) => PROTOCOL_WORDS.has(w));
+  for (const d of cat?.derived ?? [])
+    if (hit(d.name) || (alike && d.name === "signature"))
+      out.push(
+        `derived ${d.name} (${d.grain})${d.description ? `: ${d.description}` : ""}; written ${derivedRef(d)}`,
+      );
+  for (const l of cat?.comparability_levels ?? [])
+    if (hit(l.name) || alike)
+      out.push(
+        `comparability level ${l.name}${l.description ? ` (${l.description})` : ""}: a stack's protocol at this level is ["derived", {level: ${l.name}}, "signature"], bound on the stack set and compared or grouped; two stacks have the same protocol when the two are equal`,
+      );
   for (const d of cat?.diseases ?? [])
     for (const c of d.courses ?? []) if (hit(c) || hit(d.name)) out.push(`course ${c} of ${d.name}`);
   return [...new Set(out)].slice(0, 40);
@@ -823,6 +846,13 @@ export function draftNext(issues: string): string {
   if (/an axis is read through/u.test(issues))
     return 'A sorting value (an axis) is never a column of a record. To have it beside a field, make a group keyed by both, with a count: `{grain: group, group: {of: scans, by: [["axis", {}, "base"], ["field", {}, "n_instances"]]}, bind: {n_scans: ["count", {set: scans}]}}` at `level: aggregate`; each row stands for n_scans scans. Draft the whole document again.';
   return "Fix exactly the path and issue named, and draft the whole document again.";
+}
+
+/** The one sentence of a draft the registry could not parse: a 400 that carries an `error` and no list of issues. */
+export function unreadWords(a: Answer): string | null {
+  if (a.kind !== "refused" || a.status !== 400) return null;
+  const b = (a.body && typeof a.body === "object" ? a.body : {}) as Record<string, unknown>;
+  return typeof b.error === "string" && !Array.isArray(b.issues) ? b.error : null;
 }
 
 const DESCRIBE = [
@@ -1107,7 +1137,14 @@ const queryDraft: OneTool = {
     if (document === null) {
       if (drafted.kind === "ok" || (drafted.kind === "refused" && drafted.status < 500)) {
         const issues = shorten(toolResult(drafted).output, 4000);
-        return refuse("the draft did not validate", draftNext(JSON.stringify(issues)), { issues });
+        // a document that does not parse is refused with one sentence and no path: the next step names the
+        // part the sentence is about and the keys it takes, never "the path named"
+        const unread = unreadWords(drafted);
+        return refuse(
+          "the draft did not validate",
+          unread ? parseNext(unread) : draftNext(JSON.stringify(issues)),
+          { issues },
+        );
       }
       // the registry failed, and said nothing of the document: rewriting it mends nothing
       return notOk(

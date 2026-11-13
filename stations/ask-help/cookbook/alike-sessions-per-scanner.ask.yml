@@ -1,0 +1,51 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: For each subject of cohort A, on which scanner and with which protocol at the loose level do they have 2 or more sessions holding both a 3D T1 and a 3D FLAIR of at most 1.2 mm? A table with the subject, the scanner and the number of sessions.
+# synthetic: written for the cookbook after the registry's own repeat-visits document, not a gold of the bench
+ast_version: 1
+name: sessions alike per subject, scanner and protocol, by groups
+scheme: default
+sets:
+  scope:  {grain: cohort,  where: [["=", {}, ["field", {}, "name"], "ms-cohort-a"]]}
+  people: {grain: subject, of: scope}
+  visits: {grain: session, of: people}
+  scans:
+    grain: stack
+    of: visits
+    bind:
+      sig: ["derived", {level: loose}, "signature"]
+      is_fl: ["case", {}, ["and", {}, ["=", {}, ["axis", {}, "base"], "T2w"], ["has", {}, ["axis", {}, "modifier"], "FLAIR"]], 1, 0]
+      is_t1: ["case", {}, ["=", {}, ["axis", {}, "base"], "T1w"], 1, 0]
+    where:
+      - ["=",  {}, ["derived", {}, "acquisition_type"], "3D"]
+      - ["<=", {}, ["derived", {third: slice_thickness}, "voxel"], 1.2]
+      - ["or", {}, ["=", {}, ["field", {}, "is_t1"], 1], ["=", {}, ["field", {}, "is_fl"], 1]]
+  # one row per session and scanner: a parent's field is named through the parent, the stack's own as it is
+  per_session:
+    grain: group
+    group: {of: scans, by: [["field", {}, "subject.code"], ["field", {}, "session.id"], ["field", {}, "manufacturer_model_name"], ["field", {}, "station_name"]]}
+    bind:
+      n_t1: ["sum", {set: scans}, ["field", {}, "is_t1"]]
+      n_fl: ["sum", {set: scans}, ["field", {}, "is_fl"]]
+      sig_t1: ["min", {set: scans}, ["case", {}, ["=", {}, ["field", {}, "is_t1"], 1], ["field", {}, "sig"], ""]]
+      sig_fl: ["min", {set: scans}, ["case", {}, ["=", {}, ["field", {}, "is_fl"], 1], ["field", {}, "sig"], ""]]
+    where:
+      - [">=", {}, ["field", {}, "n_t1"], 1]
+      - [">=", {}, ["field", {}, "n_fl"], 1]
+  # a group of a group: its keys are the inner group's keys and aggregates, named as they are written there
+  runs:
+    grain: group
+    group: {of: per_session, by: [["field", {}, "subject.code"], ["field", {}, "manufacturer_model_name"], ["field", {}, "station_name"], ["field", {}, "sig_t1"], ["field", {}, "sig_fl"]]}
+    bind:
+      n_sessions: ["count", {set: per_session}]
+    where:
+      - [">=", {}, ["field", {}, "n_sessions"], 2]
+keep: [runs]
+out:
+  set: runs
+  level: aggregate
+  columns:
+    - ["field", {}, "subject.code"]
+    - ["field", {}, "manufacturer_model_name"]
+    - ["field", {}, "station_name"]
+    - ["field", {}, "n_sessions"]
+  order: [[["field", {}, "subject.code"], asc], [["field", {}, "station_name"], asc]]

@@ -150,6 +150,11 @@ const engine = await stubEngine((c) => {
       };
     if (text.includes("will-not-parse"))
       return { status: 400, body: { error: "the ask will not parse: line 3 column 5: misplaced bracket" } };
+    if (text.includes("attach-as-a-name"))
+      return {
+        status: 400,
+        body: { error: 'the ask will not parse: invalid type: string "t1", expected struct Attach' },
+      };
     if (text.includes("meets-a-fault")) return { status: 500, body: { error: "the pool is closed" } };
     return { body: { document: 30, hash: "h", diagnosis: DIAGNOSIS, repairs: [] } };
   }
@@ -383,6 +388,14 @@ describe("a timeout is its own outcome, never a draft that did not validate", ()
     const unparsed = await run("query_draft", { text: "name: will-not-parse\n" }, "slow-unparsed");
     expect(unparsed.why).toBe("the draft did not validate");
     expect(JSON.stringify(unparsed.issues)).toMatch(/line 3 column 5: misplaced bracket/u);
+    // a draft that does not parse names no path: its next step points at what the sentence is about
+    expect(unparsed.next).toMatch(/^The YAML itself does not read at the line and column named/u);
+    const shape = await run("query_draft", { text: "name: attach-as-a-name\n" }, "slow-shape");
+    expect(JSON.stringify(shape.issues)).toMatch(/expected struct Attach/u);
+    expect(shape.next).toMatch(
+      /^A map with the keys of an item of `attach` was expected .* takes only `as`, `set`, `optional` .*`attach: \[\{as: t1, set: t1\}, \{as: flair, set: flair\}\]`\. Draft the whole document again\.$/u,
+    );
+    expect(String(shape.next)).not.toMatch(/path and issue named/u);
     const fault = await run("query_draft", { text: "name: meets-a-fault\n" }, "slow-fault");
     expect(fault.refused).toBe(true);
     expect(String(fault.why)).toMatch(/the registry refused it \(500\): the pool is closed/u);
