@@ -4,6 +4,8 @@ All notable changes to the NILS assistant are recorded here. The format follows 
 
 ## [Unreleased]
 
+## [1.0.0-alpha.34] - 2026-11-13
+
 ### Added
 
 - The find-data skill carries a card of exact shapes (2026-11-13, a live test). Asked for the subjects with two alike sessions, the chat guessed the grammar: its drafts were refused for an `attach` written as a name, a `pick` with a `limit`, a set written in place of its name and group keys the set did not have, three drafts went on probing which keys a part takes, and several searches on how to write the loose signature. The card shows `pick` (per, n, by, ties), `attach` (as, set, optional) with an attached row's field read as `<as>.<field>`, `has`, `same`, a group with its keys and its aggregates (`count`, `sum`, `distinct`, `min`), a group of a group, `bind` with `case`, the derived fields `acquisition_type`, `voxel` and `signature`, what a set does not take, and how a parent's field is named. Every line of it is a line of a worked example, each validated with the engine's `ask validate`; a test holds the card to those files. Two worked examples are new in the cookbook, the question asked in the live test answered with `pick`, `attach` and `same`, and the same sessions per subject and scanner through groups.
