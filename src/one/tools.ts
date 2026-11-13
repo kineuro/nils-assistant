@@ -19,6 +19,7 @@ import type { Answer, Seam, Station } from "../seam/client.ts";
 import { shorten, toolResult } from "../seam/client.ts";
 import { seamWith, stationList, theLineage, theNotes } from "../seam/for.ts";
 import {
+  HELD_COUNT,
   HELD_LIST,
   HELD_LIST_LINE,
   type HeldBack,
@@ -837,6 +838,9 @@ export function selectionNote(name: string): string {
   return `${name ? `${name} is a saved selection` : "A saved selection (name@version) is"}: the scans an analysis runs over. The registry's names do not list selections, and a question cannot name one. An analysis over it is planned with the plan-analysis skill (\`selection: ${it}\`), whose check says whether it is there and how many scans it holds.`;
 }
 
+const AGAIN = "Draft the whole document again.";
+const DRAFT_AGAIN = `Fix exactly the path and issue named, and ${AGAIN.charAt(0).toLowerCase()}${AGAIN.slice(1)}`;
+
 /**
  * The next step of a draft the engine refused, for an issue whose words say more than "fix it" (round 3 of
  * 2026-10-12): a sorting value asked as a record's column cost the analysis turns up to ten drafts (unions, cases,
@@ -845,7 +849,121 @@ export function selectionNote(name: string): string {
 export function draftNext(issues: string): string {
   if (/an axis is read through/u.test(issues))
     return 'A sorting value (an axis) is never a column of a record. To have it beside a field, make a group keyed by both, with a count: `{grain: group, group: {of: scans, by: [["axis", {}, "base"], ["field", {}, "n_instances"]]}, bind: {n_scans: ["count", {set: scans}]}}` at `level: aggregate`; each row stands for n_scans scans. Draft the whole document again.';
-  return "Fix exactly the path and issue named, and draft the whole document again.";
+  return DRAFT_AGAIN;
+}
+
+/** One issue of a refused draft as the registry names it; `fix` is its own hint, kept where it names no door. */
+export interface DraftIssue {
+  code: string;
+  path: string;
+  message: string;
+  fix?: string;
+}
+
+/**
+ * Every issue the registry listed for a refused draft (2026-11-13): in the diagnosis of a draft answered 200, or
+ * beside the error of one answered 400. The model reads each with its path and nothing else of the diagnosis
+ * (the empty funnel, the cost, each hint a second time), so a list of many is not cut short.
+ */
+export function issuesOf(a: Answer): DraftIssue[] {
+  if (a.kind !== "ok" && a.kind !== "refused") return [];
+  const b = (a.body && typeof a.body === "object" ? a.body : {}) as Record<string, unknown>;
+  const d = (b.diagnosis && typeof b.diagnosis === "object" ? b.diagnosis : {}) as Record<string, unknown>;
+  const list = Array.isArray(d.issues) ? d.issues : Array.isArray(b.issues) ? b.issues : [];
+  return list.flatMap((raw) => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+    const i = raw as Record<string, unknown>;
+    const fix = str(i.next);
+    return [
+      {
+        code: str(i.code) ?? "issue",
+        path: str(i.path) ?? "",
+        message: str(i.message) ?? "",
+        // the registry's own hint, unless it names one of its doors, which the model cannot call
+        ...(fix && !/\b(?:GET|POST|PUT|DELETE) \/api\//u.test(fix) ? { fix } : {}),
+      },
+    ];
+  });
+}
+
+/** What a group's key may name, said where the compiler refused one. */
+const GROUP_KEYS =
+  "A group's key is a field or a binding of the set the group is `of`, an attached row's as `<as>.<field>`, or a parent's field named through the parent (`subject.id`, `subject.code`, `session.id`, `session.first`); `cohort.id` is there only when that set is drawn `of` a cohort set, never `from` another set; and a group of a group names the inner group's keys and aggregates as they are written there.";
+
+/**
+ * What to do with a refused draft's issues (2026-11-13). A turn's work was spent on seven drafts, three of them the
+ * same mistake in a group's keys mended one key at a time. The validator lists every issue it finds, and the model
+ * is told so: all of them are mended in one draft. The compiler stops at its first fault (`not_compilable`) and
+ * names only that one, so the items beside it are to be checked for the same mistake before the next draft.
+ */
+export function issuesNext(issues: readonly DraftIssue[]): string {
+  const special = draftNext(JSON.stringify(issues));
+  const out: string[] = [];
+  if (issues.length > 1) {
+    out.push(
+      `Fix all ${issues.length} issues in one draft, each at its path: the registry listed every issue it found, so one draft mends them all.`,
+    );
+    const byCode = new Map<string, number>();
+    for (const i of issues) byCode.set(i.code, (byCode.get(i.code) ?? 0) + 1);
+    for (const [code, n] of byCode)
+      if (n > 1) out.push(`${n} of them are the same mistake (${code}) at ${n} places: correct it at each.`);
+  }
+  const first = issues.find((i) => i.code === "not_compilable");
+  if (first) {
+    const list = /\[\d+\]$/u.test(first.path)
+      ? `every other item of the same list (${first.path.replace(/\[\d+\]$/u, "")})`
+      : "the rest of the same set";
+    out.push(
+      `The registry names only the first fault of the kind ${first.code} and stops there: before you draft again, check ${list} for the same mistake and correct them together.`,
+    );
+  }
+  // a group's key the set does not have, whoever refused it: what a key may name is said once
+  if (
+    issues.some(
+      (i) =>
+        /\.group\.by\[\d+\]$/u.test(i.path) &&
+        /not projected in this layer|is not a field of|is not a by field/u.test(i.message),
+    )
+  )
+    out.push(GROUP_KEYS);
+  if (special !== DRAFT_AGAIN)
+    return [special.replace(/ Draft the whole document again\.$/u, ""), ...out, AGAIN].join(" ");
+  return out.length ? [...out, AGAIN].join(" ") : DRAFT_AGAIN;
+}
+
+/**
+ * Where an answer of no rows went to nothing (2026-11-13): the step of the funnel that kept none, with what
+ * reached it, from the registry's own `zero_rows` and its funnel; null for an answer with rows. Read from the
+ * whole diagnosis: the copy the model reads is shortened, and a funnel of more than about two dozen stages loses
+ * its last ones there.
+ */
+export function emptiedOf(diagnosis: unknown): Record<string, JsonValue> | null {
+  if (!diagnosis || typeof diagnosis !== "object" || Array.isArray(diagnosis)) return null;
+  const d = diagnosis as Record<string, unknown>;
+  const why = str(d.zero_rows);
+  if (!why) return null;
+  const funnel = (Array.isArray(d.funnel) ? d.funnel : []).filter(
+    (x): x is Record<string, unknown> => Boolean(x) && typeof x === "object" && !Array.isArray(x),
+  );
+  const at = funnel.findIndex((x) => x.rows === 0 && x.subjects === 0);
+  const next =
+    "The answer has no rows because of this one step. When the person's words ask for that condition as it is written, none is the answer: say which condition left none, and how many reached it. When they do not (a name or a value spelled otherwise, a field read on the wrong set, a value missing on both sides of an `=`, which never compares as equal), change that step and no other, and draft again.";
+  if (at < 0) return { registry: why, next };
+  const stage = funnel[at] as Record<string, unknown>;
+  const before = at > 0 && funnel[at - 1]?.set === stage.set ? funnel[at - 1] : null;
+  return {
+    set: String(stage.set ?? ""),
+    step: String(stage.stage ?? ""),
+    reached_it: before
+      ? {
+          rows: typeof before.rows === "number" ? before.rows : HELD_COUNT,
+          subjects: typeof before.subjects === "number" ? before.subjects : HELD_COUNT,
+        }
+      : "nothing: the set was empty from its source",
+    passed_it: 0,
+    registry: why,
+    next,
+  };
 }
 
 /** The one sentence of a draft the registry could not parse: a 400 that carries an `error` and no list of issues. */
@@ -1097,7 +1215,7 @@ const registryDescribe: OneTool = {
 const queryDraft: OneTool = {
   name: "query_draft",
   description:
-    "Store a whole question of the registry written as a YAML document (the find-data skill says how). It is repaired where it can be and stored when it validates; the answer carries the stored `document` id, its diagnosis (what each set kept) and a preview (the count, or the first rows). A refused draft names the path and the issue: fix exactly that and draft again. A question that is valid but too slow for the chat is answered as `slow` with its `document`: never draft it again; it runs as a job (propose_change, kind job_plan).",
+    "Store a whole question of the registry written as a YAML document (the find-data skill says how). It is repaired where it can be and stored when it validates; the answer carries the stored `document` id, its diagnosis (what each set kept) and a preview (the count, or the first rows). A refused draft lists every issue with its path: fix them all in one draft; one that could not be read says which part to write again. An answer of no rows names the step that kept none (`emptied`). A question that is valid but too slow for the chat is answered as `slow` with its `document`: never draft it again; it runs as a job (propose_change, kind job_plan).",
   input: v.object({ text: v.string() }),
   salient: ["text"],
   step: "Writing the query",
@@ -1136,6 +1254,21 @@ const queryDraft: OneTool = {
     if (stopped) return slowOut(ctx, document, diagnosed(), text);
     if (document === null) {
       if (drafted.kind === "ok" || (drafted.kind === "refused" && drafted.status < 500)) {
+        // every issue the registry listed, each with its path, and told as all there are: mended in one draft
+        const listed = issuesOf(drafted);
+        if (listed.length)
+          return refuse(
+            listed.length === 1
+              ? "the draft did not validate"
+              : `the draft did not validate: ${listed.length} issues, every one listed`,
+            issuesNext(listed),
+            {
+              issues: shorten(listed as unknown as JsonValue, 4000),
+              ...(Array.isArray(body.repairs) && body.repairs.length
+                ? { repairs: shorten(body.repairs as JsonValue, 1500) }
+                : {}),
+            },
+          );
         const issues = shorten(toolResult(drafted).output, 4000);
         // a document that does not parse is refused with one sentence and no path: the next step names the
         // part the sentence is about and the keys it takes, never "the path named"
@@ -1169,12 +1302,15 @@ const queryDraft: OneTool = {
       previewed.kind === "ok" && /^\s*measures\s*:/mu.test(String(args.text))
         ? await measuresOf(ctx, document)
         : null;
+    const emptied = emptiedOf(body.diagnosis);
     return {
       output: {
         document,
         diagnosis: diagnosis(true),
         // the answer came and the stage counts did not: said plainly, and never as a slow question
         ...(cut ? { stage_counts: cutNote(cut, previewed.kind === "ok") } : {}),
+        // an answer of no rows: the step that kept none, with what reached it, whatever the shortening left
+        ...(emptied ? { emptied } : {}),
         preview:
           previewed.kind === "ok"
             ? previewOf(ctx, previewed.body)
@@ -1812,11 +1948,13 @@ const queryRunReadonly: OneTool = {
         : timeoutOf(d)
           ? { parts: [...PARTS_COUNTED], budget_ms: null }
           : null;
+    const emptied = d.kind === "ok" ? emptiedOf(d.body) : null;
     return {
       output: {
         document,
         diagnosis: held ? shorten(cut ? withoutJobPath(held) : held, 3000) : null,
         ...(cut ? { stage_counts: cutNote(cut, p.kind === "ok") } : {}),
+        ...(emptied ? { emptied } : {}),
         preview: p.kind === "ok" ? previewOf(ctx, p.body) : null,
       },
     };
