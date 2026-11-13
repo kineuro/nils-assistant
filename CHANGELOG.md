@@ -4,6 +4,10 @@ All notable changes to the NILS assistant are recorded here. The format follows 
 
 ## [Unreleased]
 
+### Fixed
+
+- A question is called slow only when its own answer ran past the registry's limit (2026-11-13, a live test). `query_draft` read a draft whose diagnosis said its counts were cut (`diagnosis.unavailable`, code `timeout`) as a slow question, answered `slow: true` without asking for the count, and the chat proposed a job for a question that answers in three seconds: the funnel of a question with a `pick` is counted stage by stage inside the draft's own short time, which says nothing of how long the answer takes. Such a draft now goes on to the preview, asked with no time of its own and so with the door's whole limit, and the model gets the document, the count or the rows, and `stage_counts`, a plain note of which parts of the diagnosis are missing and that this is no slow question; the registry's pointer to the job path is left out of the diagnosis beside an answer that came. Only when that run itself times out (a 504, or a refusal with `code: "timeout"`) is the question `slow` and the job offered, as before with its document's number and never as a draft that did not validate. `query_run_readonly` does the same when only the diagnose door ran past its limit: the preview's answer is given with the note, where the whole call was told as slow.
+
 ## [1.0.0-alpha.33] - 2026-11-13
 
 ### Fixed

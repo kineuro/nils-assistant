@@ -13,6 +13,10 @@
 //   and for verbs the model had to guess;
 // - registry_describe refused `fields` with nothing to go on, and a turn
 //   that ended at its guards was told nothing of the question it had stored.
+// The live test of the same day added one: a draft whose stage counts alone
+// ran past the draft's short time was told as a slow question and sent to a
+// job, though the question answers in three seconds. Only the answer's own
+// timeout makes a question slow.
 
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -40,7 +44,7 @@ const { oneAgent } = await import("../src/one/agent.ts");
 const { slowComplaint } = await import("../src/one/checks.ts");
 const { loadSkills } = await import("../src/one/skills.ts");
 const { conversationOf, newTurn, stopNext, storedWords, turnOf } = await import("../src/one/state.ts");
-const { stepsOf, timeoutOf, TOOLS } = await import("../src/one/tools.ts");
+const { countsCut, stepsOf, timeoutOf, TOOLS } = await import("../src/one/tools.ts");
 
 /** The words the registry's doors answer a statement stopped at the limit with, today. */
 const RAN_PAST = "the statement ran past 20000 ms; POST /api/ask/jobs runs it unbounded";
@@ -50,6 +54,34 @@ const DIAGNOSIS = {
   cost: { sets: 6, class: "medium" },
   funnel: [{ set: "scans", grain: "stack", stage: "source", rows: 900, subjects: 40 }],
 };
+
+/** The diagnosis of a draft whose counts ran past the draft's own time, as the registry answers it with a 200. */
+const CUT = {
+  valid: true,
+  issues: [],
+  cost: { sets: 7, class: "medium" },
+  funnel: [{ set: "visits", grain: "session", stage: "source", rows: 900, subjects: 40 }],
+  drops: [],
+  next: ["POST /api/ask/jobs with document_id 34 runs it as a job, under a job's time"],
+  unavailable: {
+    code: "timeout",
+    parts: ["funnel", "drops", "ties", "coarse"],
+    budget_ms: 5000,
+    why: "the counts ran past 5000 ms and were stopped; the document is valid, and a job runs it under a job's time",
+  },
+};
+/** The registry's 504 of a statement stopped at a door's limit, with the stored document's id. */
+const stoppedAt = (document: number) => ({
+  status: 504,
+  body: {
+    error:
+      "the statement ran past 20000 ms and was stopped; POST /api/ask/jobs runs it as a job, under a job's time",
+    disclosure: "safe",
+    code: "timeout",
+    limit_ms: 20000,
+    document_id: document,
+  },
+});
 
 const engine = await stubEngine((c) => {
   const p = c.path.split("?")[0];
@@ -95,22 +127,13 @@ const engine = await stubEngine((c) => {
     // today: the draft held, and the preview after it ran past the limit
     if (text.includes("stops-the-preview"))
       return { body: { document: 31, hash: "h", diagnosis: DIAGNOSIS, repairs: [] } };
-    // the registry to come: a valid, slow document is stored and answered 200, its counting marked as timed out
+    // a valid document whose stage counts ran past the draft's time: stored and answered 200, the counts marked
+    // as cut. Its answer comes inside the door's limit for one (34) and runs past it for the other (32)
+    if (text.includes("cut-and-answers"))
+      return { body: { document: 34, hash: "h", diagnosis: CUT, repairs: [] } };
     if (text.includes("stored-and-slow"))
       return {
-        body: {
-          document: 32,
-          hash: "h",
-          valid: true,
-          diagnosis: {
-            valid: true,
-            issues: [],
-            cost: { class: "large" },
-            funnel: { unavailable: "timeout" },
-          },
-          preview: { unavailable: "timeout" },
-          repairs: [],
-        },
+        body: { document: 32, hash: "h", diagnosis: { ...CUT, cost: { class: "large" } }, repairs: [] },
       };
     // a document that does not validate is answered 200 with no document, its issues in the diagnosis
     if (text.includes("names-a-wrong-field"))
@@ -132,15 +155,16 @@ const engine = await stubEngine((c) => {
   }
   if (p === "/api/ask/preview") {
     if (body.document_id === 31) return { status: 504, body: { error: RAN_PAST } };
-    // the registry to come: a machine-readable code and the document's id
-    if (body.document_id === 32 || body.document_id === 33)
-      return {
-        status: 504,
-        body: { error: "the statement ran past its limit", code: "timeout", document: body.document_id },
-      };
+    // a machine-readable code and the document's id
+    if (body.document_id === 32 || body.document_id === 33) return stoppedAt(body.document_id);
     return { body: { level: "count", columns: ["n_subjects"], rows: [[12]] } };
   }
-  if (p === "/api/ask/diagnose") return { body: DIAGNOSIS };
+  if (p === "/api/ask/diagnose") {
+    // the diagnose door's own counts ran past its limit: said in a 200 by this registry, with a 504 by one before it
+    if (body.document_id === 36) return { body: CUT };
+    if (body.document_id === 37) return { status: 504, body: { error: RAN_PAST } };
+    return { body: DIAGNOSIS };
+  }
   if (p === "/api/ask/run") return { status: 504, body: { error: RAN_PAST, code: "timeout" } };
   return null;
 });
@@ -202,13 +226,22 @@ describe("a timeout is its own outcome, never a draft that did not validate", ()
     expect(timeoutOf({ kind: "refused", status: 408, body: { code: "timeout", document_id: 8 } })).toEqual({
       document: 8,
     });
+    // a draft whose stage counts were cut is no timeout of the question: its answer is still to be asked for
+    expect(timeoutOf({ kind: "ok", status: 200, body: { document: 9, diagnosis: CUT } })).toBeNull();
     expect(
       timeoutOf({
         kind: "ok",
         status: 200,
         body: { document: 9, valid: true, diagnosis: { valid: true, funnel: { unavailable: "timeout" } } },
       }),
-    ).toEqual({ document: 9 });
+    ).toBeNull();
+    expect(countsCut(CUT)).toEqual({ parts: ["funnel", "drops", "ties", "coarse"], budget_ms: 5000 });
+    expect(countsCut({ valid: true, funnel: { unavailable: "timeout" } })).toEqual({
+      parts: ["funnel"],
+      budget_ms: null,
+    });
+    expect(countsCut(DIAGNOSIS)).toBeNull();
+    expect(countsCut(null)).toBeNull();
     expect(
       timeoutOf({ kind: "ok", status: 200, body: { document: 9, preview: { unavailable: "timeout" } } }),
     ).toEqual({ document: 9 });
@@ -255,19 +288,74 @@ describe("a timeout is its own outcome, never a draft that did not validate", ()
     expect(turn.slow).toEqual([{ document: 31, text: "name: stops-the-preview\n" }]);
   });
 
-  it("reads a draft answered 200 for a valid, slow document, and asks for no preview of it", async () => {
+  it("runs a question whose stage counts alone were cut, and gives its answer with a plain note and no job", async () => {
+    // the live test of 2026-11-13: the draft's funnel ran out of the draft's 5 s, the question answers in 3 s,
+    // and the tool said `slow` without ever asking for the count
+    const before = dialled("/api/ask/preview");
+    const out = await run("query_draft", { text: "name: cut-and-answers\n" }, "cut-answers");
+    expect(dialled("/api/ask/preview")).toBe(before + 1);
+    // the preview is asked with no time of its own, which is the door's whole limit
+    const asked = engine.seen.filter((x) => x.path === "/api/ask/preview").at(-1)?.body;
+    expect(asked).toEqual({ document_id: 34, rows: 10 });
+    expect(out).toEqual({
+      document: 34,
+      diagnosis: {
+        valid: true,
+        issues: [],
+        cost: { sets: 7, class: "medium" },
+        funnel: CUT.funnel,
+        drops: [],
+        // the registry's pointer to the job path is not told beside an answer that came
+        next: [],
+        unavailable: { code: "timeout", parts: ["funnel", "drops", "ties", "coarse"], budget_ms: 5000 },
+      },
+      stage_counts:
+        "The stage counts are not all there: counting the question stage by stage ran past their time limit (5000 ms), so of the diagnosis these parts are cut short or left out: funnel, drops, ties, coarse. The preview is the question's whole answer, counted with the full time: answer from it, and say only if asked that the step-by-step counts are missing. This is no slow question: propose no job for it, and do not draft it again for the stage counts.",
+      preview: { registry_data: { level: "count", columns: ["n_subjects"], rows: [[12]], truncated: false } },
+      repairs: [],
+    });
+    expect(JSON.stringify(out)).not.toMatch(/"slow"|job_plan|api\/ask\/jobs|did not validate/u);
+    const turn = turnOf("cut-answers");
+    expect(turn.drafted).toEqual([34]);
+    // nothing of the turn calls it slow: no check sends it back for a plan, and a stop offers no job
+    expect(turn.slow).toEqual([]);
+    expect(slowComplaint(turn, "There are 12 subjects (document 34).")).toBeNull();
+    expect(stopNext(turn)).not.toMatch(/too long|as a job/u);
+  });
+
+  it("calls a question slow only when its own count ran past the door's limit, after the cut counts", async () => {
     const before = dialled("/api/ask/preview");
     const out = await run("query_draft", { text: "name: stored-and-slow\n" }, "slow-new");
+    // the count was asked for, and that run itself timed out (504 with the code)
+    expect(dialled("/api/ask/preview")).toBe(before + 1);
     expect(out).toMatchObject({
       document: 32,
       valid: true,
       slow: true,
       preview: { unavailable: "timeout" },
-      diagnosis: { valid: true, cost: { class: "large" }, funnel: { unavailable: "timeout" } },
+      diagnosis: { valid: true, cost: { class: "large" }, unavailable: { code: "timeout" } },
     });
+    expect(String(out.why)).toMatch(/^the question is valid and stored as document 32;/u);
     expect(String(out.next)).toContain('steps [{"verb": "run", "args": {"document": 32}}]');
     expect(out.refused).toBeUndefined();
-    expect(dialled("/api/ask/preview")).toBe(before);
+    expect(out.stage_counts).toBeUndefined();
+    expect(JSON.stringify(out)).not.toMatch(/did not validate/u);
+    expect(turnOf("slow-new").slow).toEqual([{ document: 32, text: "name: stored-and-slow\n" }]);
+  });
+
+  it("gives a stored question's answer when only its diagnosis ran past the limit", async () => {
+    // the diagnose door says its cut counts in a 200 (36), or with a 504 on a registry before that (37)
+    for (const document of [36, 37]) {
+      const tried = await run("query_run_readonly", { what: "document", document }, `cut-run-${document}`);
+      expect(tried.slow).toBeUndefined();
+      expect(tried.preview).toEqual({
+        registry_data: { level: "count", columns: ["n_subjects"], rows: [[12]], truncated: false },
+      });
+      expect(String(tried.stage_counts)).toMatch(/^The stage counts are not all there: /u);
+      expect(String(tried.stage_counts)).toMatch(/This is no slow question: propose no job for it/u);
+      expect(JSON.stringify(tried)).not.toMatch(/api\/ask\/jobs/u);
+      expect(turnOf(`cut-run-${document}`).slow).toEqual([]);
+    }
   });
 
   it("tells a stored question's run and its rows the same true thing, with the id", async () => {
@@ -577,6 +665,28 @@ describe("the one agent with a question too slow for the chat", () => {
     expect(kinds).toContain("job_plan");
     expect(ladder.planById(String(planned.plan_id))?.state).toBe("proposed");
     expect(calls).toBe(4);
+  }, 60_000);
+
+  it("is given the answer of a question whose stage counts alone were cut, and is not sent back for a plan", async () => {
+    play([
+      { tool: "activate_skill", args: { name: "find-data" } },
+      { tool: "query_draft", args: { text: "ast_version: 1\nname: cut-and-answers\n" } },
+      { text: "There are 12 subjects (document 34)." },
+    ]);
+    const h = init(Nils, { id: "oc-cut" });
+    const reply = await h.read(await h.dispatch("How many subjects of cohort-a have two visits?"));
+    expect(reply.text).toBe("There are 12 subjects (document 34).");
+    const drafted = JSON.parse(lastResult(seen[2])) as Output;
+    expect(drafted).toMatchObject({ document: 34, preview: { registry_data: { rows: [[12]] } } });
+    expect(drafted.slow).toBeUndefined();
+    expect(String(drafted.stage_counts)).toMatch(/This is no slow question: propose no job for it/u);
+    // no check sent the turn back; the question is offered as the one the person keeps, and no job is proposed
+    expect(calls).toBe(3);
+    expect(
+      theChanges()
+        .of("oc-cut")
+        .map((c) => [c.kind, c.payload.document]),
+    ).toEqual([["query_version", 34]]);
   }, 60_000);
 
   it("is sent back once when it leaves the slow question without a plan and says it was not stored", async () => {

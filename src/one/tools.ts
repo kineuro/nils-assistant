@@ -331,11 +331,15 @@ function saysTimeout(x: unknown): boolean {
 
 /**
  * A question the registry stopped at the chat's time limit (2026-11-13), and the stored document where the answer
- * names one; null for any other answer. The registry says it three ways, and all are read: a 504 (its words say the
- * statement "ran past" the limit), a refusal that carries `code: "timeout"` with the document's id, and a draft
- * answered 200 for a valid document whose counting was stopped (`valid: true`, the funnel or the preview marked
- * unavailable by timeout). A timeout is never a fault of the document: a chat once read it as "the draft did not
- * validate" and rewrote a valid question until the turn's work was spent.
+ * names one; null for any other answer. The registry says it two ways, and both are read: a 504 (its words say the
+ * statement "ran past" the limit), and a refusal that carries `code: "timeout"` with the document's id. A timeout
+ * is never a fault of the document: a chat once read it as "the draft did not validate" and rewrote a valid
+ * question until the turn's work was spent.
+ *
+ * A draft answered 200 whose diagnosis says its counts were cut (`countsCut`) is no such question: the funnel is
+ * counted stage by stage inside the draft's own short time, and a question whose stages ran past it may still
+ * answer in a few seconds. Read as slow, a question that answers in three seconds was sent to a job and never run
+ * (the live test of 2026-11-13). Only an answer whose own `preview` is marked as timed out is read as one here.
  */
 export function timeoutOf(a: Answer): { document: number | null } | null {
   if (a.kind !== "ok" && a.kind !== "refused") return null;
@@ -347,8 +351,55 @@ export function timeoutOf(a: Answer): { document: number | null } | null {
       ? { document }
       : null;
   }
-  const d = (b.diagnosis && typeof b.diagnosis === "object" ? b.diagnosis : {}) as Record<string, unknown>;
-  return [b, d, b.preview, b.funnel, d.preview, d.funnel].some(saysTimeout) ? { document } : null;
+  return saysTimeout(b.preview) ? { document } : null;
+}
+
+/**
+ * The counts a diagnosis did not reach in its time (the live test of 2026-11-13): the parts it left out (of the
+ * funnel, the drops, the ties and the coarse dates) and the time they were given together; null for a diagnosis
+ * counted whole. The document is valid all the same, and its answer is not known to be slow: the count or the
+ * rows are asked for with the door's full time, and only that run's own timeout makes the question a slow one.
+ */
+export function countsCut(diagnosis: unknown): { parts: string[]; budget_ms: number | null } | null {
+  if (!diagnosis || typeof diagnosis !== "object" || Array.isArray(diagnosis)) return null;
+  const d = diagnosis as Record<string, unknown>;
+  if (!saysTimeout(d) && !saysTimeout(d.funnel)) return null;
+  const u = (d.unavailable && typeof d.unavailable === "object" ? d.unavailable : {}) as Record<
+    string,
+    unknown
+  >;
+  const parts = Array.isArray(u.parts) ? u.parts.filter((x): x is string => typeof x === "string") : [];
+  return { parts: parts.length ? parts : ["funnel"], budget_ms: num(u.budget_ms) };
+}
+
+/** The parts of a diagnosis that are counted, as the registry names them. */
+const PARTS_COUNTED = ["funnel", "drops", "ties", "coarse"] as const;
+
+/** The plain note beside an answer whose stage counts were cut: what is missing, and that the answer is whole. */
+export function cutNote(cut: { parts: string[]; budget_ms: number | null }, answered: boolean): string {
+  const time = cut.budget_ms === null ? "their time limit" : `their time limit (${cut.budget_ms} ms)`;
+  const missing = `The stage counts are not all there: counting the question stage by stage ran past ${time}, so of the diagnosis these parts are cut short or left out: ${cut.parts.join(", ")}.`;
+  return answered
+    ? `${missing} The preview is the question's whole answer, counted with the full time: answer from it, and say only if asked that the step-by-step counts are missing. This is no slow question: propose no job for it, and do not draft it again for the stage counts.`
+    : missing;
+}
+
+/**
+ * A diagnosis whose counts were cut, as the model reads it beside an answer that came: without the registry's
+ * pointer to the job path (its `next` and the `why` of `unavailable`), which is the way on only for a question
+ * whose answer itself ran past the limit.
+ */
+function withoutJobPath(diagnosis: JsonValue): JsonValue {
+  if (!diagnosis || typeof diagnosis !== "object" || Array.isArray(diagnosis)) return diagnosis;
+  const d: Record<string, JsonValue> = { ...diagnosis };
+  if (Array.isArray(d.next))
+    d.next = d.next.filter((n) => !(typeof n === "string" && /\/api\/ask\/jobs\b/u.test(n)));
+  const u = d.unavailable;
+  if (u && typeof u === "object" && !Array.isArray(u)) {
+    const { why: _why, ...rest } = u;
+    d.unavailable = rest;
+  }
+  return d;
 }
 
 /**
@@ -1033,9 +1084,16 @@ const queryDraft: OneTool = {
       { toolCallId: ctx.toolCallId, phase: PHASE },
     );
     const body = (drafted.kind === "ok" ? drafted.body : {}) as Record<string, unknown>;
+    // the stage counts the draft's own short time cut (the funnel of a question with a pick is counted stage by
+    // stage): no slow question yet, since its answer is still to be asked for with the door's full time
+    const cut = countsCut(body.diagnosis);
+    // a count held back at plain is written as held, never as a null read as none (record 55 K7)
+    const diagnosis = (whole: boolean): JsonValue => {
+      const d = withHeldCounts((body.diagnosis ?? null) as JsonValue);
+      return shorten(cut && whole ? withoutJobPath(d) : d, 3000);
+    };
     const diagnosed = (): Record<string, JsonValue> => ({
-      // a count held back at plain is written as held, never as a null read as none (record 55 K7)
-      ...(body.diagnosis ? { diagnosis: shorten(withHeldCounts(body.diagnosis as JsonValue), 3000) } : {}),
+      ...(body.diagnosis ? { diagnosis: diagnosis(false) } : {}),
       ...(body.repairs ? { repairs: shorten(body.repairs as JsonValue, 1500) } : {}),
     });
     // a timeout is its own outcome, never a draft that did not validate: with the document where the registry stored it
@@ -1058,13 +1116,16 @@ const queryDraft: OneTool = {
       );
     }
     ctx.write.progress("Counting the answer");
+    // no `timeout_ms` is named: the preview door then gives the statement its whole limit (the registry's
+    // `sync_timeout_ms`, four times the draft's `draft_timeout_ms` by default), and a time named here could only
+    // shorten it. So the answer is asked for with the door's full time whatever the draft's counts did.
     const previewed = await s.door(
       "/api/ask/preview",
       "POST",
       { document_id: document, rows: 10 },
       { toolCallId: `${ctx.toolCallId}-preview`, phase: PHASE, rows: 10 },
     );
-    // the document is stored and valid, and its count ran past the limit: said so, with its id
+    // the document is stored and valid, and its count itself ran past the limit: only now is it a slow question
     if (timeoutOf(previewed)) return slowOut(ctx, document, diagnosed(), text);
     // a measure the question declares (a group's spread) is computed by a run, never by the preview (round 4)
     const measured =
@@ -1074,8 +1135,9 @@ const queryDraft: OneTool = {
     return {
       output: {
         document,
-        // a count held back at plain is written as held, never as a null read as none (record 55 K7)
-        diagnosis: shorten(withHeldCounts((body.diagnosis ?? null) as JsonValue), 3000),
+        diagnosis: diagnosis(true),
+        // the answer came and the stage counts did not: said plainly, and never as a slow question
+        ...(cut ? { stage_counts: cutNote(cut, previewed.kind === "ok") } : {}),
         preview:
           previewed.kind === "ok"
             ? previewOf(ctx, previewed.body)
@@ -1702,19 +1764,22 @@ const queryRunReadonly: OneTool = {
     ]);
     // its count ran past the chat's limit: the document is stored and valid, and that is said, never a preview
     // of nothing (2026-11-13: `preview: null` read as no answer, beside a diagnosis that held)
-    if (timeoutOf(p) || timeoutOf(d))
-      return slowOut(
-        ctx,
-        document,
-        d.kind === "ok" && !timeoutOf(d)
-          ? { diagnosis: shorten(withHeldCounts(d.body as JsonValue), 3000) }
-          : {},
-      );
+    const held = d.kind === "ok" ? withHeldCounts(d.body as JsonValue) : null;
+    if (timeoutOf(p)) return slowOut(ctx, document, held ? { diagnosis: shorten(held, 3000) } : {});
     if (p.kind !== "ok" && d.kind !== "ok") return notOk(p, "Check the document's id.");
+    // the stage counts ran past their time and the answer came: the answer is given, with a plain note, and the
+    // question is no slow one (the diagnose door says it in a 200 with `unavailable`, or with a 504 before that)
+    const cut =
+      d.kind === "ok"
+        ? countsCut(d.body)
+        : timeoutOf(d)
+          ? { parts: [...PARTS_COUNTED], budget_ms: null }
+          : null;
     return {
       output: {
         document,
-        diagnosis: d.kind === "ok" ? shorten(withHeldCounts(d.body as JsonValue), 3000) : null,
+        diagnosis: held ? shorten(cut ? withoutJobPath(held) : held, 3000) : null,
+        ...(cut ? { stage_counts: cutNote(cut, p.kind === "ok") } : {}),
         preview: p.kind === "ok" ? previewOf(ctx, p.body) : null,
       },
     };
