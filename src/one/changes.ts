@@ -32,7 +32,11 @@ export const CARD_OF: Record<ChangeKind, CardKind> = {
   identity_rule: "identity_rule",
 };
 
-export type ChangeState = "open" | "approved" | "declined" | "failed";
+/**
+ * Where a change stands. `expired` is a job plan's change whose plan is no longer kept (plans are swept after the
+ * retention days), so there is nothing left to approve.
+ */
+export type ChangeState = "open" | "approved" | "declined" | "failed" | "expired";
 
 export interface ChangeRow {
   id: string;
@@ -131,6 +135,32 @@ export class ChangeStore {
     return this.get(id) as ChangeRow;
   }
 
+  /** The job plans' changes of a person: each names its plan in `payload.plan_id`. */
+  jobPlans(subject: string): ChangeRow[] {
+    return (
+      this.db
+        .prepare("SELECT * FROM changes WHERE subject = ? AND kind = 'job_plan' ORDER BY created_at, id")
+        .all(subject) as Record<string, unknown>[]
+    ).map(rowOf);
+  }
+
+  /**
+   * An open change settled by what happened elsewhere (2026-11-13): a job plan confirmed on the plan's own card is
+   * approved, and one whose plan is gone is expired, each with what happened as its result. Only an open change
+   * is settled; null when it was not open.
+   */
+  settle(
+    id: string,
+    state: "approved" | "expired",
+    result: Record<string, unknown>,
+    now = Date.now(),
+  ): ChangeRow | null {
+    const r = this.db
+      .prepare("UPDATE changes SET state = ?, decided_at = ?, result = ? WHERE id = ? AND state = 'open'")
+      .run(state, now, JSON.stringify(result), id);
+    return Number(r.changes) > 0 ? this.get(id) : null;
+  }
+
   /** What applying an approved change answered; a failure leaves the approval recorded and says why. */
   applied(id: string, result: Record<string, unknown>, failed = false): ChangeRow | null {
     this.db
@@ -164,7 +194,38 @@ function rowOf(r: Record<string, unknown>): ChangeRow {
   };
 }
 
-/** A change as the desk and the bench read it. */
+/** The words of a plan that is no longer kept, where its change says what happened. */
+export const PLAN_GONE = "the plan is no longer kept, so there is nothing left to approve";
+
+/**
+ * What happened to a change, in one sentence; null while it waits for the person. A job plan has two cards, its
+ * change's and the plan's own, and the sentence says which one answered it, so both tell one outcome.
+ */
+export function outcomeOf(c: ChangeRow): string | null {
+  const r = c.result ?? {};
+  switch (c.state) {
+    case "open":
+      return null;
+    case "approved":
+      if (c.kind !== "job_plan") return "approved";
+      return r.through === "plan"
+        ? "approved on the plan's own card; the plan is confirmed"
+        : "approved; the plan is confirmed";
+    case "declined":
+      return c.kind === "job_plan" && r.plan_taken_back === true
+        ? "declined; the plan was taken back"
+        : "declined";
+    case "failed":
+      return `approved, and not applied: ${typeof r.why === "string" ? r.why : "it could not be applied"}`;
+    case "expired":
+      return typeof r.why === "string" ? r.why : PLAN_GONE;
+  }
+}
+
+/**
+ * A change as the desk and the bench read it. `state` is where it stands and `outcome` what happened, in words;
+ * `decided` is the person's own verdict. A change is waiting for the person only while `state` is `open`.
+ */
 export function changeView(c: ChangeRow): Record<string, unknown> {
   return {
     id: c.id,
@@ -175,6 +236,7 @@ export function changeView(c: ChangeRow): Record<string, unknown> {
     lines: c.lines,
     state: c.state,
     decided: c.state === "approved" || c.state === "declined" ? c.state : null,
+    outcome: outcomeOf(c),
     created_at: new Date(c.created_at).toISOString(),
     decided_at: c.decided_at === null ? null : new Date(c.decided_at).toISOString(),
     result: c.result,

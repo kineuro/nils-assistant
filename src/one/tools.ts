@@ -19,6 +19,7 @@ import type { Answer, Seam, Station } from "../seam/client.ts";
 import { shorten, toolResult } from "../seam/client.ts";
 import { seamWith, stationList, theLineage, theNotes } from "../seam/for.ts";
 import {
+  HELD_COUNT,
   HELD_LIST,
   HELD_LIST_LINE,
   type HeldBack,
@@ -78,7 +79,7 @@ import {
   type Sessions,
   selectionSpec,
 } from "../stations/pipelines.ts";
-import { catalogOf, madeOn, prelude } from "../stations/prelude.ts";
+import { catalogOf, derivedRef, madeOn, prelude } from "../stations/prelude.ts";
 import { failedOf, readRun } from "../stations/run-read.ts";
 import { CARD_OF, type ChangeKind, theChanges } from "./changes.ts";
 import { SHAPED_FILE } from "./chart.ts";
@@ -90,6 +91,7 @@ import {
   newestFirst,
   readDatasets,
 } from "./datasets.ts";
+import { parseNext } from "./grammar.ts";
 import type { Mounted, ToolName } from "./mount.ts";
 import { type ConversationState, conversationOf, type Probe, runSteps, type TurnState } from "./state.ts";
 import { readSteps, STEPS_TOOL_WAIT_MS, stepsLine, stepsWithin, unknownSentence } from "./steps.ts";
@@ -331,11 +333,15 @@ function saysTimeout(x: unknown): boolean {
 
 /**
  * A question the registry stopped at the chat's time limit (2026-11-13), and the stored document where the answer
- * names one; null for any other answer. The registry says it three ways, and all are read: a 504 (its words say the
- * statement "ran past" the limit), a refusal that carries `code: "timeout"` with the document's id, and a draft
- * answered 200 for a valid document whose counting was stopped (`valid: true`, the funnel or the preview marked
- * unavailable by timeout). A timeout is never a fault of the document: a chat once read it as "the draft did not
- * validate" and rewrote a valid question until the turn's work was spent.
+ * names one; null for any other answer. The registry says it two ways, and both are read: a 504 (its words say the
+ * statement "ran past" the limit), and a refusal that carries `code: "timeout"` with the document's id. A timeout
+ * is never a fault of the document: a chat once read it as "the draft did not validate" and rewrote a valid
+ * question until the turn's work was spent.
+ *
+ * A draft answered 200 whose diagnosis says its counts were cut (`countsCut`) is no such question: the funnel is
+ * counted stage by stage inside the draft's own short time, and a question whose stages ran past it may still
+ * answer in a few seconds. Read as slow, a question that answers in three seconds was sent to a job and never run
+ * (the live test of 2026-11-13). Only an answer whose own `preview` is marked as timed out is read as one here.
  */
 export function timeoutOf(a: Answer): { document: number | null } | null {
   if (a.kind !== "ok" && a.kind !== "refused") return null;
@@ -347,8 +353,55 @@ export function timeoutOf(a: Answer): { document: number | null } | null {
       ? { document }
       : null;
   }
-  const d = (b.diagnosis && typeof b.diagnosis === "object" ? b.diagnosis : {}) as Record<string, unknown>;
-  return [b, d, b.preview, b.funnel, d.preview, d.funnel].some(saysTimeout) ? { document } : null;
+  return saysTimeout(b.preview) ? { document } : null;
+}
+
+/**
+ * The counts a diagnosis did not reach in its time (the live test of 2026-11-13): the parts it left out (of the
+ * funnel, the drops, the ties and the coarse dates) and the time they were given together; null for a diagnosis
+ * counted whole. The document is valid all the same, and its answer is not known to be slow: the count or the
+ * rows are asked for with the door's full time, and only that run's own timeout makes the question a slow one.
+ */
+export function countsCut(diagnosis: unknown): { parts: string[]; budget_ms: number | null } | null {
+  if (!diagnosis || typeof diagnosis !== "object" || Array.isArray(diagnosis)) return null;
+  const d = diagnosis as Record<string, unknown>;
+  if (!saysTimeout(d) && !saysTimeout(d.funnel)) return null;
+  const u = (d.unavailable && typeof d.unavailable === "object" ? d.unavailable : {}) as Record<
+    string,
+    unknown
+  >;
+  const parts = Array.isArray(u.parts) ? u.parts.filter((x): x is string => typeof x === "string") : [];
+  return { parts: parts.length ? parts : ["funnel"], budget_ms: num(u.budget_ms) };
+}
+
+/** The parts of a diagnosis that are counted, as the registry names them. */
+const PARTS_COUNTED = ["funnel", "drops", "ties", "coarse"] as const;
+
+/** The plain note beside an answer whose stage counts were cut: what is missing, and that the answer is whole. */
+export function cutNote(cut: { parts: string[]; budget_ms: number | null }, answered: boolean): string {
+  const time = cut.budget_ms === null ? "their time limit" : `their time limit (${cut.budget_ms} ms)`;
+  const missing = `The stage counts are not all there: counting the question stage by stage ran past ${time}, so of the diagnosis these parts are cut short or left out: ${cut.parts.join(", ")}.`;
+  return answered
+    ? `${missing} The preview is the question's whole answer, counted with the full time: answer from it, and say only if asked that the step-by-step counts are missing. This is no slow question: propose no job for it, and do not draft it again for the stage counts.`
+    : missing;
+}
+
+/**
+ * A diagnosis whose counts were cut, as the model reads it beside an answer that came: without the registry's
+ * pointer to the job path (its `next` and the `why` of `unavailable`), which is the way on only for a question
+ * whose answer itself ran past the limit.
+ */
+function withoutJobPath(diagnosis: JsonValue): JsonValue {
+  if (!diagnosis || typeof diagnosis !== "object" || Array.isArray(diagnosis)) return diagnosis;
+  const d: Record<string, JsonValue> = { ...diagnosis };
+  if (Array.isArray(d.next))
+    d.next = d.next.filter((n) => !(typeof n === "string" && /\/api\/ask\/jobs\b/u.test(n)));
+  const u = d.unavailable;
+  if (u && typeof u === "object" && !Array.isArray(u)) {
+    const { why: _why, ...rest } = u;
+    d.unavailable = rest;
+  }
+  return d;
 }
 
 /**
@@ -499,6 +552,16 @@ const registrySummary: OneTool = {
   },
 };
 
+/** The words that ask whether scans were acquired alike: answered by the derived signature at a comparability level. */
+const PROTOCOL_WORDS = new Set([
+  "protocol",
+  "protocols",
+  "signature",
+  "comparable",
+  "comparability",
+  "alike",
+]);
+
 /** The words that ask for the main scans NILS picked. */
 const MAIN_SCAN_WORDS = new Set(["main", "picked", "pick", "picks", "primary", "role", "roles"]);
 
@@ -541,7 +604,19 @@ export function searchCatalog(
   // a name the ask's catalog lists whose counts the facts do not hold
   for (const n of cat?.datasets ?? [])
     if (hit(n) && !datasets.some((d) => d.name === n)) out.push(`dataset ${n}`);
-  for (const d of cat?.derived ?? []) if (hit(d.name)) out.push(`derived ${d.name} (${d.grain})`);
+  // a derived field with how it is written, and the comparability levels its signature takes: asked for "loose
+  // signature", a search once answered "derived signature (stack)" and no way to write it (2026-11-13)
+  const alike = ws.some((w) => PROTOCOL_WORDS.has(w));
+  for (const d of cat?.derived ?? [])
+    if (hit(d.name) || (alike && d.name === "signature"))
+      out.push(
+        `derived ${d.name} (${d.grain})${d.description ? `: ${d.description}` : ""}; written ${derivedRef(d)}`,
+      );
+  for (const l of cat?.comparability_levels ?? [])
+    if (hit(l.name) || alike)
+      out.push(
+        `comparability level ${l.name}${l.description ? ` (${l.description})` : ""}: a stack's protocol at this level is ["derived", {level: ${l.name}}, "signature"], bound on the stack set and compared or grouped; two stacks have the same protocol when the two are equal`,
+      );
   for (const d of cat?.diseases ?? [])
     for (const c of d.courses ?? []) if (hit(c) || hit(d.name)) out.push(`course ${c} of ${d.name}`);
   return [...new Set(out)].slice(0, 40);
@@ -763,6 +838,9 @@ export function selectionNote(name: string): string {
   return `${name ? `${name} is a saved selection` : "A saved selection (name@version) is"}: the scans an analysis runs over. The registry's names do not list selections, and a question cannot name one. An analysis over it is planned with the plan-analysis skill (\`selection: ${it}\`), whose check says whether it is there and how many scans it holds.`;
 }
 
+const AGAIN = "Draft the whole document again.";
+const DRAFT_AGAIN = `Fix exactly the path and issue named, and ${AGAIN.charAt(0).toLowerCase()}${AGAIN.slice(1)}`;
+
 /**
  * The next step of a draft the engine refused, for an issue whose words say more than "fix it" (round 3 of
  * 2026-10-12): a sorting value asked as a record's column cost the analysis turns up to ten drafts (unions, cases,
@@ -771,7 +849,128 @@ export function selectionNote(name: string): string {
 export function draftNext(issues: string): string {
   if (/an axis is read through/u.test(issues))
     return 'A sorting value (an axis) is never a column of a record. To have it beside a field, make a group keyed by both, with a count: `{grain: group, group: {of: scans, by: [["axis", {}, "base"], ["field", {}, "n_instances"]]}, bind: {n_scans: ["count", {set: scans}]}}` at `level: aggregate`; each row stands for n_scans scans. Draft the whole document again.';
-  return "Fix exactly the path and issue named, and draft the whole document again.";
+  return DRAFT_AGAIN;
+}
+
+/** One issue of a refused draft as the registry names it; `fix` is its own hint, kept where it names no door. */
+export interface DraftIssue {
+  code: string;
+  path: string;
+  message: string;
+  fix?: string;
+}
+
+/**
+ * Every issue the registry listed for a refused draft (2026-11-13): in the diagnosis of a draft answered 200, or
+ * beside the error of one answered 400. The model reads each with its path and nothing else of the diagnosis
+ * (the empty funnel, the cost, each hint a second time), so a list of many is not cut short.
+ */
+export function issuesOf(a: Answer): DraftIssue[] {
+  if (a.kind !== "ok" && a.kind !== "refused") return [];
+  const b = (a.body && typeof a.body === "object" ? a.body : {}) as Record<string, unknown>;
+  const d = (b.diagnosis && typeof b.diagnosis === "object" ? b.diagnosis : {}) as Record<string, unknown>;
+  const list = Array.isArray(d.issues) ? d.issues : Array.isArray(b.issues) ? b.issues : [];
+  return list.flatMap((raw) => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+    const i = raw as Record<string, unknown>;
+    const fix = str(i.next);
+    return [
+      {
+        code: str(i.code) ?? "issue",
+        path: str(i.path) ?? "",
+        message: str(i.message) ?? "",
+        // the registry's own hint, unless it names one of its doors, which the model cannot call
+        ...(fix && !/\b(?:GET|POST|PUT|DELETE) \/api\//u.test(fix) ? { fix } : {}),
+      },
+    ];
+  });
+}
+
+/** What a group's key may name, said where the compiler refused one. */
+const GROUP_KEYS =
+  "A group's key is a field or a binding of the set the group is `of`, an attached row's as `<as>.<field>`, or a parent's field named through the parent (`subject.id`, `subject.code`, `session.id`, `session.first`); `cohort.id` is there only when that set is drawn `of` a cohort set, never `from` another set; and a group of a group names the inner group's keys and aggregates as they are written there.";
+
+/**
+ * What to do with a refused draft's issues (2026-11-13). A turn's work was spent on seven drafts, three of them the
+ * same mistake in a group's keys mended one key at a time. The validator lists every issue it finds, and the model
+ * is told so: all of them are mended in one draft. The compiler stops at its first fault (`not_compilable`) and
+ * names only that one, so the items beside it are to be checked for the same mistake before the next draft.
+ */
+export function issuesNext(issues: readonly DraftIssue[]): string {
+  const special = draftNext(JSON.stringify(issues));
+  const out: string[] = [];
+  if (issues.length > 1) {
+    out.push(
+      `Fix all ${issues.length} issues in one draft, each at its path: the registry listed every issue it found, so one draft mends them all.`,
+    );
+    const byCode = new Map<string, number>();
+    for (const i of issues) byCode.set(i.code, (byCode.get(i.code) ?? 0) + 1);
+    for (const [code, n] of byCode)
+      if (n > 1) out.push(`${n} of them are the same mistake (${code}) at ${n} places: correct it at each.`);
+  }
+  const first = issues.find((i) => i.code === "not_compilable");
+  if (first) {
+    const list = /\[\d+\]$/u.test(first.path)
+      ? `every other item of the same list (${first.path.replace(/\[\d+\]$/u, "")})`
+      : "the rest of the same set";
+    out.push(
+      `The registry names only the first fault of the kind ${first.code} and stops there: before you draft again, check ${list} for the same mistake and correct them together.`,
+    );
+  }
+  // a group's key the set does not have, whoever refused it: what a key may name is said once
+  if (
+    issues.some(
+      (i) =>
+        /\.group\.by\[\d+\]$/u.test(i.path) &&
+        /not projected in this layer|is not a field of|is not a by field/u.test(i.message),
+    )
+  )
+    out.push(GROUP_KEYS);
+  if (special !== DRAFT_AGAIN)
+    return [special.replace(/ Draft the whole document again\.$/u, ""), ...out, AGAIN].join(" ");
+  return out.length ? [...out, AGAIN].join(" ") : DRAFT_AGAIN;
+}
+
+/**
+ * Where an answer of no rows went to nothing (2026-11-13): the step of the funnel that kept none, with what
+ * reached it, from the registry's own `zero_rows` and its funnel; null for an answer with rows. Read from the
+ * whole diagnosis: the copy the model reads is shortened, and a funnel of more than about two dozen stages loses
+ * its last ones there.
+ */
+export function emptiedOf(diagnosis: unknown): Record<string, JsonValue> | null {
+  if (!diagnosis || typeof diagnosis !== "object" || Array.isArray(diagnosis)) return null;
+  const d = diagnosis as Record<string, unknown>;
+  const why = str(d.zero_rows);
+  if (!why) return null;
+  const funnel = (Array.isArray(d.funnel) ? d.funnel : []).filter(
+    (x): x is Record<string, unknown> => Boolean(x) && typeof x === "object" && !Array.isArray(x),
+  );
+  const at = funnel.findIndex((x) => x.rows === 0 && x.subjects === 0);
+  const next =
+    "The answer has no rows because of this one step. When the person's words ask for that condition as it is written, none is the answer: say which condition left none, and how many reached it. When they do not (a name or a value spelled otherwise, a field read on the wrong set, a value missing on both sides of an `=`, which never compares as equal), change that step and no other, and draft again.";
+  if (at < 0) return { registry: why, next };
+  const stage = funnel[at] as Record<string, unknown>;
+  const before = at > 0 && funnel[at - 1]?.set === stage.set ? funnel[at - 1] : null;
+  return {
+    set: String(stage.set ?? ""),
+    step: String(stage.stage ?? ""),
+    reached_it: before
+      ? {
+          rows: typeof before.rows === "number" ? before.rows : HELD_COUNT,
+          subjects: typeof before.subjects === "number" ? before.subjects : HELD_COUNT,
+        }
+      : "nothing: the set was empty from its source",
+    passed_it: 0,
+    registry: why,
+    next,
+  };
+}
+
+/** The one sentence of a draft the registry could not parse: a 400 that carries an `error` and no list of issues. */
+export function unreadWords(a: Answer): string | null {
+  if (a.kind !== "refused" || a.status !== 400) return null;
+  const b = (a.body && typeof a.body === "object" ? a.body : {}) as Record<string, unknown>;
+  return typeof b.error === "string" && !Array.isArray(b.issues) ? b.error : null;
 }
 
 const DESCRIBE = [
@@ -1016,7 +1215,7 @@ const registryDescribe: OneTool = {
 const queryDraft: OneTool = {
   name: "query_draft",
   description:
-    "Store a whole question of the registry written as a YAML document (the find-data skill says how). It is repaired where it can be and stored when it validates; the answer carries the stored `document` id, its diagnosis (what each set kept) and a preview (the count, or the first rows). A refused draft names the path and the issue: fix exactly that and draft again. A question that is valid but too slow for the chat is answered as `slow` with its `document`: never draft it again; it runs as a job (propose_change, kind job_plan).",
+    "Store a whole question of the registry written as a YAML document (the find-data skill says how). It is repaired where it can be and stored when it validates; the answer carries the stored `document` id, its diagnosis (what each set kept) and a preview (the count, or the first rows). A refused draft lists every issue with its path: fix them all in one draft; one that could not be read says which part to write again. An answer of no rows names the step that kept none (`emptied`). A question that is valid but too slow for the chat is answered as `slow` with its `document`: never draft it again; it runs as a job (propose_change, kind job_plan).",
   input: v.object({ text: v.string() }),
   salient: ["text"],
   step: "Writing the query",
@@ -1033,9 +1232,16 @@ const queryDraft: OneTool = {
       { toolCallId: ctx.toolCallId, phase: PHASE },
     );
     const body = (drafted.kind === "ok" ? drafted.body : {}) as Record<string, unknown>;
+    // the stage counts the draft's own short time cut (the funnel of a question with a pick is counted stage by
+    // stage): no slow question yet, since its answer is still to be asked for with the door's full time
+    const cut = countsCut(body.diagnosis);
+    // a count held back at plain is written as held, never as a null read as none (record 55 K7)
+    const diagnosis = (whole: boolean): JsonValue => {
+      const d = withHeldCounts((body.diagnosis ?? null) as JsonValue);
+      return shorten(cut && whole ? withoutJobPath(d) : d, 3000);
+    };
     const diagnosed = (): Record<string, JsonValue> => ({
-      // a count held back at plain is written as held, never as a null read as none (record 55 K7)
-      ...(body.diagnosis ? { diagnosis: shorten(withHeldCounts(body.diagnosis as JsonValue), 3000) } : {}),
+      ...(body.diagnosis ? { diagnosis: diagnosis(false) } : {}),
       ...(body.repairs ? { repairs: shorten(body.repairs as JsonValue, 1500) } : {}),
     });
     // a timeout is its own outcome, never a draft that did not validate: with the document where the registry stored it
@@ -1048,8 +1254,30 @@ const queryDraft: OneTool = {
     if (stopped) return slowOut(ctx, document, diagnosed(), text);
     if (document === null) {
       if (drafted.kind === "ok" || (drafted.kind === "refused" && drafted.status < 500)) {
+        // every issue the registry listed, each with its path, and told as all there are: mended in one draft
+        const listed = issuesOf(drafted);
+        if (listed.length)
+          return refuse(
+            listed.length === 1
+              ? "the draft did not validate"
+              : `the draft did not validate: ${listed.length} issues, every one listed`,
+            issuesNext(listed),
+            {
+              issues: shorten(listed as unknown as JsonValue, 4000),
+              ...(Array.isArray(body.repairs) && body.repairs.length
+                ? { repairs: shorten(body.repairs as JsonValue, 1500) }
+                : {}),
+            },
+          );
         const issues = shorten(toolResult(drafted).output, 4000);
-        return refuse("the draft did not validate", draftNext(JSON.stringify(issues)), { issues });
+        // a document that does not parse is refused with one sentence and no path: the next step names the
+        // part the sentence is about and the keys it takes, never "the path named"
+        const unread = unreadWords(drafted);
+        return refuse(
+          "the draft did not validate",
+          unread ? parseNext(unread) : draftNext(JSON.stringify(issues)),
+          { issues },
+        );
       }
       // the registry failed, and said nothing of the document: rewriting it mends nothing
       return notOk(
@@ -1058,24 +1286,31 @@ const queryDraft: OneTool = {
       );
     }
     ctx.write.progress("Counting the answer");
+    // no `timeout_ms` is named: the preview door then gives the statement its whole limit (the registry's
+    // `sync_timeout_ms`, four times the draft's `draft_timeout_ms` by default), and a time named here could only
+    // shorten it. So the answer is asked for with the door's full time whatever the draft's counts did.
     const previewed = await s.door(
       "/api/ask/preview",
       "POST",
       { document_id: document, rows: 10 },
       { toolCallId: `${ctx.toolCallId}-preview`, phase: PHASE, rows: 10 },
     );
-    // the document is stored and valid, and its count ran past the limit: said so, with its id
+    // the document is stored and valid, and its count itself ran past the limit: only now is it a slow question
     if (timeoutOf(previewed)) return slowOut(ctx, document, diagnosed(), text);
     // a measure the question declares (a group's spread) is computed by a run, never by the preview (round 4)
     const measured =
       previewed.kind === "ok" && /^\s*measures\s*:/mu.test(String(args.text))
         ? await measuresOf(ctx, document)
         : null;
+    const emptied = emptiedOf(body.diagnosis);
     return {
       output: {
         document,
-        // a count held back at plain is written as held, never as a null read as none (record 55 K7)
-        diagnosis: shorten(withHeldCounts((body.diagnosis ?? null) as JsonValue), 3000),
+        diagnosis: diagnosis(true),
+        // the answer came and the stage counts did not: said plainly, and never as a slow question
+        ...(cut ? { stage_counts: cutNote(cut, previewed.kind === "ok") } : {}),
+        // an answer of no rows: the step that kept none, with what reached it, whatever the shortening left
+        ...(emptied ? { emptied } : {}),
         preview:
           previewed.kind === "ok"
             ? previewOf(ctx, previewed.body)
@@ -1702,19 +1937,24 @@ const queryRunReadonly: OneTool = {
     ]);
     // its count ran past the chat's limit: the document is stored and valid, and that is said, never a preview
     // of nothing (2026-11-13: `preview: null` read as no answer, beside a diagnosis that held)
-    if (timeoutOf(p) || timeoutOf(d))
-      return slowOut(
-        ctx,
-        document,
-        d.kind === "ok" && !timeoutOf(d)
-          ? { diagnosis: shorten(withHeldCounts(d.body as JsonValue), 3000) }
-          : {},
-      );
+    const held = d.kind === "ok" ? withHeldCounts(d.body as JsonValue) : null;
+    if (timeoutOf(p)) return slowOut(ctx, document, held ? { diagnosis: shorten(held, 3000) } : {});
     if (p.kind !== "ok" && d.kind !== "ok") return notOk(p, "Check the document's id.");
+    // the stage counts ran past their time and the answer came: the answer is given, with a plain note, and the
+    // question is no slow one (the diagnose door says it in a 200 with `unavailable`, or with a 504 before that)
+    const cut =
+      d.kind === "ok"
+        ? countsCut(d.body)
+        : timeoutOf(d)
+          ? { parts: [...PARTS_COUNTED], budget_ms: null }
+          : null;
+    const emptied = d.kind === "ok" ? emptiedOf(d.body) : null;
     return {
       output: {
         document,
-        diagnosis: d.kind === "ok" ? shorten(withHeldCounts(d.body as JsonValue), 3000) : null,
+        diagnosis: held ? shorten(cut ? withoutJobPath(held) : held, 3000) : null,
+        ...(cut ? { stage_counts: cutNote(cut, p.kind === "ok") } : {}),
+        ...(emptied ? { emptied } : {}),
         preview: p.kind === "ok" ? previewOf(ctx, p.body) : null,
       },
     };

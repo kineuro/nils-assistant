@@ -133,6 +133,16 @@ export function cohortsByMade(
     .map(({ name, made }) => ({ name, made }));
 }
 
+/**
+ * A derived field as a document writes it, with the options the catalog lists at their defaults:
+ * `["derived", {level: loose}, "signature"]`. A search once answered "derived signature (stack)" and the chat
+ * spent several more looking for how to say it (2026-11-13).
+ */
+export function derivedRef(d: { name: string; params?: [string, string][] }): string {
+  const opts = (d.params ?? []).map(([k, v]) => `${k}: ${v === "" ? `"<${k}>"` : v}`).join(", ");
+  return `["derived", {${opts}}, "${d.name}"]`;
+}
+
 /** The catalog as text a small model reads once: grains and how they nest, the fields per level, the axes and their values, the kinds, the cohorts, the schemes, the derived fields, the functions. */
 export function renderCatalog(c: Catalog): string {
   const out: string[] = [];
@@ -161,11 +171,20 @@ export function renderCatalog(c: Catalog): string {
       );
   }
   if (c.derived?.length) {
-    out.push('Derived fields (`["derived", {}, "<name>"]`):');
+    out.push('Derived fields (`["derived", {}, "<name>"]`; one that takes options is written with them):');
     out.push(
-      c.derived.map((d) => `${d.name} (${d.grain}${d.description ? `: ${d.description}` : ""})`).join("; "),
+      c.derived
+        .map(
+          (d) =>
+            `${d.name} (${d.grain}${d.description ? `: ${d.description}` : ""}${d.params?.length ? `; written \`${derivedRef(d)}\`` : ""})`,
+        )
+        .join("; "),
     );
   }
+  if (c.comparability_levels?.length)
+    out.push(
+      `Comparability levels (the \`level\` of the derived field signature; two stacks have the same protocol at a level when their signatures are equal): ${c.comparability_levels.map((l) => `${l.name}${l.description ? ` (${l.description})` : ""}`).join("; ")}`,
+    );
   if (c.kinds?.length) {
     out.push('Event kinds (`["=", {}, ["field", {}, "kind"], "<name>"]` on a set at grain event):');
     out.push(

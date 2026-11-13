@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: In cohort A, how many subjects have at least 2 sessions with both a 3D T1 and a 3D FLAIR, each with a voxel size of at most 1.2 mm, where the two are on the same scanner and the sessions share the same scanner and the same protocol at the loose level?
+# synthetic: written for the cookbook after the registry's own yardstick document, not a gold of the bench
+ast_version: 1
+name: subjects with two alike sessions holding a 3D T1 and a 3D FLAIR on one scanner
+scheme: default
+sets:
+  scope:  {grain: cohort,  where: [["=", {}, ["field", {}, "name"], "ms-cohort-a"]]}
+  people: {grain: subject, of: scope}
+  visits: {grain: session, of: people}
+  # one stack per session of each kind, with its protocol signature at the loose level
+  t1:
+    grain: stack
+    of: visits
+    where:
+      - ["=",  {}, ["axis", {}, "base"], "T1w"]
+      - ["=",  {}, ["derived", {}, "acquisition_type"], "3D"]
+      - ["<=", {}, ["derived", {third: slice_thickness}, "voxel"], 1.2]
+    bind:
+      sig: ["derived", {level: loose}, "signature"]
+    pick: {per: session, n: 1, ties: report, by: [[["field", {}, "n_instances"], desc], [["field", {}, "id"], asc]]}
+  flair:
+    grain: stack
+    of: visits
+    where:
+      - ["=",   {}, ["axis", {}, "base"], "T2w"]
+      - ["has", {}, ["axis", {}, "modifier"], "FLAIR"]
+      - ["=",   {}, ["derived", {}, "acquisition_type"], "3D"]
+      - ["<=",  {}, ["derived", {third: slice_thickness}, "voxel"], 1.2]
+    bind:
+      sig: ["derived", {level: loose}, "signature"]
+    pick: {per: session, n: 1, ties: report, by: [[["field", {}, "n_instances"], desc], [["field", {}, "id"], asc]]}
+  # the sessions that hold both (a session without a partner drops), the two on one scanner
+  good:
+    grain: session
+    from: visits
+    attach: [{as: t1, set: t1}, {as: flair, set: flair}]
+    where:
+      - ["=", {}, ["field", {}, "t1.station_name"], ["field", {}, "flair.station_name"]]
+  # the subjects with 2 or more such sessions that share the scanner and both signatures
+  answer:
+    grain: subject
+    from: people
+    has: [{set: good, min: 2, as: n_good}]
+    same: [{as: alike, over: good, min: 2, by: [["field", {}, "t1.manufacturer_model_name"], ["field", {}, "t1.station_name"], ["field", {}, "t1.sig"], ["field", {}, "flair.sig"]]}]
+keep: [good, answer]
+out: {set: answer, level: count}
