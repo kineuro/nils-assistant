@@ -40,6 +40,12 @@ export interface TurnState {
   /** Tool names called, in order (the parent's own, never a sub-agent's). */
   tools: string[];
   drafted: number[];
+  /**
+   * The questions the registry stopped at the chat's time limit this turn (2026-11-13): the stored document, null
+   * where nothing was stored, and the text drafted where a draft met it. A valid question that is only slow is
+   * never drafted again; its answer comes from a job.
+   */
+  slow: { document: number | null; text: string | null }[];
   proposed: Proposed[];
   /** The runs read this turn, with the reading the checks compare the answer with. */
   runs: { run: number; failed: number; metrics: string[] }[];
@@ -125,6 +131,7 @@ export function newTurn(conversation: string, message: string, now = Date.now())
     skills: new Set(),
     tools: [],
     drafted: [],
+    slow: [],
     proposed: [],
     runs: [],
     texts: [],
@@ -172,6 +179,59 @@ export function conversationOf(id: string): ConversationState {
 export function answerOf(t: TurnState): string {
   for (let i = t.texts.length - 1; i >= 0; i--) if (t.texts[i].trim()) return t.texts[i].trim();
   return "";
+}
+
+/** The steps of the job plan that runs a stored question, as propose_change takes them. */
+export const runSteps = (document: number | string): string =>
+  `[{"verb": "run", "args": {"document": ${document}}}]`;
+
+/** The stored question of the turn that was too slow for the chat, the newest; null when none was stored. */
+export function slowDocument(t: TurnState): number | null {
+  for (let i = t.slow.length - 1; i >= 0; i--) {
+    const d = t.slow[i].document;
+    if (d !== null) return d;
+  }
+  return null;
+}
+
+/** Whether the turn proposed the job plan that runs a stored question. */
+export function runPlanned(t: TurnState, document: number): boolean {
+  return t.proposed.some(
+    (p) => p.kind === "job_plan" && JSON.stringify(p.details).includes(`run question ${document}"`),
+  );
+}
+
+/**
+ * What a turn that must answer now says of the questions it stored (2026-11-13). A turn whose work was spent was
+ * told only to answer with what it had, and said of a question the registry had stored that none was;
+ * the person was left with no number to ask for and no next step. The stored document is named with what can be
+ * done with it: a question too slow for the chat runs as a job.
+ */
+export function storedWords(t: TurnState): string {
+  const slow = slowDocument(t);
+  if (slow !== null)
+    return runPlanned(t, slow)
+      ? `The question is stored as document ${slow} and is valid; it takes too long to count in the chat, and its job plan waits for the person's approval on the card. Say so with the document's number; never say it was not stored.`
+      : `The question is stored as document ${slow} and is valid; it takes too long to count in the chat, so there is no count yet and no job has been started. Say so with the document's number, and offer to run it as a job: when they say yes, you raise the job plan in your next message. Never say it was not stored.`;
+  const lost = t.slow.length
+    ? "A question that ran past the chat's time limit was not stored and has no number: say so, and never say it is stored or running."
+    : "";
+  const last = t.drafted.at(-1);
+  const kept =
+    last === undefined
+      ? ""
+      : `The last question stored is document ${last}: name it by its number with what it answered, and never say nothing was stored.`;
+  return [lost, kept].filter(Boolean).join(" ");
+}
+
+/** What a tool answers when a guard ends the turn's work: stop, answer now, and what of the turn is stored. */
+export function stopNext(t: TurnState): string {
+  return [
+    "Stop calling tools. Answer the person now, in plain words, with what you have; say what is missing.",
+    storedWords(t),
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 
 /**
