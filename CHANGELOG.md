@@ -4,6 +4,8 @@ All notable changes to the NILS assistant are recorded here. The format follows 
 
 ## [Unreleased]
 
+## [1.0.0-alpha.33] - 2026-11-13
+
 ### Fixed
 
 - A valid question that is too slow for the chat is told to the model as what it is, and gets a way to its answer (2026-11-13). The registry's timeout at the draft door was told as "the draft did not validate", with the instruction to fix the path and issue named, so the chat rewrote a valid question until the turn's work was spent; a preview that timed out was told as `preview: null`. A timeout is now its own outcome of `query_draft`, `query_run_readonly`, `query_read_rows` and `analysis_table`: `slow: true`, with the `document` id whenever the registry gave or held one, `valid: true`, `preview: {unavailable: "timeout"}`, and the next step, which is never another draft: a job plan for the document (`propose_change`, kind `job_plan`, steps `[{"verb": "run", "args": {"document": <id>}}]`). Read as a timeout: a 504, a refusal with `code: "timeout"`, and a draft answered 200 whose `diagnosis`, `funnel` or `preview` is marked unavailable by timeout. The same document sent again in the turn is answered without asking the registry; a draft the registry stopped before storing it says that nothing is stored; a fault of the registry (a 5xx) is no longer told as a draft that did not validate. The check before a turn settles sends back, once, a turn that left such a question without its plan or whose answer does not name the document.
