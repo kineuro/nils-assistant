@@ -10,7 +10,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { instrument, observe, setProvider } from "@flue/runtime";
 import { createAgentRouter } from "@flue/runtime/routing";
 import { Hono } from "hono";
-import { config } from "./config.ts";
+import { config, STORE_VARIABLES } from "./config.ts";
 import { guard, personIn, scopeOf } from "./host/access.ts";
 import {
   actionOf,
@@ -54,6 +54,7 @@ import {
   snapshotOf,
   stepOf,
 } from "./host/shares.ts";
+import { openAtStart } from "./host/stores.ts";
 import { SUMMARIZE_KEEP, SUMMARIZE_SIGNAL, summarizable, summarizeCompaction } from "./host/summarize.ts";
 import {
   corrections as correctionsOf,
@@ -141,7 +142,29 @@ agents.set("echo", Echo);
 // one chat (2026-10-09): the one agent every new chat talks to, unless the deployment turns it off
 const oneChat = process.env.ASSISTANT_ONE_CHAT !== "0";
 if (oneChat) agents.set(AGENT, Nils);
-useChangeStore(() => new ChangeStore(c.changes));
+// every store of the assistant's own is opened here, as the host starts (2026-11-13): one that cannot be opened
+// ends the start with a line naming its variable and its path, and is never first met in the middle of a chat
+const stores = (() => {
+  try {
+    const changes = openAtStart(STORE_VARIABLES.changes, c.changes, () => new ChangeStore(c.changes));
+    openAtStart(STORE_VARIABLES.ledger, c.ledger, theLedger);
+    openAtStart(STORE_VARIABLES.notes, c.notes, theNotes);
+    openAtStart(STORE_VARIABLES.lineage, c.lineage, theLineage);
+    return {
+      changes,
+      ladder: openAtStart(STORE_VARIABLES.ladder, c.ladder, () => new LadderStore(c.ladder)),
+      teaching: openAtStart(
+        STORE_VARIABLES.teaching,
+        c.teaching,
+        () => new TeachingStore(c.teaching, c.teachingDir),
+      ),
+    };
+  } catch (e) {
+    console.error(e instanceof Error ? e.message : String(e));
+    process.exit(1);
+  }
+})();
+useChangeStore(() => stores.changes);
 // the stations a concierge may delegate to, by id (section 9.12)
 for (const [id, a] of agents) registerAgent(id, a);
 registerStation({
@@ -212,7 +235,7 @@ if (await probeEngineAuth(c.engine))
   );
 
 // the ladder (Wave 5 sections 9.1 to 9.4): standing grants, plans and the scheduler that runs them under the person's own token
-const ladder = new LadderStore(c.ladder);
+const ladder = stores.ladder;
 ladder.sweep(c.retentionDays);
 useLadderStore(() => ladder);
 registerStation({
@@ -252,7 +275,7 @@ registerStation({
   model: "none",
   standing: true,
 });
-const teachingStore = new TeachingStore(c.teaching, c.teachingDir);
+const teachingStore = stores.teaching;
 const teaching = new Teaching({
   store: teachingStore,
   runner: scriptRunner(new URL("../bench/finetune.py", import.meta.url).pathname),

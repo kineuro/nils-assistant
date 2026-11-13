@@ -5,11 +5,10 @@
 // clocks and the jobs they became. One SQLite file, like the notes, the
 // ledger and the lineage.
 
-import { mkdirSync } from "node:fs";
-import { dirname } from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import type { DatabaseSync } from "node:sqlite";
 import { covers, scopeWords } from "./actions.ts";
 import type { Planned, PolicyRow, When } from "./ladder.ts";
+import { openSqlite } from "./stores.ts";
 
 export interface GrantRow {
   id: number;
@@ -60,8 +59,7 @@ export interface StepRow {
 export class LadderStore {
   readonly db: DatabaseSync;
   constructor(path: string) {
-    if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
-    this.db = new DatabaseSync(path);
+    this.db = openSqlite(path);
     this.db.exec("PRAGMA journal_mode = WAL");
     this.db.exec(`CREATE TABLE IF NOT EXISTS grant_ (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -183,30 +181,59 @@ export class LadderStore {
     instruction: string;
     planned: Planned;
   }): PlanRow {
-    this.db
-      .prepare(
-        "INSERT INTO plan (id, conversation, subject, instruction, state, created_at) VALUES (?, ?, ?, ?, 'proposed', ?)",
-      )
-      .run(o.id, o.conversation, o.subject, o.instruction, Date.now());
-    const ins = this.db.prepare(
-      "INSERT INTO step (plan, n, rung, verb, door, args, when_, words, state, decided) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-    );
-    for (const s of o.planned.steps)
-      ins.run(
-        o.id,
-        s.n,
-        2,
-        s.verb,
-        s.door,
-        JSON.stringify(s.args),
-        JSON.stringify(s.when),
-        s.words,
-        "waiting",
-        null,
+    // the plan and its steps are kept together or not at all: a plan with half its steps is never left to confirm
+    this.db.exec("BEGIN");
+    try {
+      this.db
+        .prepare(
+          "INSERT INTO plan (id, conversation, subject, instruction, state, created_at) VALUES (?, ?, ?, ?, 'proposed', ?)",
+        )
+        .run(o.id, o.conversation, o.subject, o.instruction, Date.now());
+      const ins = this.db.prepare(
+        "INSERT INTO step (plan, n, rung, verb, door, args, when_, words, state, decided) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       );
-    for (const p of o.planned.proposals)
-      ins.run(o.id, p.n, 3, p.verb, p.door, JSON.stringify(p.args), null, p.words, "waiting", null);
+      for (const s of o.planned.steps)
+        ins.run(
+          o.id,
+          s.n,
+          2,
+          s.verb,
+          s.door,
+          JSON.stringify(s.args),
+          JSON.stringify(s.when),
+          s.words,
+          "waiting",
+          null,
+        );
+      for (const p of o.planned.proposals)
+        ins.run(o.id, p.n, 3, p.verb, p.door, JSON.stringify(p.args), null, p.words, "waiting", null);
+      this.db.exec("COMMIT");
+    } catch (e) {
+      this.db.exec("ROLLBACK");
+      throw e;
+    }
     return this.planById(o.id) as PlanRow;
+  }
+
+  /**
+   * A plan taken back before anyone saw it (2026-11-13): the one agent keeps a plan's rows, then the change whose
+   * card the person approves; when the change cannot be kept, the plan goes too. A plan once stayed behind as
+   * proposed after the model was told the proposal had failed, where the inbox listed it and a confirm queued
+   * it. Only a plan still proposed is dropped; true when it was.
+   */
+  drop(id: string): boolean {
+    const p = this.planById(id);
+    if (p?.state !== "proposed") return false;
+    this.db.exec("BEGIN");
+    try {
+      this.db.prepare("DELETE FROM step WHERE plan = ?").run(id);
+      this.db.prepare("DELETE FROM plan WHERE id = ? AND state = 'proposed'").run(id);
+      this.db.exec("COMMIT");
+    } catch (e) {
+      this.db.exec("ROLLBACK");
+      throw e;
+    }
+    return true;
   }
 
   planById(id: string): PlanRow | null {

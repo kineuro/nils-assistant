@@ -8,7 +8,8 @@
 // merge at the engine's merge door). Each decision is a ledger row with the
 // phase `approval`, before the rows its application writes.
 
-import { DatabaseSync } from "node:sqlite";
+import type { DatabaseSync } from "node:sqlite";
+import { openSqlite } from "../host/stores.ts";
 
 /** What a proposal is, in the bench's words. */
 export type ChangeKind =
@@ -53,7 +54,7 @@ export interface ChangeRow {
 export class ChangeStore {
   readonly db: DatabaseSync;
   constructor(path: string) {
-    this.db = new DatabaseSync(path);
+    this.db = openSqlite(path);
     this.db.exec("PRAGMA journal_mode = WAL");
     this.db.exec(`CREATE TABLE IF NOT EXISTS changes (
       id TEXT PRIMARY KEY,

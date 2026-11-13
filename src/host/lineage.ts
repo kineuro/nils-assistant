@@ -9,12 +9,11 @@
 // per conversation too. One SQLite file, like the notes and the ledger.
 
 import { randomBytes } from "node:crypto";
-import { mkdirSync } from "node:fs";
-import { dirname } from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import type { DatabaseSync } from "node:sqlite";
 import { admit, type PageContext } from "../seam/context.ts";
 import { bareOf } from "./people.ts";
 import { asRole, maxRole, minRole } from "./shares.ts";
+import { openSqlite } from "./stores.ts";
 import { scoreOf, termsOf } from "./words.ts";
 
 export interface ConversationRow {
@@ -134,8 +133,7 @@ export type Verdict =
 export class Lineage {
   readonly db: DatabaseSync;
   constructor(path: string) {
-    if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
-    this.db = new DatabaseSync(path);
+    this.db = openSqlite(path);
     this.db.exec("PRAGMA journal_mode = WAL");
     this.db.exec(`CREATE TABLE IF NOT EXISTS conversation (
       id TEXT PRIMARY KEY,

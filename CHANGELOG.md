@@ -4,6 +4,10 @@ All notable changes to the NILS assistant are recorded here. The format follows 
 
 ## [Unreleased]
 
+### Fixed
+
+- The assistant's own files default to the folder of the store. `ASSISTANT_LEDGER`, `ASSISTANT_NOTES`, `ASSISTANT_LINEAGE`, `ASSISTANT_LADDER`, `ASSISTANT_CHANGES`, `ASSISTANT_TEACHING` and `ASSISTANT_TEACHING_DIR` each defaulted to `./data` by itself, so an install that named its state folder for the others and not for the changes had its first proposal fail with "unable to open database file" in the middle of a chat. A file not named by its variable is now beside `ASSISTANT_STORE` (under `./data` as before when the store is unnamed or a Postgres URL; a file already kept under `./data` stays in use while there is none beside the store), its folder is made when missing, and every store is opened when the host starts: one that cannot be opened ends the start with one line naming its variable and its path. A variable set to nothing names no file.
+
 ## [1.0.0-alpha.32] - 2026-11-02
 
 ### Added
