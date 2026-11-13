@@ -70,7 +70,7 @@ import {
 import { kvasirTitles, nameConversation, openingWords } from "./host/titles.ts";
 import { interceptTurn } from "./host/turns.ts";
 import { AGENT, findArm, notePerson } from "./one/agent.ts";
-import { decideAs } from "./one/apply.ts";
+import { confirmAs, decideAs, plansWithChanges, settled } from "./one/apply.ts";
 import { ChangeStore, changeView, theChanges, useChangeStore } from "./one/changes.ts";
 import { Nils } from "./one/nils-agent.ts";
 import {
@@ -1396,18 +1396,42 @@ app.get("/plans/:id", async (ctx) => {
   return ctx.json({ ...p, steps: ladder.steps(p.id) });
 });
 
+/** A plan confirmed for its person, with what is due fired at once, so a plan of "now" steps does not wait a tick. */
+async function confirmPlan(
+  plan: string,
+  subject: string,
+): Promise<Record<string, unknown> | { refused: string }> {
+  const confirmed = ladder.confirm(plan, subject);
+  if ("refused" in confirmed) return confirmed;
+  const fired = await scheduler.tick();
+  return {
+    ...confirmed,
+    steps: ladder.steps(plan),
+    fired: fired.filter((f) => ladder.step(f.step)?.plan === plan),
+  };
+}
+
+/** What a person's decision on a change, or on the plan a change proposed, works with. */
+const decisions = () => ({
+  changes: theChanges(),
+  ledger: theLedger(),
+  seam: (conversation: string) => seamFor("one-decide", conversation),
+  confirmPlan,
+  plans: ladder,
+});
+
 app.post("/plans/:id/confirm", async (ctx) => {
   const who = await personOf(ctx);
   if (!who) return ctx.json({ error: "no token" }, 401);
-  const r = ladder.confirm(ctx.req.param("id"), who.subject);
-  if ("refused" in r) return ctx.json({ error: r.refused }, 409);
-  // fire what is due at once, so a plan of "now" steps does not wait a tick
-  const fired = await scheduler.tick();
-  return ctx.json({
-    ...r,
-    steps: ladder.steps(r.id),
-    fired: fired.filter((f) => ladder.step(f.step)?.plan === r.id),
+  // the person's fresh token runs the plan's steps: kept for the plan's conversation once the plan is theirs, as
+  // the decide door keeps it, so a step due now fires at once and does not wait for the desk's next token push
+  const token = bearerOf(ctx);
+  const r = await confirmAs(decisions(), ctx.req.param("id"), who.subject, (conversation) => {
+    if (token) tokens.put(conversation, token);
   });
+  if (!r.ok) return ctx.json({ error: r.error }, r.status as 409);
+  // the change whose card proposed the plan is settled with it, and said here, so both cards tell one outcome
+  return ctx.json({ ...r.plan, change: r.change ? changeView(r.change) : null });
 });
 
 /** A person decided on a rung-three proposal on the desk, through its own closure panel; the assistant records it and does nothing else. */
@@ -1449,7 +1473,8 @@ app.get("/changes/:id", async (ctx) => {
   if (!who) return ctx.json({ error: "no token" }, 401);
   const ch = theChanges().get(ctx.req.param("id"));
   if (!ch || ch.subject !== who.subject) return ctx.json({ error: "no such change of yours" }, 404);
-  return ctx.json(changeView(ch));
+  // a job plan answered on the plan's own card is read as settled, never as still waiting
+  return ctx.json(changeView(settled(decisions(), ch)));
 });
 
 /** The person approves or declines a proposed change; an approval is applied here, in the host's code, under their token. */
@@ -1462,29 +1487,9 @@ app.post("/changes/:id/decide", async (ctx) => {
   const id = ctx.req.param("id");
   // the person's fresh token applies the change: kept for the change's conversation once the change is theirs
   const token = bearerOf(ctx);
-  const r = await decideAs(
-    {
-      changes: theChanges(),
-      ledger: theLedger(),
-      seam: (conversation) => seamFor("one-decide", conversation),
-      confirmPlan: async (plan, subject) => {
-        const confirmed = ladder.confirm(plan, subject);
-        if ("refused" in confirmed) return confirmed;
-        const fired = await scheduler.tick();
-        return {
-          ...confirmed,
-          steps: ladder.steps(plan),
-          fired: fired.filter((f) => ladder.step(f.step)?.plan === plan),
-        };
-      },
-    },
-    id,
-    who.subject,
-    verdict,
-    (conversation) => {
-      if (token) tokens.put(conversation, token);
-    },
-  );
+  const r = await decideAs(decisions(), id, who.subject, verdict, (conversation) => {
+    if (token) tokens.put(conversation, token);
+  });
   return r.ok
     ? ctx.json(changeView(r.change))
     : ctx.json({ error: r.error, ...(r.change ? { change: changeView(r.change) } : {}) }, r.status as 404);
@@ -1494,8 +1499,11 @@ app.post("/changes/:id/decide", async (ctx) => {
 app.get("/inbox", async (ctx) => {
   const who = await personOf(ctx);
   if (!who) return ctx.json({ error: "no token" }, 401);
+  const inbox = inboxOf(ladder, who.subject);
   return ctx.json({
-    ...inboxOf(ladder, who.subject),
+    ...inbox,
+    // each plan with the change whose card proposed it, so a plan's card and its change's card are told as one
+    plans: plansWithChanges(decisions(), who.subject, inbox.plans as { id: string }[]),
     teaching: teachingStore.jobs(who.subject).map(jobView),
   });
 });

@@ -14,8 +14,15 @@
 
 import type { Seam } from "../seam/client.ts";
 import type { Ledger } from "../seam/ledger.ts";
-import type { ChangeRow, ChangeStore } from "./changes.ts";
+import { type ChangeRow, type ChangeState, type ChangeStore, outcomeOf, PLAN_GONE } from "./changes.ts";
 import { PURPOSE } from "./purpose.ts";
+
+/** The plans a job plan's change is settled against: the ladder's store, as much of it as that takes. */
+export interface Plans {
+  planById(id: string): { id: string; conversation: string; subject: string; state: string } | null;
+  /** Take back a plan still proposed; true when it was. */
+  drop(id: string): boolean;
+}
 
 export interface ApplyDeps {
   changes: ChangeStore;
@@ -24,6 +31,8 @@ export interface ApplyDeps {
   seam: (conversation: string) => Seam;
   /** The plan's confirm path: confirm it for the person, and fire what is due. */
   confirmPlan: (plan: string, subject: string) => Promise<Record<string, unknown> | { refused: string }>;
+  /** The plans, so a job plan's change and its plan tell one outcome; without them a change is read by itself. */
+  plans?: Plans;
 }
 
 export type Decided =
@@ -31,7 +40,7 @@ export type Decided =
   | { ok: false; status: number; error: string; change?: ChangeRow };
 
 function row(
-  deps: ApplyDeps,
+  deps: Pick<ApplyDeps, "ledger">,
   c: ChangeRow,
   phase: string,
   operation: string,
@@ -138,6 +147,57 @@ async function apply(
   }
 }
 
+/**
+ * A job plan's change read with its plan (2026-11-13). A job plan shows as two cards, the change's ("waits for
+ * you", decided here) and the plan's own (confirmed at the plan's door), and a person answers either. In a live
+ * test the plan's card was confirmed, the plan ran, and the change stayed open, so its card went on saying that it
+ * waited. An open change whose plan is confirmed or done is settled as approved, with a ledger row for the
+ * approval and a result that says it came through the plan's card; one whose plan is no longer kept is expired.
+ * A change whose plan still waits, or any other change, is returned as it is.
+ */
+export function settled(deps: Pick<ApplyDeps, "changes" | "ledger" | "plans">, c: ChangeRow): ChangeRow {
+  if (c.kind !== "job_plan" || c.state !== "open" || !deps.plans) return c;
+  const plan = deps.plans.planById(String(c.payload.plan_id ?? ""));
+  if (plan?.state === "proposed") return c;
+  if (!plan) return deps.changes.settle(c.id, "expired", { applied: false, why: PLAN_GONE }) ?? c;
+  const after = deps.changes.settle(c.id, "approved", {
+    applied: true,
+    through: "plan",
+    plan: { id: plan.id, state: plan.state },
+  });
+  if (!after) return deps.changes.get(c.id) ?? c;
+  row(deps, after, "approval", `changes/${after.kind}`, "approved");
+  return after;
+}
+
+/** The change whose card proposed a plan, or null: the plan's conversation holds it, and its payload names the plan. */
+export function changeOfPlan(
+  changes: Pick<ChangeStore, "of">,
+  plan: { id: string; conversation: string },
+): ChangeRow | null {
+  return (
+    changes.of(plan.conversation).find((c) => c.kind === "job_plan" && c.payload.plan_id === plan.id) ?? null
+  );
+}
+
+/**
+ * The inbox's plans, each with the change whose card proposed it (`change`: its id, where it stands and what
+ * happened), settled first, so the plan's card and the change's card are one thing to whoever draws them; null
+ * for a plan no change proposed (the operator station's).
+ */
+export function plansWithChanges<P extends { id: string }>(
+  deps: Pick<ApplyDeps, "changes" | "ledger" | "plans">,
+  subject: string,
+  plans: P[],
+): (P & { change: { id: string; state: ChangeState; outcome: string | null } | null })[] {
+  const byPlan = new Map(deps.changes.jobPlans(subject).map((c) => [String(c.payload.plan_id ?? ""), c]));
+  return plans.map((p) => {
+    const found = byPlan.get(p.id);
+    const c = found ? settled(deps, found) : null;
+    return { ...p, change: c ? { id: c.id, state: c.state, outcome: outcomeOf(c) } : null };
+  });
+}
+
 /** The change a person may decide: their own, or none, so a stranger's id tells them nothing. */
 export function ownChange(changes: Pick<ChangeStore, "get">, id: string, subject: string): ChangeRow | null {
   const c = changes.get(id);
@@ -154,19 +214,38 @@ export async function decide(
   verdict: "approved" | "declined",
 ): Promise<Decided> {
   // whose the change is comes first: a stranger learns nothing of it, not even its kind
-  const before = ownChange(deps.changes, id, subject);
-  if (!before) return NOT_YOURS;
-  if (before.kind === "query_version")
+  const own = ownChange(deps.changes, id, subject);
+  if (!own) return NOT_YOURS;
+  if (own.kind === "query_version")
     return {
       ok: false,
       status: 409,
       error: "a query version is accepted or disregarded on the conversation's feedback",
-      change: before,
+      change: own,
     };
+  // a job plan answered on the plan's own card is settled already: approving it here is the same outcome, never
+  // a second confirm and never an error on a card that only had not heard yet
+  const before = settled(deps, own);
+  if (before.kind === "job_plan" && before.state === "expired")
+    return { ok: false, status: 409, error: outcomeOf(before) ?? PLAN_GONE, change: before };
+  if (before.kind === "job_plan" && before.state === "approved" && before.result?.through === "plan")
+    return verdict === "approved"
+      ? { ok: true, change: before }
+      : {
+          ok: false,
+          status: 409,
+          error: "the plan was approved on its own card already, so it cannot be declined here",
+          change: before,
+        };
   const d = deps.changes.decide(id, subject, verdict);
   if ("refused" in d) return { ok: false, status: d.status, error: d.refused };
   row(deps, d, verdict === "approved" ? "approval" : "decline", `changes/${d.kind}`, verdict);
-  if (verdict === "declined") return { ok: true, change: d };
+  if (verdict === "declined") {
+    // a declined job plan leaves no plan waiting on a card of its own: the plan, still proposed, is taken back
+    if (d.kind !== "job_plan" || !deps.plans) return { ok: true, change: d };
+    const taken = deps.plans.drop(String(d.payload.plan_id ?? ""));
+    return { ok: true, change: deps.changes.applied(d.id, { applied: false, plan_taken_back: taken }) ?? d };
+  }
   const r = await apply(deps, d);
   const after = deps.changes.applied(d.id, r.result, r.failed) ?? d;
   return r.failed
@@ -191,4 +270,30 @@ export async function decideAs(
   if (!mine) return NOT_YOURS;
   keepToken(mine.conversation);
   return decide(deps, id, subject, verdict);
+}
+
+export type Confirmed =
+  | { ok: true; plan: Record<string, unknown>; change: ChangeRow | null }
+  | { ok: false; status: number; error: string };
+
+/**
+ * The plan's confirm door's work (2026-11-13). The person's token is kept for the plan's conversation, as the
+ * decide door keeps it for a change's, once the plan is the caller's: without it the scheduler had no token to act
+ * with, and a step due now stayed "waiting, the person's token is not held" until the desk's next token push, a
+ * minute later. Then the plan is confirmed and what is due fires, and the change whose card proposed the plan is
+ * settled as approved, so its card no longer waits beside a plan that ran.
+ */
+export async function confirmAs(
+  deps: ApplyDeps & { plans: Plans },
+  id: string,
+  subject: string,
+  keepToken: (conversation: string) => void,
+): Promise<Confirmed> {
+  const mine = deps.plans.planById(id);
+  // a stranger holding a plan's id leaves no token on its conversation: the plan must be the caller's first
+  if (mine && mine.subject === subject) keepToken(mine.conversation);
+  const r = await deps.confirmPlan(id, subject);
+  if ("refused" in r) return { ok: false, status: 409, error: String(r.refused) };
+  const sibling = mine ? changeOfPlan(deps.changes, mine) : null;
+  return { ok: true, plan: r, change: sibling ? settled(deps, sibling) : null };
 }
