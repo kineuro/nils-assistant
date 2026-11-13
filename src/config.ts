@@ -4,7 +4,8 @@
 // file, the store, the retention, the station directories. No credential
 // of its own beyond the machine key of §8.4; telemetry off.
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname } from "node:path";
 
 export interface Config {
   /** The engine's URL, the one the seam dials. */
@@ -14,7 +15,7 @@ export interface Config {
   kvasirKey: string;
   /** The store: a SQLite path, or a Postgres URL. */
   store: string;
-  /** The seam's own SQLite file. */
+  /** The seam's own SQLite file. This and every store below is, unless its own variable names it, a file beside the store (`ownFile`). */
   ledger: string;
   /** The notes of section 9.9, their own SQLite file. */
   notes: string;
@@ -44,22 +45,70 @@ export interface Config {
 
 export const VERSION = "1.0.0-alpha.32";
 
-export function config(env: NodeJS.ProcessEnv = process.env): Config {
+/** The store when ASSISTANT_STORE names none. */
+export const DEFAULT_STORE = "./data/assistant.sqlite";
+
+/**
+ * The folder the assistant's own files live in (2026-11-13): the folder of the store, so an install that names the
+ * store alone has every other file beside it. Each store once defaulted to `./data` by itself, and an install that
+ * named six of the seven files in its state folder left the seventh in a folder that did not exist. A store that
+ * is a Postgres URL names no folder, and the files stay under `./data`.
+ */
+export function stateDir(env: NodeJS.ProcessEnv = process.env): string {
+  const store = env.ASSISTANT_STORE;
+  if (!store || store === ":memory:" || /^postgres(ql)?:\/\//u.test(store)) return "./data";
+  return dirname(store);
+}
+
+/**
+ * One of the assistant's own files: the one its variable names, else `name` beside the store. A file an install
+ * already keeps under `./data` from before stays in use while there is none beside the store, so no pending
+ * proposal, standing grant or note is left behind by the new default.
+ */
+export function ownFile(
+  env: NodeJS.ProcessEnv,
+  variable: string,
+  name: string,
+  exists: (path: string) => boolean = existsSync,
+): string {
+  const named = env[variable];
+  if (named) return named;
+  const dir = stateDir(env);
+  const beside = `${dir}/${name}`;
+  const before = `./data/${name}`;
+  return dir !== "./data" && !exists(beside) && exists(before) ? before : beside;
+}
+
+/** The variables that name the assistant's own SQLite files, with the configuration's key for each. */
+export const STORE_VARIABLES = {
+  ledger: "ASSISTANT_LEDGER",
+  notes: "ASSISTANT_NOTES",
+  lineage: "ASSISTANT_LINEAGE",
+  ladder: "ASSISTANT_LADDER",
+  changes: "ASSISTANT_CHANGES",
+  teaching: "ASSISTANT_TEACHING",
+} as const;
+
+export function config(
+  env: NodeJS.ProcessEnv = process.env,
+  exists: (path: string) => boolean = existsSync,
+): Config {
   const keyFile = env.KVASIR_KEY_FILE;
   const kvasirKey = keyFile ? readFileSync(keyFile, "utf8").trim() : (env.KVASIR_KEY ?? "");
+  const own = (variable: string, name: string) => ownFile(env, variable, name, exists);
   return {
     engine: (env.NILS_URL ?? "http://127.0.0.1:8437").replace(/\/+$/u, ""),
     kvasir: (env.KVASIR_URL ?? "http://127.0.0.1:7199").replace(/\/+$/u, ""),
     kvasirKey,
-    store: env.ASSISTANT_STORE ?? "./data/assistant.sqlite",
-    ledger: env.ASSISTANT_LEDGER ?? "./data/seam.sqlite",
-    notes: env.ASSISTANT_NOTES ?? "./data/notes.sqlite",
-    lineage: env.ASSISTANT_LINEAGE ?? "./data/lineage.sqlite",
-    ladder: env.ASSISTANT_LADDER ?? "./data/ladder.sqlite",
-    changes: env.ASSISTANT_CHANGES ?? "./data/changes.sqlite",
+    store: env.ASSISTANT_STORE ?? DEFAULT_STORE,
+    ledger: own(STORE_VARIABLES.ledger, "seam.sqlite"),
+    notes: own(STORE_VARIABLES.notes, "notes.sqlite"),
+    lineage: own(STORE_VARIABLES.lineage, "lineage.sqlite"),
+    ladder: own(STORE_VARIABLES.ladder, "ladder.sqlite"),
+    changes: own(STORE_VARIABLES.changes, "changes.sqlite"),
     requireAssistRun: env.ASSISTANT_REQUIRE_ASSIST_RUN === "1",
-    teaching: env.ASSISTANT_TEACHING ?? "./data/teaching.sqlite",
-    teachingDir: env.ASSISTANT_TEACHING_DIR ?? "./data/teaching",
+    teaching: own(STORE_VARIABLES.teaching, "teaching.sqlite"),
+    teachingDir: own("ASSISTANT_TEACHING_DIR", "teaching"),
     benchThreshold: Math.min(1, Math.max(0, Number(env.ASSISTANT_BENCH_THRESHOLD ?? 1))),
     teachingBackend: env.ASSISTANT_TEACHING_BACKEND ?? "card0",
     retentionDays: Number(env.ASSISTANT_RETENTION_DAYS ?? 90),

@@ -5,7 +5,8 @@
 // token. SQLite through Node's own binding; the rows are retained for the
 // days the configuration says and swept at start and daily.
 
-import { DatabaseSync } from "node:sqlite";
+import type { DatabaseSync } from "node:sqlite";
+import { openSqlite } from "../host/stores.ts";
 
 export interface Row {
   at: number;
@@ -29,7 +30,7 @@ export interface Row {
 export class Ledger {
   readonly db: DatabaseSync;
   constructor(path: string) {
-    this.db = new DatabaseSync(path);
+    this.db = openSqlite(path);
     this.db.exec("PRAGMA journal_mode = WAL");
     this.db.exec(`CREATE TABLE IF NOT EXISTS seam (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

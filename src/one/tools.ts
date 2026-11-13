@@ -13,7 +13,7 @@
 import type { JsonValue, Sandbox } from "@flue/runtime";
 import * as v from "valibot";
 import type { Detail } from "../host/grants.ts";
-import { planFrom, restate } from "../host/ladder.ts";
+import { planFrom, restate, VERBS } from "../host/ladder.ts";
 import { mentionsIn } from "../host/mentions.ts";
 import type { Answer, Seam, Station } from "../seam/client.ts";
 import { shorten, toolResult } from "../seam/client.ts";
@@ -91,7 +91,7 @@ import {
   readDatasets,
 } from "./datasets.ts";
 import type { Mounted, ToolName } from "./mount.ts";
-import { type ConversationState, conversationOf, type Probe, type TurnState } from "./state.ts";
+import { type ConversationState, conversationOf, type Probe, runSteps, type TurnState } from "./state.ts";
 import { readSteps, STEPS_TOOL_WAIT_MS, stepsLine, stepsWithin, unknownSentence } from "./steps.ts";
 import { plainly } from "./words.ts";
 import { type ChartItem, DATA, type FileItem, WORKSPACE } from "./workspace.ts";
@@ -318,8 +318,85 @@ export function refuse(why: string, next: string, extra: Record<string, JsonValu
   return { output: { refused: true, why: plainly(why), next, ...extra } };
 }
 
-/** An answer that is not ok, as a refusal in plain words with the next step. */
-function notOk(a: Answer, next: string): Out {
+/** Whether a part of an answer says its work was stopped at the time limit: a code, a flag, or why it is unavailable. */
+function saysTimeout(x: unknown): boolean {
+  if (!x || typeof x !== "object" || Array.isArray(x)) return false;
+  const o = x as Record<string, unknown>;
+  if (o.code === "timeout" || o.timeout === true || o.timed_out === true) return true;
+  if (o.unavailable && typeof o.unavailable === "object") return saysTimeout(o.unavailable);
+  return [o.unavailable, o.reason].some(
+    (w) => typeof w === "string" && /^time[d]?[ _-]?out$|\bran past\b/iu.test(w.trim()),
+  );
+}
+
+/**
+ * A question the registry stopped at the chat's time limit (2026-11-13), and the stored document where the answer
+ * names one; null for any other answer. The registry says it three ways, and all are read: a 504 (its words say the
+ * statement "ran past" the limit), a refusal that carries `code: "timeout"` with the document's id, and a draft
+ * answered 200 for a valid document whose counting was stopped (`valid: true`, the funnel or the preview marked
+ * unavailable by timeout). A timeout is never a fault of the document: a chat once read it as "the draft did not
+ * validate" and rewrote a valid question until the turn's work was spent.
+ */
+export function timeoutOf(a: Answer): { document: number | null } | null {
+  if (a.kind !== "ok" && a.kind !== "refused") return null;
+  const b = (a.body && typeof a.body === "object" ? a.body : {}) as Record<string, unknown>;
+  const document = num(b.document) ?? num(b.document_id);
+  if (a.kind === "refused") {
+    const words = typeof b.error === "string" ? b.error : "";
+    return a.status === 504 || b.code === "timeout" || /\bran past \d+ ?ms\b/u.test(words)
+      ? { document }
+      : null;
+  }
+  const d = (b.diagnosis && typeof b.diagnosis === "object" ? b.diagnosis : {}) as Record<string, unknown>;
+  return [b, d, b.preview, b.funnel, d.preview, d.funnel].some(saysTimeout) ? { document } : null;
+}
+
+/**
+ * What a tool answers for a question that is valid and too slow for the chat (2026-11-13): never a refusal of the
+ * document. With its id, the document is stored and right, it is not drafted again, and its answer comes from a
+ * job the person approves. Without one (a registry that stops the draft before it stores anything), nothing is
+ * stored, and the model says so instead of sending the same document again.
+ */
+export function slowOut(
+  ctx: ToolCtx,
+  document: number | null,
+  extra: Record<string, JsonValue> = {},
+  text: string | null = null,
+): Out {
+  const known = ctx.turn.slow.find((s) => s.document === document && s.text === text);
+  if (!known) ctx.turn.slow.push({ document, text });
+  if (document === null)
+    return {
+      output: {
+        refused: true,
+        stored: false,
+        slow: true,
+        why: "checking the question ran past the chat's time limit before the registry stored it, so there is no document and no count; no fault was found in the document",
+        next: "Do not send this document again, and do not rewrite it: no path or issue was named. Tell the person in plain words that the question takes too long to check in the chat, so it is not stored and no job was started; offer one narrower question (one dataset or cohort, fewer conditions) if that would still help them.",
+      },
+    };
+  return {
+    output: {
+      document,
+      valid: true,
+      slow: true,
+      why: `the question is valid and stored as document ${document}; counting it ran past the chat's time limit, so there is no count and no row yet, and nothing is wrong with the document`,
+      ...extra,
+      preview: { unavailable: "timeout" },
+      next: `Do not draft it again, and do not try smaller questions to probe it. Raise a job plan for it now: propose_change with kind job_plan, a sentence, and steps ${runSteps(document)}. Then tell the person in plain words that the question is stored as document ${document}, that it takes too long to count in the chat, and that it runs as a job once they approve the card.`,
+    },
+  };
+}
+
+/** An answer that is not ok, as a refusal in plain words with the next step; a timeout as what it is, with the `document` asked when the caller knows it. */
+function notOk(a: Answer, next: string, asked?: { ctx: ToolCtx; document: number | null }): Out {
+  const slow = timeoutOf(a);
+  if (slow && asked) return slowOut(asked.ctx, slow.document ?? asked.document);
+  if (slow)
+    return refuse(
+      "the registry did not answer inside the chat's time limit; nothing is wrong with what was asked",
+      "Do not make the same call again in this message. Tell the person in plain words that this takes too long to answer in the chat.",
+    );
   const o = toolResult(a).output as Record<string, unknown>;
   let why: string;
   if (a.kind === "blocked") why = a.reason;
@@ -385,6 +462,18 @@ export function fieldLines(text: string, level: string | null = null): string[] 
   return block.filter((l) => l.startsWith(`- ${level}:`));
 }
 
+/** The fields of the summary as a tool answers them: every level's, or one `level`'s; a level it does not list is refused with the ones it does. */
+function fieldsOut(text: string, level: string | null): Out {
+  const lines = fieldLines(text, level);
+  if (level && lines.length === 0) {
+    const levels = fieldLines(text)
+      .slice(1)
+      .map((l) => l.slice(2, l.indexOf(":")));
+    return refuse(`no level named ${level}`, `Name one of ${levels.join(", ") || "none"}.`);
+  }
+  return { output: data(lines.join("\n"), "ask for the fields of one level, such as stack") };
+}
+
 const registrySummary: OneTool = {
   name: "registry_summary",
   description:
@@ -403,17 +492,7 @@ const registrySummary: OneTool = {
         "Say in one sentence that their account cannot look into the registry here, and that an admin can give it.",
       );
     const part = str(args.part);
-    if (part === "fields") {
-      const level = str(args.level);
-      const lines = fieldLines(text, level);
-      if (level && lines.length === 0) {
-        const levels = fieldLines(text)
-          .slice(1)
-          .map((l) => l.slice(2, l.indexOf(":")));
-        return refuse(`no level named ${level}`, `Name one of ${levels.join(", ") || "none"}.`);
-      }
-      return { output: data(lines.join("\n"), "ask for the fields of one level, such as stack") };
-    }
+    if (part === "fields") return fieldsOut(text, str(args.level));
     const re = part && part !== "all" ? PARTS[part] : null;
     const lines = re ? text.split("\n").filter((l) => re.test(l)) : text.split("\n");
     return { output: data(lines.join("\n"), "ask for one part: cohorts, scores, scans or fields") };
@@ -709,6 +788,8 @@ const DESCRIBE = [
   "signals",
   "word_lists",
   "review",
+  // the summary's part, answered here too (2026-11-13): asked for here, it was refused by the schema with no way on
+  "fields",
 ] as const;
 
 async function get(ctx: ToolCtx, id: SeamId, path: string, rows?: number): Promise<Answer> {
@@ -738,15 +819,16 @@ function noteSignals(c: ConversationState, body: unknown): void {
 const registryDescribe: OneTool = {
   name: "registry_describe",
   description:
-    "Read one kind of thing the registry keeps, by `what`: document (a stored question by `id`, with its parent), documents (the stored questions), batches (the newest batches), cohorts (with their subjects and sessions counted), pipelines (the analyses, families and workflows, each with its choices, the settings a person may set and the needs that skip a session, in their own words) or pipeline (one analysis, family or workflow by `name`, in full: needs, settings, rules and checks with their sources), datasets (each with its state, its subjects, visits and scans, and the cohort it feeds) or dataset (by `name`: those counts, which of its steps have run, what arrives, its identity rule, what is held), identifier_types, held (the identifiers a dataset holds as shapes, by `name`), signals (the sorting's signals over a `scope` such as batch:12), word_lists (the sorting's word lists, `axis` to narrow), review (the open review items, or one by `id`).",
+    "Read one kind of thing the registry keeps, by `what`: document (a stored question by `id`, with its parent), documents (the stored questions), batches (the newest batches), cohorts (with their subjects and sessions counted), pipelines (the analyses, families and workflows, each with its choices, the settings a person may set and the needs that skip a session, in their own words) or pipeline (one analysis, family or workflow by `name`, in full: needs, settings, rules and checks with their sources), datasets (each with its state, its subjects, visits and scans, and the cohort it feeds) or dataset (by `name`: those counts, which of its steps have run, what arrives, its identity rule, what is held), identifier_types, held (the identifiers a dataset holds as shapes, by `name`), signals (the sorting's signals over a `scope` such as batch:12), word_lists (the sorting's word lists, `axis` to narrow), review (the open review items, or one by `id`), fields (every field of each level, or of one `level` such as stack; the same as registry_summary with part fields).",
   input: v.object({
     what: v.picklist(DESCRIBE),
     id: v.optional(v.number()),
     name: v.optional(v.string()),
     scope: v.optional(v.string()),
     axis: v.optional(v.string()),
+    level: v.optional(v.string()),
   }),
-  salient: ["what", "id", "name", "scope", "axis"],
+  salient: ["what", "id", "name", "scope", "axis", "level"],
   step: "Looking in the registry",
   async run(args, ctx) {
     const what = String(args.what);
@@ -915,6 +997,15 @@ const registryDescribe: OneTool = {
         const a = await get(ctx, "keyword-tune", id === null ? "/api/review" : `/api/review/${id}`);
         return a.kind === "ok" ? { output: data(a.body, "ask for one item by its id") } : notOk(a, again);
       }
+      case "fields": {
+        const text = await summaryText(ctx);
+        return text
+          ? fieldsOut(text, str(args.level))
+          : refuse(
+              "the registry's fields are not open to this person",
+              "Say in one sentence that their account cannot look into the registry here, and that an admin can give it.",
+            );
+      }
     }
     return refuse(`nothing is described as ${what}`, `Use one of ${DESCRIBE.join(", ")}.`);
   },
@@ -925,28 +1016,47 @@ const registryDescribe: OneTool = {
 const queryDraft: OneTool = {
   name: "query_draft",
   description:
-    "Store a whole question of the registry written as a YAML document (the find-data skill says how). It is repaired where it can be and stored when it validates; the answer carries the stored `document` id, its diagnosis (what each set kept) and a preview (the count, or the first rows). A refused draft names the path and the issue: fix exactly that and draft again.",
+    "Store a whole question of the registry written as a YAML document (the find-data skill says how). It is repaired where it can be and stored when it validates; the answer carries the stored `document` id, its diagnosis (what each set kept) and a preview (the count, or the first rows). A refused draft names the path and the issue: fix exactly that and draft again. A question that is valid but too slow for the chat is answered as `slow` with its `document`: never draft it again; it runs as a job (propose_change, kind job_plan).",
   input: v.object({ text: v.string() }),
   salient: ["text"],
   step: "Writing the query",
   async run(args, ctx) {
+    const text = unescapeEntities(String(args.text));
+    // the same document sent again after its timeout would only wait out the limit once more: answered as before
+    const before = ctx.turn.slow.find((x) => x.text === text);
+    if (before) return slowOut(ctx, before.document, {}, text);
     const s = seam(ctx, "ask-help");
     const drafted = await s.door(
       "/api/ask/draft",
       "POST",
-      { text: unescapeEntities(String(args.text)) },
+      { text },
       { toolCallId: ctx.toolCallId, phase: PHASE },
     );
-    const document = documentOf(drafted);
+    const body = (drafted.kind === "ok" ? drafted.body : {}) as Record<string, unknown>;
+    const diagnosed = (): Record<string, JsonValue> => ({
+      // a count held back at plain is written as held, never as a null read as none (record 55 K7)
+      ...(body.diagnosis ? { diagnosis: shorten(withHeldCounts(body.diagnosis as JsonValue), 3000) } : {}),
+      ...(body.repairs ? { repairs: shorten(body.repairs as JsonValue, 1500) } : {}),
+    });
+    // a timeout is its own outcome, never a draft that did not validate: with the document where the registry stored it
+    const stopped = timeoutOf(drafted);
+    const document = documentOf(drafted) ?? stopped?.document ?? null;
+    if (document !== null) {
+      ctx.turn.drafted.push(document);
+      ctx.convo.documents.push(document);
+    }
+    if (stopped) return slowOut(ctx, document, diagnosed(), text);
     if (document === null) {
-      if (drafted.kind === "ok" || drafted.kind === "refused") {
+      if (drafted.kind === "ok" || (drafted.kind === "refused" && drafted.status < 500)) {
         const issues = shorten(toolResult(drafted).output, 4000);
         return refuse("the draft did not validate", draftNext(JSON.stringify(issues)), { issues });
       }
-      return notOk(drafted, "Draft again.");
+      // the registry failed, and said nothing of the document: rewriting it mends nothing
+      return notOk(
+        drafted,
+        "Do not rewrite the document for this: no path or issue was named. Try once more as it is, or tell the person the registry could not take the question now.",
+      );
     }
-    ctx.turn.drafted.push(document);
-    ctx.convo.documents.push(document);
     ctx.write.progress("Counting the answer");
     const previewed = await s.door(
       "/api/ask/preview",
@@ -954,7 +1064,8 @@ const queryDraft: OneTool = {
       { document_id: document, rows: 10 },
       { toolCallId: `${ctx.toolCallId}-preview`, phase: PHASE, rows: 10 },
     );
-    const body = (drafted.kind === "ok" ? drafted.body : {}) as Record<string, unknown>;
+    // the document is stored and valid, and its count ran past the limit: said so, with its id
+    if (timeoutOf(previewed)) return slowOut(ctx, document, diagnosed(), text);
     // a measure the question declares (a group's spread) is computed by a run, never by the preview (round 4)
     const measured =
       previewed.kind === "ok" && /^\s*measures\s*:/mu.test(String(args.text))
@@ -1589,6 +1700,16 @@ const queryRunReadonly: OneTool = {
         { toolCallId: `${ctx.toolCallId}-preview`, phase: PHASE, rows: 10 },
       ),
     ]);
+    // its count ran past the chat's limit: the document is stored and valid, and that is said, never a preview
+    // of nothing (2026-11-13: `preview: null` read as no answer, beside a diagnosis that held)
+    if (timeoutOf(p) || timeoutOf(d))
+      return slowOut(
+        ctx,
+        document,
+        d.kind === "ok" && !timeoutOf(d)
+          ? { diagnosis: shorten(withHeldCounts(d.body as JsonValue), 3000) }
+          : {},
+      );
     if (p.kind !== "ok" && d.kind !== "ok") return notOk(p, "Check the document's id.");
     return {
       output: {
@@ -1767,7 +1888,7 @@ const queryReadRows: OneTool = {
     );
     return a.kind === "ok"
       ? { output: { document, ...(previewOf(ctx, a.body) as Record<string, JsonValue>) } }
-      : notOk(a, "Check the document's id.");
+      : notOk(a, "Check the document's id.", { ctx, document });
   },
 };
 
@@ -2065,17 +2186,36 @@ function propose(
     details: Record<string, unknown>;
     /** What the model does next, where the kind needs more than the default. */
     next?: string;
+    /** Takes back what the proposal wrote before its card (a plan's rows), when the change itself cannot be kept. */
+    undo?: () => void;
   },
 ): Out {
-  const c = theChanges().propose({
-    conversation: ctx.conversation,
-    subject: ctx.subject,
-    kind: o.kind,
-    title: o.title ?? null,
-    sentence: o.sentence,
-    lines: o.lines ?? [],
-    payload: o.payload,
-  });
+  let c: ReturnType<ReturnType<typeof theChanges>["propose"]>;
+  try {
+    c = theChanges().propose({
+      conversation: ctx.conversation,
+      subject: ctx.subject,
+      kind: o.kind,
+      title: o.title ?? null,
+      sentence: o.sentence,
+      lines: o.lines ?? [],
+      payload: o.payload,
+    });
+  } catch (e) {
+    // no card can be shown, so nothing the proposal wrote first may stay behind for anyone to confirm
+    try {
+      o.undo?.();
+    } catch {
+      // the store that failed is said below; what could not be taken back is in the same log
+    }
+    console.error(
+      `nils-assistant: a proposed change could not be kept: ${e instanceof Error ? e.message : String(e)}`,
+    );
+    return refuse(
+      "the proposal could not be kept, a fault of the assistant's own store and not of what you proposed; nothing was proposed and nothing was started",
+      "Do not try again in this message. Tell the person in plain words that the proposal could not be made because of a fault in the assistant, that nothing was started, and that an administrator has to look at the assistant before it can be proposed again.",
+    );
+  }
   ctx.write.approval({
     id: c.id,
     change: CARD_OF[o.kind],
@@ -2097,10 +2237,52 @@ function propose(
   };
 }
 
+/** The verbs a plan's step may name, as the ladder maps them to the engine's doors. */
+const PLAN_VERBS = Object.keys(VERBS) as [string, ...string[]];
+
+/** The shape of a plan's steps, said where a plan is refused for it. */
+const STEPS_SHAPE =
+  'Give `steps` as a list, one item an act: [{"verb": "run", "args": {"document": 12}}] runs stored question 12 as a job; leave `when` out to run it now.';
+
+/**
+ * A plan's steps as the model gave them, read as a list (2026-11-13). A small model sometimes sends the list as
+ * JSON text, which the tool's validation once refused with "must be array" and nothing to go on: the text is parsed
+ * instead. A step's arguments written beside its verb, not under `args`, are taken as its arguments. Null when
+ * the text is no list of steps.
+ */
+export function stepsOf(given: unknown): Record<string, unknown>[] | null {
+  let list: unknown = given;
+  if (typeof list === "string") {
+    try {
+      list = JSON.parse(unescapeEntities(list));
+    } catch {
+      return null;
+    }
+  }
+  if (list && typeof list === "object" && !Array.isArray(list)) {
+    const o = list as Record<string, unknown>;
+    list = Array.isArray(o.steps) ? o.steps : "verb" in o ? [o] : null;
+  }
+  if (!Array.isArray(list)) return null;
+  return list.map((raw) => {
+    const s = (raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {}) as Record<string, unknown>;
+    const { verb, args, when, ...beside } = s;
+    let own: unknown = args;
+    if (typeof own === "string")
+      try {
+        own = JSON.parse(own);
+      } catch {
+        own = null;
+      }
+    const named = own && typeof own === "object" && !Array.isArray(own) ? own : null;
+    return { verb, args: named ?? beside, ...(when === undefined ? {} : { when }) };
+  });
+}
+
 async function proposeJobPlan(args: Record<string, unknown>, ctx: ToolCtx, sentence: string): Promise<Out> {
-  const steps = Array.isArray(args.steps) ? args.steps : [];
-  if (steps.length === 0)
-    return refuse("a plan has steps", "Give `steps`, each a verb with its arguments and when it runs.");
+  const steps = stepsOf(args.steps ?? []);
+  if (steps === null) return refuse("the steps could not be read as a list", STEPS_SHAPE);
+  if (steps.length === 0) return refuse("a plan has steps", STEPS_SHAPE);
   const store = ladderStore();
   if (!store) return refuse("plans cannot be kept here", "Say so.");
   const { policy, grants } = await policyOf(seam(ctx, "operator"), `${ctx.toolCallId}-policy`, PHASE);
@@ -2110,7 +2292,10 @@ async function proposeJobPlan(args: Record<string, unknown>, ctx: ToolCtx, sente
   if (planned.refused.length > 0 && planned.steps.length + planned.proposals.length === 0)
     return refuse(
       planned.refused.map((r) => r.why).join("; "),
-      "Correct the step named, or say why it cannot be planned.",
+      // a verb the plan does not know is most often an act that is no step (reading or reporting a result)
+      planned.refused.some((r) => !VERBS[r.verb])
+        ? `Use only the verbs listed; reading or reporting a result is no step. A stored question runs as a job with steps ${runSteps("<its id>")}. Correct the steps and propose once more, or say why it cannot be planned.`
+        : "Correct the step named, or say why it cannot be planned.",
     );
   const id = `plan-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
   store.plan({
@@ -2127,6 +2312,9 @@ async function proposeJobPlan(args: Record<string, unknown>, ctx: ToolCtx, sente
     title: str(args.title),
     lines,
     payload: { plan_id: id },
+    // a plan is confirmed through its change's card: without the change, the plan's rows are taken back, so no
+    // plan the model was told failed is left where the person's inbox lists it and a confirm would queue it
+    undo: () => store.drop(id),
     ref: { plan: id },
     details: {
       plan_id: id,
@@ -2620,7 +2808,7 @@ function proposeRule(args: Record<string, unknown>, ctx: ToolCtx, sentence: stri
 const proposeChange: OneTool = {
   name: "propose_change",
   description:
-    "Propose a change for the person to approve on a card; it never changes anything by itself. `kind` and `sentence` (what it will do, in their words) always; then by kind: query_version (`document`, `parent`), job_plan (`instruction` and `steps`, each {verb, args, when}), analysis_plan (`pipeline` or `workflow`; whom: `dataset` (its main scans), `selection`, or `cohorts` with `sessions` all, first or latest; `goal` and `switches` only as the person chose them, `params` only what they changed, `knobs` a workflow's {step: {knob: value}}; `question`, `why`; the engine checks the run first and the answer says who is skipped and why), overlay (the rehearsed sorting words as a typed rule change, which an operator adopts on the Rules page; `name`, `why`; one that breaks answers people gave only with `accept_breaks` and the breaks named in the sentence, when the person asks for it), identity_merge (`subjects`, the two codes, `canonical`, `why`), identity_rule (`rule`, `path_is_direct_identifier`, `new_type`).",
+    'Propose a change for the person to approve on a card; it never changes anything by itself. `kind` and `sentence` (what it will do, in their words) always; then by kind: query_version (`document`, `parent`), job_plan (`instruction` and `steps`, a list of {verb, args, when}: the verbs are the ones the schema lists, each an act, and reading or reporting a result is none; `when` left out is now; a stored question that is valid but too slow for the chat runs as a job with steps [{"verb": "run", "args": {"document": 12}}]), analysis_plan (`pipeline` or `workflow`; whom: `dataset` (its main scans), `selection`, or `cohorts` with `sessions` all, first or latest; `goal` and `switches` only as the person chose them, `params` only what they changed, `knobs` a workflow\'s {step: {knob: value}}; `question`, `why`; the engine checks the run first and the answer says who is skipped and why), overlay (the rehearsed sorting words as a typed rule change, which an operator adopts on the Rules page; `name`, `why`; one that breaks answers people gave only with `accept_breaks` and the breaks named in the sentence, when the person asks for it), identity_merge (`subjects`, the two codes, `canonical`, `why`), identity_rule (`rule`, `path_is_direct_identifier`, `new_type`).',
   input: v.object({
     kind: v.picklist(KINDS),
     sentence: v.string(),
@@ -2629,13 +2817,19 @@ const proposeChange: OneTool = {
     parent: v.optional(v.nullable(v.number())),
     instruction: v.optional(v.string()),
     steps: v.optional(
-      v.array(
-        v.object({
-          verb: v.string(),
-          args: v.optional(v.record(v.string(), v.unknown())),
-          when: v.optional(v.unknown()),
-        }),
-      ),
+      v.union([
+        v.array(
+          // loose: an argument written beside the verb is kept, and read as the step's (`stepsOf`)
+          v.looseObject({
+            // the plan's verbs, listed for the model; any other word still reaches the plan, whose refusal names them
+            verb: v.union([v.picklist(PLAN_VERBS), v.string()]),
+            args: v.optional(v.record(v.string(), v.unknown())),
+            when: v.optional(v.unknown()),
+          }),
+        ),
+        // the same list as JSON text, which a small model sometimes sends: parsed, never refused for its form
+        v.string(),
+      ]),
     ),
     pipeline: v.optional(v.string()),
     workflow: v.optional(v.string()),
@@ -2847,7 +3041,8 @@ async function analysisRows(ctx: ToolCtx, document: number): Promise<Table | Out
     { document_id: document, limit: ANALYSIS_ROWS, purpose: "an analysis in the one chat's sandbox" },
     { toolCallId: `${ctx.toolCallId}-run`, phase: PHASE, rows: ANALYSIS_ROWS },
   );
-  if (a.kind !== "ok") return notOk(a, "Check the question's id, or draft it again with query_draft.");
+  if (a.kind !== "ok")
+    return notOk(a, "Check the question's id, or draft it again with query_draft.", { ctx, document });
   // a list held back whole at plain has no row to analyse, and is no empty table either (record 55 K7, small lists)
   if (heldListOf(a.body) !== null) {
     ctx.turn.heldBack = heldBackOf(a.body) ?? [];

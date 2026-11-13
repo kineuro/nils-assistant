@@ -11,7 +11,14 @@ import type { HeldBack } from "../seam/shaped.ts";
 import { heldReading, shapeCounts } from "../stations/identity-check.ts";
 import { ladderStore } from "../stations/operator.ts";
 import { saysNotThere } from "./datasets.ts";
-import { answerOf, type ConversationState, type TurnState } from "./state.ts";
+import {
+  answerOf,
+  type ConversationState,
+  runPlanned,
+  runSteps,
+  slowDocument,
+  type TurnState,
+} from "./state.ts";
 import { alikePairs } from "./tools.ts";
 import { unplainWords } from "./words.ts";
 
@@ -183,6 +190,20 @@ export function countSaid(answer: string, line: string): boolean {
   return words.some((w) => new RegExp(`\\b${w}\\b`, "iu").test(answer));
 }
 
+/**
+ * What is missing where the turn stored a question too slow for the chat: its job plan, where the turn never
+ * tried to propose one, or its number in the answer. Null when nothing is, or the turn ended with a question.
+ */
+export function slowComplaint(t: TurnState, answer: string): string | null {
+  const document = slowDocument(t);
+  if (document === null || t.asked) return null;
+  if (!runPlanned(t, document) && !t.tools.includes("propose_change"))
+    return `document ${document} is stored and valid, and only too slow to count in the chat: raise its job plan with propose_change, kind job_plan, steps ${runSteps(document)}, then say it is stored as document ${document} and runs as a job once they approve the card`;
+  return new RegExp(`\\b(?:document|question)s?\\s+(?:#\\s*)?${document}\\b`, "iu").test(answer)
+    ? null
+    : `the question is stored as document ${document}: name it by its number, and never say it was not stored`;
+}
+
 /** What is wrong with the turn as it would settle; empty when nothing is. */
 export async function complaintsOf(c: CheckContext): Promise<string[]> {
   const out: string[] = [];
@@ -240,6 +261,10 @@ export async function complaintsOf(c: CheckContext): Promise<string[]> {
         `the last question drafted (document ${last}) does not validate: ${why}. Fix it and draft again`,
       );
   }
+  // a valid question too slow for the chat is stored and runs as a job (2026-11-13): the turn raises its plan once,
+  // and the answer names the document, never that nothing was stored
+  const slow = slowComplaint(c.turn, answer);
+  if (slow) out.push(slow);
   if (active.has("plan-work") && !c.turn.asked) {
     const plan = c.turn.proposed.find((p) => p.kind === "job_plan");
     if (!plan)

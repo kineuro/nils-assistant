@@ -7,10 +7,10 @@
 // person accepted one, and never a value: the row has no free text field,
 // so a note names nothing a reader may not see, by construction.
 
-import { mkdirSync } from "node:fs";
-import { dirname } from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import type { DatabaseSync } from "node:sqlite";
+import { ownFile } from "../config.ts";
 import { guardMemory } from "./guard.ts";
+import { openSqlite } from "./stores.ts";
 import { scoreOf, termsOf } from "./words.ts";
 
 export type NoteKind = "person" | "correction" | "study" | "reference";
@@ -72,8 +72,7 @@ export class Notes {
   readonly db: DatabaseSync;
   constructor(path: string) {
     // the store's directory is made on first use, as the ledger's is
-    if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
-    this.db = new DatabaseSync(path);
+    this.db = openSqlite(path);
     this.db.exec("PRAGMA journal_mode = WAL");
     this.db.exec(`CREATE TABLE IF NOT EXISTS note (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -409,8 +408,8 @@ if (process.argv[1]?.endsWith("notes.js")) {
     const i = args.indexOf(`--${name}`);
     return i >= 0 ? args[i + 1] : undefined;
   };
-  const path = process.env.ASSISTANT_NOTES ?? "./data/notes.sqlite";
-  const notes = new Notes(path);
+  // the same file the host opens: named by ASSISTANT_NOTES, else beside the store
+  const notes = new Notes(ownFile(process.env, "ASSISTANT_NOTES", "notes.sqlite"));
   const subject = opt("subject");
   if (verb === "list" && subject) {
     for (const n of notes.list(subject))

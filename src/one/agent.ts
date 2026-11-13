@@ -59,7 +59,7 @@ import { type Access, grantsLine, type Mounted, mountFor, SKILL_ORDER } from "./
 import { AGENT } from "./purpose.ts";
 import { hintLine, routeOf } from "./route.ts";
 import { bodyFor, findExamples, loadSkills, skillOf } from "./skills.ts";
-import { answerOf, conversationOf, keptDocument, newTurn, turnOf } from "./state.ts";
+import { answerOf, conversationOf, keptDocument, newTurn, stopNext, storedWords, turnOf } from "./state.ts";
 import { readSteps, STEPS_READ, STEPS_WAIT_MS, stepsRead, stepsText, stepsWithin } from "./steps.ts";
 import {
   actsAsAdmin,
@@ -420,7 +420,12 @@ function mountTool(t: OneTool, base: Omit<ToolCtx, "toolCallId">): void {
       const turn = turnOf(base.conversation);
       if (turn.stopped)
         return {
-          output: { refused: true, why: turn.stopped, next: "Answer the person now." },
+          // what the turn stored goes with it: the words that follow say what there is, with its number
+          output: {
+            refused: true,
+            why: turn.stopped,
+            next: ["Answer the person now.", storedWords(turn)].filter(Boolean).join(" "),
+          },
           terminate: true,
         };
       const args = data as Record<string, unknown>;
@@ -432,7 +437,7 @@ function mountTool(t: OneTool, base: Omit<ToolCtx, "toolCallId">): void {
           output: {
             stopped: true,
             why: turn.stopped,
-            next: "Stop calling tools. Answer the person now, in plain words, with what you have; say what is missing.",
+            next: stopNext(turn),
           },
         };
       }
@@ -448,9 +453,11 @@ function mountTool(t: OneTool, base: Omit<ToolCtx, "toolCallId">): void {
           ...(sandbox ? { sandbox } : {}),
         });
       } catch (e) {
+        // a tool that threw is the assistant's own fault, and is said so: a chat once put a store the assistant
+        // could not open down to the registry (2026-11-13)
         out = refuse(
-          e instanceof Error ? e.message : String(e),
-          "Try once more with one change, or tell the person it did not work.",
+          `the assistant itself failed at this step: ${e instanceof Error ? e.message : String(e)}`,
+          "Try once more with one change, or tell the person the assistant could not do this step; never say the registry refused it.",
         );
       }
       if (gate.warning && out.output && typeof out.output === "object" && !Array.isArray(out.output))
@@ -710,7 +717,11 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
       // a turn never ends with nothing to read (2026-10-12): sent back once, even after a guard stopped its tools
       if (!readable(t) && t.silent < 1) {
         t.silent += 1;
-        ctx.append({ kind: "signal", type: "check", body: SILENT_BACK });
+        ctx.append({
+          kind: "signal",
+          type: "check",
+          body: [SILENT_BACK, storedWords(t)].filter(Boolean).join(" "),
+        });
         return;
       }
       if (t.stopped || t.asked) return;

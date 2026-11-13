@@ -29,7 +29,7 @@ import {
 } from "@flue/runtime";
 import { Bash, InMemoryFs } from "just-bash";
 import { chartCommand, plainSvg } from "./chart.ts";
-import { type TurnState, turnOf } from "./state.ts";
+import { storedWords, type TurnState, turnOf } from "./state.ts";
 import type { Writers } from "./tools.ts";
 
 /** The workspace's limits, each said in words when it is hit. */
@@ -312,13 +312,16 @@ export function guarded(
         details: {},
         ...(terminate ? { terminate: true } : {}),
       });
-      if (turn.stopped) return say(`Refused: ${turn.stopped}. Answer the person now.`, true);
+      // what the turn stored goes with the stop, so the last words name it (2026-11-13)
+      const stored = storedWords(turn);
+      if (turn.stopped)
+        return say(`Refused: ${turn.stopped}. Answer the person now.${stored ? ` ${stored}` : ""}`, true);
       const gate = turn.machine.call(tool.name, params as Record<string, unknown>);
       if (!gate.ok) {
         turn.stopped =
           gate.terminal === "loop_stopped" ? "the same call came five times" : "this turn's work is spent";
         return say(
-          `Stopped: ${turn.stopped}. Stop calling tools. Answer the person now, in plain words, with what you have.`,
+          `Stopped: ${turn.stopped}. Stop calling tools. Answer the person now, in plain words, with what you have.${stored ? ` ${stored}` : ""}`,
         );
       }
       turn.tools.push(tool.name);

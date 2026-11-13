@@ -9,6 +9,7 @@ import { postgres } from "@flue/postgres";
 import type { PersistenceAdapter } from "@flue/runtime/adapter";
 import { sqlite } from "@flue/runtime/node";
 import sql from "postgres";
+import { DEFAULT_STORE } from "./config.ts";
 
 export function adapterFor(store: string): PersistenceAdapter {
   if (/^postgres(ql)?:\/\//u.test(store)) {
@@ -27,4 +28,4 @@ export function adapterFor(store: string): PersistenceAdapter {
   return sqlite(store);
 }
 
-export default adapterFor(process.env.ASSISTANT_STORE ?? "./data/assistant.sqlite");
+export default adapterFor(process.env.ASSISTANT_STORE ?? DEFAULT_STORE);
