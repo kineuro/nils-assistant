@@ -382,8 +382,18 @@ export function cutNote(cut: { parts: string[]; budget_ms: number | null }, answ
   const time = cut.budget_ms === null ? "their time limit" : `their time limit (${cut.budget_ms} ms)`;
   const missing = `The stage counts are not all there: counting the question stage by stage ran past ${time}, so of the diagnosis these parts are cut short or left out: ${cut.parts.join(", ")}.`;
   return answered
-    ? `${missing} The preview is the question's whole answer, counted with the full time: answer from it, and say only if asked that the step-by-step counts are missing. This is no slow question: propose no job for it, and do not draft it again for the stage counts.`
+    ? `${missing} The preview is the question's whole answer, counted with the full time: answer from it, and say in the answer that the steps could not be counted in the time, so the number is the question's own count, unchecked step by step. This is no slow question: propose no job for it, and do not draft it again for the stage counts.`
     : missing;
+}
+
+/**
+ * Keep whether a question's answer came with its stage counts: one whose counts were cut is answered with that
+ * said (the check before the turn settles holds the answer to it), and one counted whole later is no longer one.
+ */
+function noteCounted(ctx: ToolCtx, document: number, cut: unknown, answered: boolean): void {
+  const at = ctx.turn.uncounted.indexOf(document);
+  if (cut && answered && at < 0) ctx.turn.uncounted.push(document);
+  if (!cut && at >= 0) ctx.turn.uncounted.splice(at, 1);
 }
 
 /**
@@ -1303,6 +1313,7 @@ const queryDraft: OneTool = {
         ? await measuresOf(ctx, document)
         : null;
     const emptied = emptiedOf(body.diagnosis);
+    noteCounted(ctx, document, cut, previewed.kind === "ok");
     return {
       output: {
         document,
@@ -1949,6 +1960,7 @@ const queryRunReadonly: OneTool = {
           ? { parts: [...PARTS_COUNTED], budget_ms: null }
           : null;
     const emptied = d.kind === "ok" ? emptiedOf(d.body) : null;
+    if (d.kind === "ok" || cut) noteCounted(ctx, document, cut, p.kind === "ok");
     return {
       output: {
         document,

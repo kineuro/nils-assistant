@@ -15,6 +15,7 @@ import { countsNotGiven, noteNumbers } from "./numbers.ts";
 import {
   answerOf,
   type ConversationState,
+  keptDocument,
   runPlanned,
   runSteps,
   slowDocument,
@@ -219,6 +220,29 @@ export function countComplaint(answer: string, known: ReadonlySet<number>): stri
   return `the answer states ${said}, which no result of this turn holds: every number in the answer is one a result states (the count, the stage counts and drops of the diagnosis, the preview) or the facts give. Leave ${it} out; if the person needs ${it}, say ${it} ${is} another question`;
 }
 
+/** Words that say the steps of a question were not counted: a word of the steps beside a word of what is missing. */
+const STEP = String.raw`\b(?:steps?|stages?)\b`;
+const NOT_DONE = String.raw`(?:\bnot\b|n['\u2019]t\b|\bwithout\b|\bunchecked\b|\bleft out\b|\bmissing\b|\bran (?:out|past)\b)`;
+const STEPS_SAID = new RegExp(`${STEP}[^.!?]{0,80}${NOT_DONE}|${NOT_DONE}[^.!?]{0,80}${STEP}`, "iu");
+
+/**
+ * What is wrong with an answer from a question whose stage counts the registry left out for time: it gives the
+ * number as flatly as one checked step by step. The answer says the steps could not be counted in the time and
+ * that the number is the question's own count; null when it does, or when every question it rests on (those it
+ * names, else the last drafted) was counted whole.
+ */
+export function uncountedComplaint(t: TurnState, answer: string): string | null {
+  if (t.uncounted.length === 0 || answer.trim() === "" || t.asked) return null;
+  const named = t.uncounted.filter((d) =>
+    new RegExp(String.raw`\b(?:documents?|questions?)\b[^.!?]{0,40}?(?<!\d)${d}(?!\d)`, "iu").test(answer),
+  );
+  const last = keptDocument(t.drafted, answer);
+  const cut = named.length ? named : t.uncounted.filter((d) => d === last);
+  if (cut.length === 0 || STEPS_SAID.test(answer)) return null;
+  const which = cut.length === 1 ? `document ${cut[0]}` : `documents ${cut.join(" and ")}`;
+  return `the steps of ${which} could not be counted in the time, so nothing checked ${cut.length === 1 ? "its number" : "their numbers"} step by step: say so in one plain sentence (the steps could not be counted in the time, and the number is the question's own count, unchecked step by step)`;
+}
+
 /** What is wrong with the turn as it would settle; empty when nothing is. */
 export async function complaintsOf(c: CheckContext): Promise<string[]> {
   const out: string[] = [];
@@ -290,6 +314,9 @@ export async function complaintsOf(c: CheckContext): Promise<string[]> {
     const count = countComplaint(answer, known);
     if (count) out.push(count);
   }
+  // the stage counts were left out for time: the answer says the number is unchecked step by step
+  const uncounted = uncountedComplaint(c.turn, answer);
+  if (uncounted) out.push(uncounted);
   // a valid question too slow for the chat is stored and runs as a job (2026-11-13): the turn raises its plan once,
   // and the answer names the document, never that nothing was stored
   const slow = slowComplaint(c.turn, answer);

@@ -6,9 +6,10 @@
 // is never sent back for what it says.
 
 import { describe, expect, it } from "vitest";
-import { complaintsOf, countComplaint } from "../src/one/checks.ts";
+import { complaintsOf, countComplaint, uncountedComplaint } from "../src/one/checks.ts";
 import { countsNotGiven, countsStated, given, noteNumbers } from "../src/one/numbers.ts";
 import { carryNumbers, conversationOf, newTurn } from "../src/one/state.ts";
+import { cutNote } from "../src/one/tools.ts";
 
 /** What a draft answered, as the model reads it: the stage counts, a drop and the count. */
 const RESULT = {
@@ -175,5 +176,47 @@ describe("a count no result of the turn holds", () => {
 
   it("names each number once however often the answer says it", () => {
     expect(countsNotGiven("777 subjects, again 777 subjects.", known()).map((c) => c.n)).toEqual([777]);
+  });
+});
+
+describe("an answer whose steps were not counted", () => {
+  it("says the steps could not be counted and the number is unchecked", () => {
+    const t = newTurn("cut-1", "How many subjects?");
+    t.drafted.push(41);
+    t.uncounted.push(41);
+    expect(uncountedComplaint(t, "632 subjects have both (document 41).")).toMatch(
+      /steps of document 41 could not be counted in the time/u,
+    );
+    for (const said of [
+      "632 subjects have both (document 41). The steps could not be counted in the time, so this is the question's own count, unchecked step by step.",
+      "632 subjects (document 41); I could not check it step by step in the time.",
+      "Document 41 counts 632 subjects. That number was not checked stage by stage: the time ran out.",
+      // as a chat wrote it, and was sent back for it: a hyphened word and a shortened not
+      "632 subjects (document 41). That count is the question's own; the step-by-step breakdown ran past the time limit, so it isn't checked stage by stage.",
+      "632 subjects (document 41), which I couldn't check step by step.",
+    ])
+      expect(uncountedComplaint(t, said), said).toBeNull();
+  });
+
+  it("holds only the question the answer keeps, and none counted whole", () => {
+    const t = newTurn("cut-2", "How many subjects?");
+    t.drafted.push(41, 42);
+    t.uncounted.push(41);
+    // the answer keeps document 42, whose steps were counted
+    expect(uncountedComplaint(t, "632 subjects have both (document 42).")).toBeNull();
+    // an answer of two numbers names both questions: the one left uncounted is held, wherever it is named
+    expect(
+      uncountedComplaint(t, "914 subjects (document 42), and 632 of them on one scanner (document 41)."),
+    ).toMatch(/steps of document 41 could not be counted/u);
+    const whole = newTurn("cut-3", "How many subjects?");
+    whole.drafted.push(43);
+    expect(uncountedComplaint(whole, "632 subjects have both (document 43).")).toBeNull();
+  });
+
+  it("is told by the tool's own note beside the answer", () => {
+    const note = cutNote({ parts: ["funnel", "drops"], budget_ms: 5000 }, true);
+    expect(note).toMatch(/say in the answer that the steps could not be counted in the time/u);
+    expect(note).toMatch(/unchecked step by step/u);
+    expect(note).not.toMatch(/only if asked/u);
   });
 });

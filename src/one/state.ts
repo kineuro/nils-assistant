@@ -80,6 +80,11 @@ export interface TurnState {
    * A count the answer states is one of them, or the sum or the difference of two.
    */
   known: Set<number>;
+  /**
+   * The questions whose answer came without all their stage counts, which the registry left out for time: the
+   * answer says the steps could not be counted, and that the number is unchecked step by step.
+   */
+  uncounted: number[];
 }
 
 export interface Rehearsal {
@@ -160,6 +165,7 @@ export function newTurn(conversation: string, message: string, now = Date.now())
     shaped: [],
     heldBack: [],
     known: new Set(),
+    uncounted: [],
   };
   noteNumbers(t.known, message);
   turns.set(conversation, t);
