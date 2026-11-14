@@ -11,6 +11,7 @@ import { cohortNote, cohortsMeant, type DatasetFact } from "../src/one/datasets.
 import { countsNotGiven, countsStated, given, noteNumbers } from "../src/one/numbers.ts";
 import { carryNumbers, conversationOf, newTurn } from "../src/one/state.ts";
 import { cutNote } from "../src/one/tools.ts";
+import { unplainWords } from "../src/one/words.ts";
 
 /** What a draft answered, as the model reads it: the stage counts, a drop and the count. */
 const RESULT = {
@@ -251,5 +252,24 @@ describe("a name that is a cohort's and a dataset's", () => {
     expect(cohortNote(["study-a"])).toMatch(
       /name the cohort study-a; a dataset has the same name.*cohort's members alone, with no dataset clause/u,
     );
+  });
+});
+
+describe("a scanner's station", () => {
+  it("is the field's word, and a station of the chat's own is not", () => {
+    for (const plain of [
+      "Counted as the same scanner model and station name on both visits.",
+      "The station names differ between the two.",
+      "Kept only where both were done on the same station: 632 sessions.",
+      "They agree on scanner model, station and both protocols.",
+      "The other 282 had their pair on different machines or stations.",
+      "A station alone is a room's label, which several scanner models share.",
+      "Each visit's scanner was read from its largest scan of the kind, among the 632 visits that hold one, and a subject counted with two visits on one model and station pair.",
+    ])
+      expect(unplainWords(plain), plain).toEqual([]);
+    expect(unplainWords("Another station counted them.")).toEqual(
+      expect.arrayContaining(["another station", "station"]),
+    );
+    expect(unplainWords("The ask-help station counted 24 subjects.")).toEqual(["station"]);
   });
 });
