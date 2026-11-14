@@ -4,6 +4,8 @@ All notable changes to the NILS assistant are recorded here. The format follows 
 
 ## [Unreleased]
 
+## [1.0.0-alpha.35] - 2026-11-14
+
 ### Added
 
 - A count the answer states is one the turn was given (2026-11-14, a question set asked several times). The same questions gave a right number on one try and a wrong one on the next, and an answer asked for subjects added a count of sessions no result held. What a turn reads is now kept as numbers (its tools' results, the facts, the person's words, and what earlier turns of the conversation were given and said), and before a turn that found data settles, each whole number of three or more digits it says of subjects, sessions, visits, scans, stacks, groups or pairs is looked up there; one that is not there, and is not the sum or the difference of two that are, sends the answer back once. A document's number, a year, a threshold, a rounded figure and a percentage are no counts; a turn that worked numbers out in its workspace, and a conversation whose earlier turns the process did not see, are not checked.
