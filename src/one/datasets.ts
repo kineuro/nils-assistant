@@ -240,6 +240,37 @@ export function datasetsNamed(message: string, list: readonly DatasetFact[]): Da
   );
 }
 
+/**
+ * The names the words call a cohort and not a dataset, of those that are both: "in the X cohort", "the members of
+ * the cohort X". A cohort and the dataset that feeds it often share a name and do not hold the same scans; told
+ * that such words named the dataset, a chat added a dataset clause to a question of the cohort in some runs and
+ * not in others, and the count moved by a few subjects.
+ */
+export function cohortsMeant(
+  message: string,
+  datasets: readonly DatasetFact[],
+  cohorts: readonly string[],
+): string[] {
+  const are = new Set(cohorts.map((c) => c.toLowerCase()));
+  const called = (name: string, what: string): boolean => {
+    const n = literal(name.toLowerCase());
+    return new RegExp(
+      String.raw`(?<![\p{L}\p{N}_-])(?:${n}\s+${what}s?|${what}s?\s+(?:named\s+|called\s+)?${n})(?![\p{L}\p{N}_-])`,
+      "iu",
+    ).test(message);
+  };
+  return datasetsNamed(message, datasets)
+    .map((d) => d.name)
+    .filter((n) => are.has(n.toLowerCase()) && called(n, "cohort") && !called(n, "dataset"));
+}
+
+/** What the hint says of a name the words call a cohort that a dataset shares. */
+export function cohortNote(names: readonly string[]): string {
+  if (names.length === 0) return "";
+  const which = names.join(" and ");
+  return ` The words name the cohort ${which}; a dataset has the same name, and the words do not ask for it: the question is of the cohort's members alone, with no dataset clause.`;
+}
+
 /** What a hint says last: which steps have run on each dataset it names (src/one/steps.ts), where they were read. */
 const after = (steps: readonly string[]): string => steps.map((s) => ` ${s}`).join("");
 

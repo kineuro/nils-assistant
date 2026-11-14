@@ -7,6 +7,7 @@
 
 import { describe, expect, it } from "vitest";
 import { complaintsOf, countComplaint, uncountedComplaint } from "../src/one/checks.ts";
+import { cohortNote, cohortsMeant, type DatasetFact } from "../src/one/datasets.ts";
 import { countsNotGiven, countsStated, given, noteNumbers } from "../src/one/numbers.ts";
 import { carryNumbers, conversationOf, newTurn } from "../src/one/state.ts";
 import { cutNote } from "../src/one/tools.ts";
@@ -218,5 +219,37 @@ describe("an answer whose steps were not counted", () => {
     expect(note).toMatch(/say in the answer that the steps could not be counted in the time/u);
     expect(note).toMatch(/unchecked step by step/u);
     expect(note).not.toMatch(/only if asked/u);
+  });
+});
+
+describe("a name that is a cohort's and a dataset's", () => {
+  const fact = (name: string, feeds: string[] | null = null): DatasetFact =>
+    ({ name, state: null, subjects: 1204, visits: 5310, scans: 20877, feeds }) as unknown as DatasetFact;
+  const list = [fact("study-a", ["study-a"]), fact("study-b")];
+
+  it("is the cohort when the words call it one", () => {
+    const cohorts = ["study-a", "ms-cohort-b"];
+    expect(cohortsMeant("In the study-a cohort, how many subjects have a FLAIR?", list, cohorts)).toEqual([
+      "study-a",
+    ]);
+    expect(cohortsMeant("How many scans do the members of the cohort study-a have?", list, cohorts)).toEqual([
+      "study-a",
+    ]);
+    // called a dataset, called both, or called neither: the dataset stays named
+    for (const words of [
+      "How many T2w scans are stored in the dataset study-a?",
+      "In the study-a cohort, how many scans come from the study-a dataset?",
+      "How many scans does study-a hold?",
+    ])
+      expect(cohortsMeant(words, list, cohorts), words).toEqual([]);
+    // a dataset that is no cohort's name is a dataset whatever the words say beside it
+    expect(cohortsMeant("In the study-b cohort, how many?", list, cohorts)).toEqual([]);
+  });
+
+  it("is said in the hint, with no dataset clause", () => {
+    expect(cohortNote([])).toBe("");
+    expect(cohortNote(["study-a"])).toMatch(
+      /name the cohort study-a; a dataset has the same name.*cohort's members alone, with no dataset clause/u,
+    );
   });
 });

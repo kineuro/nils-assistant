@@ -43,6 +43,8 @@ import { complaintsOf, readable, SILENT_BACK, sendBack, validator } from "./chec
 import {
   carriedHint,
   citesCount,
+  cohortNote,
+  cohortsMeant,
   type DatasetFact,
   datasetHint,
   datasetsBlock,
@@ -657,17 +659,14 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
       const names = namesOnly(catalogOf(subject)?.datasets);
       const list = datasets?.kind === "ok" ? datasets.list : names;
       const route = routeOf(message);
-      const named = datasetsNamed(message, list);
+      // a name that is a cohort's and a dataset's, called a cohort by the words, names no dataset
+      const cohortNames = (catalogOf(subject)?.cohorts ?? []).map((c) => c.name);
+      const asCohort = cohortsMeant(message, list, [...cohortNames, ...list.flatMap((x) => x.feeds ?? [])]);
+      const named = datasetsNamed(message, list).filter((x) => !asCohort.includes(x.name));
       // a follow-up that names no dataset keeps the one named before; words that turn to a cohort leave it
       let carried: DatasetFact[] = [];
       if (named.length) convo.datasets = named.map((x) => x.name);
-      else if (
-        leavesDatasets(
-          message,
-          (catalogOf(subject)?.cohorts ?? []).map((c) => c.name),
-        )
-      )
-        convo.datasets = [];
+      else if (leavesDatasets(message, cohortNames)) convo.datasets = [];
       else if (
         !route.summary &&
         !route.jobs &&
@@ -716,13 +715,13 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
         datasets: block,
         grants: grantsLine(mounted),
         memory,
-        hint: hintFor(
+        hint: `${hintFor(
           route,
           mounted,
           o.arm,
           about,
           steps.filter((s): s is string => s !== null),
-        ),
+        )}${mounted.skills.includes("find-data") ? cohortNote(asCohort) : ""}`,
         // record 55 K6: a card, a result, a cohort or a saved selection named with @, and the tool that reads it
         mentioned: mentionsLine(message, mounted.tools),
         document,
