@@ -11,6 +11,7 @@ import type { HeldBack } from "../seam/shaped.ts";
 import { heldReading, shapeCounts } from "../stations/identity-check.ts";
 import { ladderStore } from "../stations/operator.ts";
 import { saysNotThere } from "./datasets.ts";
+import { countsNotGiven, noteNumbers } from "./numbers.ts";
 import {
   answerOf,
   type ConversationState,
@@ -204,6 +205,20 @@ export function slowComplaint(t: TurnState, answer: string): string | null {
     : `the question is stored as document ${document}: name it by its number, and never say it was not stored`;
 }
 
+/**
+ * What is wrong with an answer that states a count nothing the turn was given holds: a chat asked for subjects
+ * added a count of sessions that was the subject count again, and one stated a total no result gave. Null when
+ * every count it states is a number of the turn's results, the facts or the person's words, of an earlier turn of
+ * the conversation, or the sum or the difference of two of those.
+ */
+export function countComplaint(answer: string, known: ReadonlySet<number>): string | null {
+  const missing = countsNotGiven(answer, known);
+  if (missing.length === 0) return null;
+  const said = missing.map((c) => `"${c.text}"`).join(", ");
+  const [it, is] = missing.length === 1 ? ["it", "is"] : ["them", "are"];
+  return `the answer states ${said}, which no result of this turn holds: every number in the answer is one a result states (the count, the stage counts and drops of the diagnosis, the preview) or the facts give. Leave ${it} out; if the person needs ${it}, say ${it} ${is} another question`;
+}
+
 /** What is wrong with the turn as it would settle; empty when nothing is. */
 export async function complaintsOf(c: CheckContext): Promise<string[]> {
   const out: string[] = [];
@@ -260,6 +275,20 @@ export async function complaintsOf(c: CheckContext): Promise<string[]> {
       out.push(
         `the last question drafted (document ${last}) does not validate: ${why}. Fix it and draft again`,
       );
+  }
+  // a count the answer states is one the turn was given: never where earlier turns went unseen, or where the
+  // turn worked numbers out in its workspace
+  if (
+    active.has("find-data") &&
+    !c.convo.unseen &&
+    !c.turn.asked &&
+    !c.turn.tools.includes("analysis_table")
+  ) {
+    const known = new Set([...c.convo.known, ...c.turn.known]);
+    // what the turn proposed and read of runs is given too
+    noteNumbers(known, [c.turn.proposed.map((p) => p.details), c.turn.runs]);
+    const count = countComplaint(answer, known);
+    if (count) out.push(count);
   }
   // a valid question too slow for the chat is stored and runs as a job (2026-11-13): the turn raises its plan once,
   // and the answer names the document, never that nothing was stored

@@ -56,10 +56,20 @@ import {
 import { factsOf, factsSummary, TOLD_NOTHING, type Told, toldSince } from "./facts.ts";
 import { memoryFacts } from "./memory.ts";
 import { type Access, grantsLine, type Mounted, mountFor, SKILL_ORDER } from "./mount.ts";
+import { noteNumbers } from "./numbers.ts";
 import { AGENT } from "./purpose.ts";
 import { hintLine, routeOf } from "./route.ts";
 import { bodyFor, findExamples, loadSkills, skillOf } from "./skills.ts";
-import { answerOf, conversationOf, keptDocument, newTurn, stopNext, storedWords, turnOf } from "./state.ts";
+import {
+  answerOf,
+  carryNumbers,
+  conversationOf,
+  keptDocument,
+  newTurn,
+  stopNext,
+  storedWords,
+  turnOf,
+} from "./state.ts";
 import { readSteps, STEPS_READ, STEPS_WAIT_MS, stepsRead, stepsText, stepsWithin } from "./steps.ts";
 import {
   actsAsAdmin,
@@ -246,6 +256,9 @@ export function watchTurns(): void {
       if (e.agent === "find") turn.skills.add("find-data");
       return;
     }
+    // what a tool answered is what the turn was given, a sub-agent's tools and the workspace's as well: the numbers
+    // an answer may state. A skill's own text is instructions, and gives none.
+    if (e.type === "tool" && !SKILL_TOOLS.has(String(e.toolName))) noteNumbers(turn.known, e.result);
     // a sub-agent's own events are not the turn's
     if (e.taskId) return;
     // a summary of the earlier turns took the facts' messages with it: the next turn tells them again
@@ -281,6 +294,9 @@ export function watchTurns(): void {
     }
   });
 }
+
+/** The framework's tools that read a skill: their answer is the skill's text, no result of the registry. */
+const SKILL_TOOLS = new Set(["activate_skill", "read_skill_resource"]);
 
 /** The framework's own tools, which the agent does not mount itself: the guards reach them through the runtime's interceptor. */
 export const FRAMEWORK_TOOLS = new Set(["activate_skill", "read_skill_resource", "task"]);
@@ -460,6 +476,7 @@ function mountTool(t: OneTool, base: Omit<ToolCtx, "toolCallId">): void {
           "Try once more with one change, or tell the person the assistant could not do this step; never say the registry refused it.",
         );
       }
+      noteNumbers(turn.known, out.output);
       if (gate.warning && out.output && typeof out.output === "object" && !Array.isArray(out.output))
         out = {
           ...out,
@@ -596,6 +613,9 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
     // a person's message starts a turn: fresh guards, fresh caps, the turn's facts appended once
     useAgentStart(async (ctx) => {
       if (summarizing || d?.kind !== "user") return;
+      // the numbers the turn before was given stay the conversation's; one told its facts in another process has
+      // turns this one did not see
+      carryNumbers(id, told.grants !== null);
       newTurn(id, message);
       for (const s of SEAMS)
         try {
@@ -688,11 +708,12 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
       const document = kept?.document ?? null;
       // after a summary of the earlier turns the facts are told again, whole
       const compactions = kept?.compactions ?? 0;
+      const block = datasets ? datasetsBlock(datasets, names) : null;
       const facts = factsOf({
         told: toldSince(told, compactions, summarized.delete(id)),
         compactions,
         summary,
-        datasets: datasets ? datasetsBlock(datasets, names) : null,
+        datasets: block,
         grants: grantsLine(mounted),
         memory,
         hint: hintFor(
@@ -707,6 +728,8 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
         document,
       });
       setTold(facts.told);
+      // the facts are sent once and hold for every turn: their numbers are given to each
+      noteNumbers(current.known, [summary, block, memory, facts.text]);
       ctx.append({ kind: "signal", type: "facts", body: facts.text });
     });
 
