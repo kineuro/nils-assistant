@@ -4,6 +4,17 @@ All notable changes to the NILS assistant are recorded here. The format follows 
 
 ## [Unreleased]
 
+### Added
+
+- A count the answer states is one the turn was given (2026-11-14, a question set asked several times). The same questions gave a right number on one try and a wrong one on the next, and an answer asked for subjects added a count of sessions no result held. What a turn reads is now kept as numbers (its tools' results, the facts, the person's words, and what earlier turns of the conversation were given and said), and before a turn that found data settles, each whole number of three or more digits it says of subjects, sessions, visits, scans, stacks, groups or pairs is looked up there; one that is not there, and is not the sum or the difference of two that are, sends the answer back once. A document's number, a year, a threshold, a rounded figure and a percentage are no counts; a turn that worked numbers out in its workspace, and a conversation whose earlier turns the process did not see, are not checked.
+- The find-data skill says how a word with two readings is read, and two worked examples show the plain shapes. The same scanner is the scanner model and the station together, and the answer says so; a name that is a cohort's and a dataset's asks the one the words call it and never adds the other; a question of two numbers, the second a part of the first, is two documents and never one that tags, unions or groups the parts; a session that holds both of two kinds is the session set with `has` of each, with no pick; the whole registry is asked with no cohort set above, where a member of two cohorts would count twice; and a document carries no condition the words do not state, such as original acquisitions only. The cookbook gains `both-kinds-in-a-session` and `sessions-on-the-same-scanner`, both validated by the registry.
+
+### Fixed
+
+- An answer from a question whose steps were not counted says so. When the registry left a draft's stage counts out for time and the count came, the tool's note told the chat to mention it only if asked, and the number was given as flatly as one checked step by step. The note and the skill now ask for one plain sentence (the steps could not be counted in the time, and the number is the question's own count), and the check before the turn settles sends back once an answer that rests on such a question without it.
+- Words that call a shared name a cohort are no longer hinted as its dataset. "In the X cohort", where a dataset is also named X, got the hint that the words named the dataset and that anything narrower names it with the field `dataset`; in some runs the chat then added a dataset clause to a question of the cohort's members, and the count moved by a few subjects. Such words now name no dataset, and the hint says the question is of the cohort's members alone.
+- A scanner's station is the field's word. The plain-words check sent back every answer that said two visits were on the same station, and the chat rewrote it as a room or a site, which a station name is not. A station name, and a station in a sentence about scanners or machines, now passes; a station of the chat's own does not.
+
 ## [1.0.0-alpha.34] - 2026-11-13
 
 ### Added
