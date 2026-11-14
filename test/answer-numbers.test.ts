@@ -5,13 +5,17 @@
 // below holds one of the faults found, with made-up numbers; a right answer
 // is never sent back for what it says.
 
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { parse } from "yaml";
 import { complaintsOf, countComplaint, uncountedComplaint } from "../src/one/checks.ts";
 import { cohortNote, cohortsMeant, type DatasetFact } from "../src/one/datasets.ts";
 import { countsNotGiven, countsStated, given, noteNumbers } from "../src/one/numbers.ts";
+import { bodyFor, findExamples, loadSkills } from "../src/one/skills.ts";
 import { carryNumbers, conversationOf, newTurn } from "../src/one/state.ts";
 import { cutNote } from "../src/one/tools.ts";
 import { unplainWords } from "../src/one/words.ts";
+import { closest } from "../src/stations/select.ts";
 
 /** What a draft answered, as the model reads it: the stage counts, a drop and the count. */
 const RESULT = {
@@ -271,5 +275,97 @@ describe("a scanner's station", () => {
       expect.arrayContaining(["another station", "station"]),
     );
     expect(unplainWords("The ask-help station counted 24 subjects.")).toEqual(["station"]);
+  });
+});
+
+describe("the find-data skill, for answers that hold", () => {
+  const skill = loadSkills(["./stations"], ["find-data"]).get("find-data");
+  if (!skill) throw new Error("the find-data skill is missing");
+  const examples = findExamples(["./stations"]);
+  const COOKBOOK = "stations/ask-help/cookbook";
+
+  it("carries the rules", () => {
+    const b = skill.body;
+    // a cohort and a dataset of one name
+    expect(b).toMatch(/A name that is a cohort's and a dataset's/u);
+    expect(b).toMatch(/Never add the other/u);
+    // the same scanner
+    expect(b).toMatch(
+      /\*\*The same scanner\*\*, \*\*the same machine\*\*: the scanner model and the station together/u,
+    );
+    expect(b).toMatch(/`manufacturer_model_name` and `station_name`/u);
+    // inside one session the station alone: two comparisons of attached scans ran past the chat's time
+    expect(b).toMatch(
+      /Two scans of one session on the same scanner\*\*: their `station_name` equal, that one comparison alone/u,
+    );
+    expect(b).toMatch(/never a second on the model, which makes the count too slow/u);
+    // two numbers, two documents
+    expect(b).toMatch(/two documents, the second the first with one more condition/u);
+    expect(b).toMatch(/never one document that tags, unions or groups the parts/u);
+    // no condition the words do not state
+    expect(b).toMatch(/\*\*Only what the words ask\*\*: no condition they do not state/u);
+    // every number is a result's
+    expect(b).toMatch(/Every number you say is one this turn's results state/u);
+    // the stage counts left out
+    expect(b).toMatch(/steps could not be counted in the time/u);
+    expect(b).toMatch(/unchecked step by step/u);
+    // a session that holds both
+    expect(b).toMatch(/A session that holds both an A and a B\*\* is the session set with `has` of each/u);
+  });
+
+  it("is backed by two worked examples of the plain shapes, in the cookbook's made-up names", () => {
+    type Doc = { sets: Record<string, Record<string, unknown>>; out: { set: string; level: string } };
+    const read = (f: string): { raw: string; doc: Doc } => {
+      const raw = readFileSync(`${COOKBOOK}/${f}`, "utf8");
+      return { raw, doc: parse(raw) as Doc };
+    };
+    const both = read("both-kinds-in-a-session.ask.yml");
+    const same = read("sessions-on-the-same-scanner.ask.yml");
+    for (const x of [both, same]) {
+      expect(x.raw).toMatch(/^# question: .{40,}$/mu);
+      expect(x.raw).toMatch(/^# synthetic: /mu);
+      expect(x.raw).toContain('"ms-cohort-b"');
+      expect(x.doc.out).toEqual({ set: "answer", level: "count" });
+      // no dataset clause beside the cohort
+      expect(x.raw).not.toMatch(/"dataset"/u);
+    }
+    // a session that holds both: has of each kind, and no pick anywhere
+    expect(both.doc.sets.both).toEqual({
+      grain: "session",
+      from: "visits",
+      has: [
+        { set: "mprage", min: 1 },
+        { set: "flair", min: 1 },
+      ],
+    });
+    expect(both.raw).not.toMatch(/^\s*(?:pick|attach|same):/mu);
+    // the same scanner: the first with one scan attached per session, and same by model and station
+    expect(same.doc.sets.both).toMatchObject({
+      has: both.doc.sets.both.has,
+      attach: [{ as: "scanned", set: "scanned" }],
+    });
+    expect(same.doc.sets.scanned.pick).toMatchObject({ per: "session", n: 1 });
+    expect(same.doc.sets.answer.same).toEqual([
+      {
+        as: "alike",
+        over: "both",
+        min: 2,
+        by: [
+          ["field", {}, "scanned.manufacturer_model_name"],
+          ["field", {}, "scanned.station_name"],
+        ],
+      },
+    ]);
+  });
+
+  it("puts them in front of the questions they answer", () => {
+    const first = (q: string) => closest(q, examples, 3)[0]?.file;
+    expect(
+      first("How many subjects of cohort A have at least one session holding both a TSE and an MPRAGE?"),
+    ).toBe("both-kinds-in-a-session.ask.yml");
+    const asked =
+      "In cohort A, how many subjects have at least 4 sessions with a 3D FLAIR, and how many of them have 2 such sessions on the same scanner?";
+    expect(first(asked)).toBe("sessions-on-the-same-scanner.ask.yml");
+    expect(bodyFor(skill, asked, examples)).toContain('["field", {}, "scanned.station_name"]');
   });
 });

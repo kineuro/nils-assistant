@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: In cohort B, how many subjects have at least 2 sessions with an MPRAGE and a 3D FLAIR, 2 such sessions on the same scanner (the same MRI machine)?
+# synthetic: written for the cookbook, not a gold of the bench; the question before it with one more condition
+ast_version: 1
+name: subjects with two sessions with an MPRAGE and a 3D FLAIR on the same scanner
+scheme: default
+sets:
+  scope:  {grain: cohort,  where: [["=", {}, ["field", {}, "name"], "ms-cohort-b"]]}
+  people: {grain: subject, of: scope}
+  visits: {grain: session, of: people}
+  mprage: {grain: stack, of: visits, where: [["=", {}, ["axis", {}, "technique"], "MPRAGE"]]}
+  flair:
+    grain: stack
+    of: visits
+    where:
+      - ["=",   {}, ["axis", {}, "base"], "T2w"]
+      - ["has", {}, ["axis", {}, "modifier"], "FLAIR"]
+      - ["=",   {}, ["derived", {}, "acquisition_type"], "3D"]
+  # the scan a session's scanner is read from: one MPRAGE per session
+  scanned:
+    grain: stack
+    of: visits
+    where: [["=", {}, ["axis", {}, "technique"], "MPRAGE"]]
+    pick: {per: session, n: 1, ties: report, by: [[["field", {}, "n_instances"], desc], [["field", {}, "id"], asc]]}
+  both:
+    grain: session
+    from: visits
+    has: [{set: mprage, min: 1}, {set: flair, min: 1}]
+    attach: [{as: scanned, set: scanned}]
+  # the same scanner is the scanner model and the station together, shared by 2 or more of the sessions
+  answer:
+    grain: subject
+    from: people
+    has: [{set: both, min: 2, as: n_both}]
+    same: [{as: alike, over: both, min: 2, by: [["field", {}, "scanned.manufacturer_model_name"], ["field", {}, "scanned.station_name"]]}]
+keep: [both, answer]
+out: {set: answer, level: count}
