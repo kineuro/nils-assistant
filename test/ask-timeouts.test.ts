@@ -47,6 +47,9 @@ const { conversationOf, newTurn, stopNext, storedWords, turnOf } = await import(
 const { countsCut, stepsOf, timeoutOf, TOOLS } = await import("../src/one/tools.ts");
 
 /** The words the registry's doors answer a statement stopped at the limit with, today. */
+/** What an answer says when its question's steps were not counted. */
+const UNCHECKED =
+  "The steps could not be counted in the time, so this is the question's own count, unchecked step by step.";
 const RAN_PAST = "the statement ran past 20000 ms; POST /api/ask/jobs runs it unbounded";
 const DIAGNOSIS = {
   valid: true,
@@ -315,7 +318,7 @@ describe("a timeout is its own outcome, never a draft that did not validate", ()
         unavailable: { code: "timeout", parts: ["funnel", "drops", "ties", "coarse"], budget_ms: 5000 },
       },
       stage_counts:
-        "The stage counts are not all there: counting the question stage by stage ran past their time limit (5000 ms), so of the diagnosis these parts are cut short or left out: funnel, drops, ties, coarse. The preview is the question's whole answer, counted with the full time: answer from it, and say only if asked that the step-by-step counts are missing. This is no slow question: propose no job for it, and do not draft it again for the stage counts.",
+        "The stage counts are not all there: counting the question stage by stage ran past their time limit (5000 ms), so of the diagnosis these parts are cut short or left out: funnel, drops, ties, coarse. The preview is the question's whole answer, counted with the full time: answer from it, and say in the answer that the steps could not be counted in the time, so the number is the question's own count, unchecked step by step. This is no slow question: propose no job for it, and do not draft it again for the stage counts.",
       preview: { registry_data: { level: "count", columns: ["n_subjects"], rows: [[12]], truncated: false } },
       repairs: [],
     });
@@ -684,11 +687,11 @@ describe("the one agent with a question too slow for the chat", () => {
     play([
       { tool: "activate_skill", args: { name: "find-data" } },
       { tool: "query_draft", args: { text: "ast_version: 1\nname: cut-and-answers\n" } },
-      { text: "There are 12 subjects (document 34)." },
+      { text: `There are 12 subjects (document 34). ${UNCHECKED}` },
     ]);
     const h = init(Nils, { id: "oc-cut" });
     const reply = await h.read(await h.dispatch("How many subjects of cohort-a have two visits?"));
-    expect(reply.text).toBe("There are 12 subjects (document 34).");
+    expect(reply.text).toBe(`There are 12 subjects (document 34). ${UNCHECKED}`);
     const drafted = JSON.parse(lastResult(seen[2])) as Output;
     expect(drafted).toMatchObject({ document: 34, preview: { registry_data: { rows: [[12]] } } });
     expect(drafted.slow).toBeUndefined();
@@ -700,6 +703,28 @@ describe("the one agent with a question too slow for the chat", () => {
         .of("oc-cut")
         .map((c) => [c.kind, c.payload.document]),
     ).toEqual([["query_version", 34]]);
+  }, 60_000);
+
+  it("is sent back once when it gives that answer as flatly as one checked step by step", async () => {
+    play([
+      { tool: "activate_skill", args: { name: "find-data" } },
+      { tool: "query_draft", args: { text: "ast_version: 1\nname: cut-and-answers\n" } },
+      { text: "There are 12 subjects (document 34)." },
+      { text: `There are 12 subjects (document 34). ${UNCHECKED}` },
+    ]);
+    const h = init(Nils, { id: "oc-cut-flat" });
+    const reply = await h.read(await h.dispatch("How many subjects of cohort-a have two visits?"));
+    expect(JSON.stringify(seen[3].messages)).toMatch(
+      /the steps of document 34 could not be counted in the time, so nothing checked its number step by step/u,
+    );
+    expect(reply.text).toMatch(/unchecked step by step\.$/u);
+    // once: the answer that says it settles, and no job is proposed for a question that answered
+    expect(calls).toBe(4);
+    expect(
+      theChanges()
+        .of("oc-cut-flat")
+        .map((c) => c.kind),
+    ).toEqual(["query_version"]);
   }, 60_000);
 
   it("is sent back once when it leaves the slow question without a plan and says it was not stored", async () => {

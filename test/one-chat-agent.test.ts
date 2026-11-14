@@ -200,6 +200,23 @@ const engine = await stubEngine((c) => {
       },
     };
   // a group's spread of the age, a measure the preview leaves out and a run computes (round 4)
+  // a question with its stage counts: what the people, the visits and the answer kept
+  if (p === "/api/ask/draft" && JSON.stringify(c.body).includes("three such visits"))
+    return {
+      body: {
+        document: 816,
+        hash: "h",
+        diagnosis: {
+          funnel: [
+            { set: "people", stage: "source", rows: 1204, subjects: 1204 },
+            { set: "visits", stage: "source", rows: 5310, subjects: 1204 },
+            { set: "answer", stage: "has both", rows: 632, subjects: 632 },
+          ],
+        },
+      },
+    };
+  if (p === "/api/ask/preview" && (c.body as { document_id?: number } | null)?.document_id === 816)
+    return { body: { level: "count", columns: ["rows", "subjects"], rows: [[632, 632]], truncated: false } };
   if (p === "/api/ask/draft" && JSON.stringify(c.body).includes("stddev"))
     return { body: { document: 815, hash: "h", diagnosis: [{ set: "first", rows: 38 }] } };
   if (p === "/api/ask/preview" && (c.body as { document_id?: number } | null)?.document_id === 815)
@@ -522,6 +539,32 @@ describe("the one agent", () => {
     await h.read(await h.dispatch("How many subjects are in cohort B?"));
     expect(turnOf("oc-dataset-follow").datasets).toEqual([]);
     expect(appended(seen[0])).toMatch(/this looks like the find-data skill/u);
+  }, 60_000);
+
+  it("lets an answer settle whose counts the question's result holds, and sends back one that states another", async () => {
+    const draft = { tool: "query_draft", args: { text: "ast_version: 1\nname: three such visits\n" } };
+    const right = "632 of the 1,204 subjects have three such visits, out of 5,310 visits (document 816).";
+    play([{ tool: "activate_skill", args: { name: "find-data" } }, draft, { text: right }]);
+    let h = init(Nils, { id: "oc-count" });
+    let reply = await h.read(await h.dispatch("How many subjects of cohort B have three such visits?"));
+    // the count, the stage counts: nothing is sent back
+    expect(reply.text).toBe(right);
+    expect(calls).toBe(3);
+    expect(turnOf("oc-count").known.has(5310)).toBe(true);
+    // a count of sessions no result holds: sent back once, named as the answer wrote it
+    play([
+      { tool: "activate_skill", args: { name: "find-data" } },
+      draft,
+      { text: "632 subjects have three such visits, 4,721 such visits in all (document 816)." },
+      { text: right },
+    ]);
+    h = init(Nils, { id: "oc-count-back" });
+    reply = await h.read(await h.dispatch("How many subjects of cohort B have three such visits?"));
+    expect(appended(seen[3])).toMatch(
+      /the answer states .{1,8}4,721 such visits.{1,8}, which no result of this turn holds/u,
+    );
+    expect(calls).toBe(4);
+    expect(reply.text).toMatch(/out of 5,310 visits \(document 816\)\.$/u);
   }, 60_000);
 
   it("mounts from the person's grants: no data tools for a person without query:see", async () => {

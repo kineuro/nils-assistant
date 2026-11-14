@@ -28,7 +28,9 @@ export const DOOR_PHRASES: readonly string[] = [
 
 export const ENGINE_WORDS: readonly string[] = [
   "\\bdoors?\\b",
-  "\\bstations?\\b",
+  // a station of the chat's own, never a scanner's station, which is the field's word (StationName): a station
+  // name, or a station in a sentence about scanners or machines (the same station, a scanner model and station)
+  "(?<!\\b(?:scanners?|machines?|MRI|models?|same|different)\\b[^.!?\\n]{0,200})\\bstations?\\b(?!\\s+names?\\b)(?![^.!?\\n]{0,200}\\b(?:scanners?|machines?|MRI|models?)\\b)",
   // a phase of the work, never an image's phase: magnitude and phase are words of the field (2026-10-12)
   "\\b(?:read|finish|propose|plan|survey|resolve|hold|shape|rehearse|refine|hypothesi[sz]e|diagnose|settle|draft|turn|check)\\s+phases?\\b(?!\\s*(?:images?|maps?|data|encod\\w*|contrast|difference|shift|offset|unwrap\\w*|correction|angle))",
   "\\bphases?\\s*[:=]\\s*(?:read|finish|propose|plan|survey|resolve|hold|shape|rehearse|refine|hypothesi[sz]e|diagnose|settle|draft|turn|check)\\b",

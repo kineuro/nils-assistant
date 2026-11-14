@@ -15,6 +15,7 @@ import type { Prediction } from "../stations/keyword-tune.ts";
 import { initialState, Machine } from "../stations/machine.ts";
 import type { Manifest } from "../stations/manifest.ts";
 import type { ChangeKind } from "./changes.ts";
+import { noteNumbers } from "./numbers.ts";
 import type { TurnOutputs } from "./workspace.ts";
 
 /** The guards of one turn: model calls, tool calls, the input tokens over all its model calls, and wall time. */
@@ -74,6 +75,16 @@ export interface TurnState {
    * 2026-10-12): the answer says which and why, and states no value of them.
    */
   heldBack: HeldBack[];
+  /**
+   * The numbers the turn was given: its tools' results, the facts and the person's words (src/one/numbers.ts).
+   * A count the answer states is one of them, or the sum or the difference of two.
+   */
+  known: Set<number>;
+  /**
+   * The questions whose answer came without all their stage counts, which the registry left out for time: the
+   * answer says the steps could not be counted, and that the number is unchecked step by step.
+   */
+  uncounted: number[];
 }
 
 export interface Rehearsal {
@@ -119,6 +130,15 @@ export interface ConversationState {
   documents: number[];
   /** The datasets the person named last: a follow-up that names none keeps them. */
   datasets: string[];
+  /** The numbers the conversation's earlier turns were given and stated, as this process saw them. */
+  known: Set<number>;
+  /** The turns of the conversation this process saw start. */
+  turns: number;
+  /**
+   * The conversation had turns this process did not see (a restart, a fork): the numbers they were given are not
+   * known here, so a count in an answer is not held to them.
+   */
+  unseen: boolean;
 }
 
 const turns = new Map<string, TurnState>();
@@ -144,7 +164,10 @@ export function newTurn(conversation: string, message: string, now = Date.now())
     outputs: { charts: [], files: [], seen: new Map() },
     shaped: [],
     heldBack: [],
+    known: new Set(),
+    uncounted: [],
   };
+  noteNumbers(t.known, message);
   turns.set(conversation, t);
   return t;
 }
@@ -169,10 +192,29 @@ export function conversationOf(id: string): ConversationState {
       held: new Map(),
       documents: [],
       datasets: [],
+      known: new Set(),
+      turns: 0,
+      unseen: false,
     };
     conversations.set(id, c);
   }
   return c;
+}
+
+/**
+ * A turn starts in a conversation: what the turn before was given and said is kept as the conversation's, so a
+ * follow-up may state a number an earlier answer held. `told` is whether the conversation was told its facts
+ * before: one that was, in a process that saw none of its turns, has turns this process did not see.
+ */
+export function carryNumbers(conversation: string, told: boolean): void {
+  const c = conversationOf(conversation);
+  const before = turns.get(conversation);
+  if (before) {
+    for (const n of before.known) c.known.add(n);
+    noteNumbers(c.known, answerOf(before));
+  }
+  if (told && c.turns === 0) c.unseen = true;
+  c.turns += 1;
 }
 
 /** The answer the turn ended with: the text of its last model call that wrote any. */

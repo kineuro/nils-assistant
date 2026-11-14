@@ -43,6 +43,8 @@ import { complaintsOf, readable, SILENT_BACK, sendBack, validator } from "./chec
 import {
   carriedHint,
   citesCount,
+  cohortNote,
+  cohortsMeant,
   type DatasetFact,
   datasetHint,
   datasetsBlock,
@@ -56,10 +58,20 @@ import {
 import { factsOf, factsSummary, TOLD_NOTHING, type Told, toldSince } from "./facts.ts";
 import { memoryFacts } from "./memory.ts";
 import { type Access, grantsLine, type Mounted, mountFor, SKILL_ORDER } from "./mount.ts";
+import { noteNumbers } from "./numbers.ts";
 import { AGENT } from "./purpose.ts";
 import { hintLine, routeOf } from "./route.ts";
 import { bodyFor, findExamples, loadSkills, skillOf } from "./skills.ts";
-import { answerOf, conversationOf, keptDocument, newTurn, stopNext, storedWords, turnOf } from "./state.ts";
+import {
+  answerOf,
+  carryNumbers,
+  conversationOf,
+  keptDocument,
+  newTurn,
+  stopNext,
+  storedWords,
+  turnOf,
+} from "./state.ts";
 import { readSteps, STEPS_READ, STEPS_WAIT_MS, stepsRead, stepsText, stepsWithin } from "./steps.ts";
 import {
   actsAsAdmin,
@@ -133,7 +145,7 @@ What you never do
 
 How you write
 - Lead with the answer: one to three short sentences; a short list only when they asked for a list.
-- Everyday words. Never name your tools or skills or describe how you work inside, and never use these words of how you work: station, grant, door, a phase of the work, catalog, pack, epoch, ceiling, rung, ledger, capabilities, handle, session scheme, delegate. Say instead: what your account may do (not grants), the result or the answer (not a handle), the sorting rules (not packs), the list of fields (not the catalog). The field's own words stay: an image's phase, as in magnitude and phase, is the right word.
+- Everyday words. Never name your tools or skills or describe how you work inside, and never use these words of how you work: station, grant, door, a phase of the work, catalog, pack, epoch, ceiling, rung, ledger, capabilities, handle, session scheme, delegate. Say instead: what your account may do (not grants), the result or the answer (not a handle), the sorting rules (not packs), the list of fields (not the catalog). The field's own words stay: an image's phase, as in magnitude and phase, is the right word, and so is a scanner's station (its station name).
 
 Your tools: registry_summary, registry_search and registry_describe look things up in the registry; subject_resolve turns an ID a subject is named by into its subject code; query_draft, query_run_readonly and query_read_rows write and try questions of the registry, writing nothing else; jobs_read and run_read read jobs and analysis runs; plan_update, ask_user and propose_change are what the person sees: the plan, a question card and an approval card; remember, forget and recall_memory keep, forget and find what this person asked you to keep.`;
 
@@ -246,6 +258,9 @@ export function watchTurns(): void {
       if (e.agent === "find") turn.skills.add("find-data");
       return;
     }
+    // what a tool answered is what the turn was given, a sub-agent's tools and the workspace's as well: the numbers
+    // an answer may state. A skill's own text is instructions, and gives none.
+    if (e.type === "tool" && !SKILL_TOOLS.has(String(e.toolName))) noteNumbers(turn.known, e.result);
     // a sub-agent's own events are not the turn's
     if (e.taskId) return;
     // a summary of the earlier turns took the facts' messages with it: the next turn tells them again
@@ -281,6 +296,9 @@ export function watchTurns(): void {
     }
   });
 }
+
+/** The framework's tools that read a skill: their answer is the skill's text, no result of the registry. */
+const SKILL_TOOLS = new Set(["activate_skill", "read_skill_resource"]);
 
 /** The framework's own tools, which the agent does not mount itself: the guards reach them through the runtime's interceptor. */
 export const FRAMEWORK_TOOLS = new Set(["activate_skill", "read_skill_resource", "task"]);
@@ -460,6 +478,7 @@ function mountTool(t: OneTool, base: Omit<ToolCtx, "toolCallId">): void {
           "Try once more with one change, or tell the person the assistant could not do this step; never say the registry refused it.",
         );
       }
+      noteNumbers(turn.known, out.output);
       if (gate.warning && out.output && typeof out.output === "object" && !Array.isArray(out.output))
         out = {
           ...out,
@@ -596,6 +615,9 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
     // a person's message starts a turn: fresh guards, fresh caps, the turn's facts appended once
     useAgentStart(async (ctx) => {
       if (summarizing || d?.kind !== "user") return;
+      // the numbers the turn before was given stay the conversation's; one told its facts in another process has
+      // turns this one did not see
+      carryNumbers(id, told.grants !== null);
       newTurn(id, message);
       for (const s of SEAMS)
         try {
@@ -637,17 +659,14 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
       const names = namesOnly(catalogOf(subject)?.datasets);
       const list = datasets?.kind === "ok" ? datasets.list : names;
       const route = routeOf(message);
-      const named = datasetsNamed(message, list);
+      // a name that is a cohort's and a dataset's, called a cohort by the words, names no dataset
+      const cohortNames = (catalogOf(subject)?.cohorts ?? []).map((c) => c.name);
+      const asCohort = cohortsMeant(message, list, [...cohortNames, ...list.flatMap((x) => x.feeds ?? [])]);
+      const named = datasetsNamed(message, list).filter((x) => !asCohort.includes(x.name));
       // a follow-up that names no dataset keeps the one named before; words that turn to a cohort leave it
       let carried: DatasetFact[] = [];
       if (named.length) convo.datasets = named.map((x) => x.name);
-      else if (
-        leavesDatasets(
-          message,
-          (catalogOf(subject)?.cohorts ?? []).map((c) => c.name),
-        )
-      )
-        convo.datasets = [];
+      else if (leavesDatasets(message, cohortNames)) convo.datasets = [];
       else if (
         !route.summary &&
         !route.jobs &&
@@ -688,25 +707,28 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
       const document = kept?.document ?? null;
       // after a summary of the earlier turns the facts are told again, whole
       const compactions = kept?.compactions ?? 0;
+      const block = datasets ? datasetsBlock(datasets, names) : null;
       const facts = factsOf({
         told: toldSince(told, compactions, summarized.delete(id)),
         compactions,
         summary,
-        datasets: datasets ? datasetsBlock(datasets, names) : null,
+        datasets: block,
         grants: grantsLine(mounted),
         memory,
-        hint: hintFor(
+        hint: `${hintFor(
           route,
           mounted,
           o.arm,
           about,
           steps.filter((s): s is string => s !== null),
-        ),
+        )}${mounted.skills.includes("find-data") ? cohortNote(asCohort) : ""}`,
         // record 55 K6: a card, a result, a cohort or a saved selection named with @, and the tool that reads it
         mentioned: mentionsLine(message, mounted.tools),
         document,
       });
       setTold(facts.told);
+      // the facts are sent once and hold for every turn: their numbers are given to each
+      noteNumbers(current.known, [summary, block, memory, facts.text]);
       ctx.append({ kind: "signal", type: "facts", body: facts.text });
     });
 

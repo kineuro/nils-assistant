@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: In cohort B, how many subjects have at least 3 sessions that each hold both an MPRAGE and a 3D FLAIR?
+# synthetic: written for the cookbook, not a gold of the bench
+ast_version: 1
+name: subjects with three such sessions, each holding both an MPRAGE and a 3D FLAIR
+scheme: default
+sets:
+  scope:  {grain: cohort,  where: [["=", {}, ["field", {}, "name"], "ms-cohort-b"]]}
+  people: {grain: subject, of: scope}
+  visits: {grain: session, of: people}
+  mprage: {grain: stack, of: visits, where: [["=", {}, ["axis", {}, "technique"], "MPRAGE"]]}
+  flair:
+    grain: stack
+    of: visits
+    where:
+      - ["=",   {}, ["axis", {}, "base"], "T2w"]
+      - ["has", {}, ["axis", {}, "modifier"], "FLAIR"]
+      - ["=",   {}, ["derived", {}, "acquisition_type"], "3D"]
+  # a session that holds both: at least one of each kind, every scan of the kind counted and none picked
+  both:
+    grain: session
+    from: visits
+    has: [{set: mprage, min: 1}, {set: flair, min: 1}]
+  answer:
+    grain: subject
+    from: people
+    has: [{set: both, min: 3, as: n_both}]
+keep: [both, answer]
+out: {set: answer, level: count}
