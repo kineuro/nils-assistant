@@ -70,6 +70,13 @@ export interface TurnState {
   readings: { name: string; as: "cohort" | "dataset"; kept: boolean }[];
   /** The faults a draft of this turn was sent back for before it reached the registry, each once (src/one/readings.ts). */
   sentBack: Set<string>;
+  /**
+   * The questions stored this turn with a warning that says their count is not what was asked (dates the wrong way
+   * round, a sequence read after its rows were cut): the model drafts again once, and the answer never rests on one.
+   */
+  flawed: { document: number; code: string }[];
+  /** The spellings of a device's name (a maker, a model, a station, a site) the stored questions compare with: the answer names them. */
+  spellings: Map<number, string[]>;
   /** What the turn's analysis handed the person from its workspace's /out: charts and files, and what was seen. */
   outputs: TurnOutputs;
   /**
@@ -139,6 +146,8 @@ export interface ConversationState {
   datasets: string[];
   /** The names that are a cohort's and a dataset's that the person's words last read as the cohort: a follow-up keeps it. */
   cohorts: string[];
+  /** The stored values of the fields the conversation looked up with the registry's search (src/one/spellings.ts). */
+  looked: Map<string, { values: string[]; truncated: boolean }>;
   /** The numbers the conversation's earlier turns were given and stated, as this process saw them. */
   known: Set<number>;
   /** The turns of the conversation this process saw start. */
@@ -172,6 +181,8 @@ export function newTurn(conversation: string, message: string, now = Date.now())
     datasets: [],
     readings: [],
     sentBack: new Set(),
+    flawed: [],
+    spellings: new Map(),
     outputs: { charts: [], files: [], seen: new Map() },
     shaped: [],
     heldBack: [],
@@ -204,6 +215,7 @@ export function conversationOf(id: string): ConversationState {
       documents: [],
       datasets: [],
       cohorts: [],
+      looked: new Map(),
       known: new Set(),
       turns: 0,
       unseen: false,

@@ -19,15 +19,14 @@ sets:
     grain: session
     from: visits
     has: [{set: flair, min: 1}]
-  # apart is the earliest to the latest session that holds the scan, per subject: each bound by itself, then
-  # days_between with the later day first (it is the first day minus the second); five years are 1826 days
+  # apart is the earliest to the latest session that holds the scan, per subject: the latest day first, since
+  # years_between is the whole calendar years from its second day to its first; five years are 5
   spans:
     grain: group
     group: {of: holding, by: [["field", {}, "subject.code"]]}
     bind:
-      first_day: ["min", {set: holding}, ["field", {}, "first"]]
-      last_day:  ["max", {set: holding}, ["field", {}, "first"]]
+      span_years: ["years_between", {}, ["max", {set: holding}, ["field", {}, "first"]], ["min", {set: holding}, ["field", {}, "first"]]]
     where:
-      - [">=", {}, ["days_between", {}, ["field", {}, "last_day"], ["field", {}, "first_day"]], 1826]
+      - [">=", {}, ["field", {}, "span_years"], 5]
 keep: [spans]
 out: {set: spans, level: count}

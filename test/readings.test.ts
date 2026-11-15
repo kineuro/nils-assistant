@@ -36,6 +36,9 @@ const {
   readDraft,
   readNames,
   SPAN_SHAPE,
+  closestShape,
+  lengthUnit,
+  spanShape,
   sendDraftBack,
   sequencesAbove,
   timeNote,
@@ -386,7 +389,7 @@ describe("how far apart in time", () => {
       refused: true,
       stored: false,
       why: "the draft was not sent to the registry: the draft measures each visit against the one before it (`prev`), and the person's words ask how far apart, so far or more, without saying consecutive: that is each subject's earliest to latest visit that holds what is asked",
-      next: `Take \`prev\` out and use ${SPAN_SHAPE}. Write a length in years as whole days of 365.25 a year (five years are 1826). Say in the answer, in a few words, that it is from the first to the last such visit. Change only that and draft the whole document again.`,
+      next: `Take \`prev\` out and use ${SPAN_SHAPE}. A length said in years is \`years_between\` and in months \`months_between\`, the whole calendar years or months with the number as the words say it (5, 6); a length in days or weeks is \`days_between\`. Say in the answer, in a few words, that it is from the first to the last such visit. Change only that and draft the whole document again.`,
     });
     // once: the same reading again goes on, and the first-to-last draft passes with nothing said
     expect((await t.draft(RIGHT_WAY)).document).toBe(61);
@@ -411,7 +414,7 @@ describe("how far apart in time", () => {
     const consecutive = asked("Which subjects have a gap of at least five years between FLAIR scans?");
     const back = sendDraftBack(PREV_DRAFT, consecutive);
     expect(back?.why).toMatch(
-      /takes days_between with the earlier day first; it is its first day minus its second, so every row gets zero or less/u,
+      /takes the time between two days with the earlier day first; days_between, months_between and years_between are the first day minus the second, so every row gets zero or less/u,
     );
     expect(back?.next).toContain(
       '`["days_between", {}, ["field", {}, "first"], ["prev", {}, ["field", {}, "first"]]]`',
@@ -420,9 +423,16 @@ describe("how far apart in time", () => {
     // the earliest of a column before its latest, bound by name or written in place
     const span = example("first-to-last-span-a.ask.yml");
     const swapped = span.replace(
-      '["field", {}, "last_day"], ["field", {}, "first_day"]]',
-      '["field", {}, "first_day"], ["field", {}, "last_day"]]',
+      '["max", {set: holding}, ["field", {}, "first"]], ["min", {set: holding}, ["field", {}, "first"]]]',
+      '["min", {set: holding}, ["field", {}, "first"]], ["max", {set: holding}, ["field", {}, "first"]]]',
     );
+    // and each bound by itself, read through its name, in months as in days
+    const named = span.replace(
+      /span_years: .*\n/u,
+      'first_day: ["min", {set: holding}, ["field", {}, "first"]]\n      last_day: ["max", {set: holding}, ["field", {}, "first"]]\n      span_years: ["months_between", {}, ["field", {}, "first_day"], ["field", {}, "last_day"]]\n',
+    );
+    expect(named).not.toBe(span);
+    expect(daysReversed(readDraft(named) ?? {})).toBe(true);
     expect(swapped).not.toBe(span);
     expect(daysReversed(readDraft(span) ?? {})).toBe(false);
     expect(daysReversed(readDraft(swapped) ?? {})).toBe(true);
@@ -480,7 +490,7 @@ describe("less than so far apart", () => {
       /`<` for less than and `<=` for within or at most; never the earliest to the latest/u,
     );
     expect(timeNote("closest")).toMatch(
-      /Say the reading in the answer in a few words \(two such visits less than so many days apart\)/u,
+      /Say the reading in the answer in a few words \(two such visits less than so far apart\)/u,
     );
   });
 
@@ -525,7 +535,7 @@ describe("less than so far apart", () => {
       refused: true,
       stored: false,
       why: "the draft was not sent to the registry: the draft measures from each subject's earliest to latest visit, and the person's words ask for two visits less than so far apart: a subject seen often over many years has two close visits and a long way from first to last, so the closest pair is asked, a visit and the one before it",
-      next: `Take the group with the earliest and the latest day out and use ${CLOSEST_SHAPE}. Compare with \`<\` for less than and \`<=\` for within or at most. Say in the answer, in a few words, that it is two such visits less than so many days apart. Change only that and draft the whole document again.`,
+      next: `Take the group with the earliest and the latest day out and use ${CLOSEST_SHAPE}. A length said in years is \`years_between\` and in months \`months_between\`, the whole calendar years or months with the number as the words say it (5, 6); a length in days or weeks is \`days_between\`. Compare with \`<\` for less than and \`<=\` for within or at most. Say in the answer, in a few words, that it is two such visits less than so far apart. Change only that and draft the whole document again.`,
     });
     expect((await t.draft(spanned())).document).toBe(61);
     // the shape it is told is the worked example's own
@@ -669,7 +679,15 @@ describe("the find-data skill and its worked examples, for these readings", () =
     expect(b).toMatch(
       /Only when the words say \*\*consecutive\*\*, \*\*successive\*\*, \*\*between visits\*\*, \*\*a gap\*\* or \*\*an interval between\*\*/u,
     );
-    expect(b).toMatch(/`days_between` is its first day minus its second: the later day goes first/u);
+    expect(b).toMatch(
+      /A length said in years is `years_between` and in months `months_between`, the whole calendar years or months with the number as the words say it \(five years are 5, six months 6\); a length in days or weeks is `days_between`/u,
+    );
+    expect(b).toMatch(/All three are the first day minus the second: the later day goes first/u);
+    expect(b).toContain(
+      '`span_years: ["years_between", {}, ["max", {set: <those sessions>}, ["field", {}, "first"]], ["min", {set: <those sessions>}, ["field", {}, "first"]]]`',
+    );
+    // the rules for turning years and months into days are gone
+    expect(b).not.toMatch(/365\.25|30\.44|1826|\b183\b/u);
     expect(b).toMatch(
       /\*\*Less than\*\* so far apart, \*\*within N of each other\*\*, \*\*at most\*\* .* is the closest pair, never first to last/u,
     );
@@ -677,7 +695,6 @@ describe("the find-data skill and its worked examples, for these readings", () =
       /in the set that carries the `has` or in a set drawn `from` it, never in a set above it .* and never beside a `where` that narrows the same set/u,
     );
     expect(b).toMatch(/`<` for less than and `<=` for within or at most/u);
-    expect(b).toMatch(/five 1826/u);
     expect(b).toMatch(/The answer says the reading in a few words/u);
   });
 
@@ -693,37 +710,55 @@ describe("the find-data skill and its worked examples, for these readings", () =
       // an example is never sent back for the question it answers
       expect(draftFaults(raw, asked(question)), f).toEqual([]);
     }
-    // first to last: each day bound by itself, the later first, five years as 1826 days, counted
+    // first to last: the latest and the earliest day inside the one value, the latest first, five years as 5
     const span = parse(example(NEW[0])) as Doc;
     expect(span.sets.spans).toEqual({
       grain: "group",
       group: { of: "holding", by: [["field", {}, "subject.code"]] },
       bind: {
-        first_day: ["min", { set: "holding" }, ["field", {}, "first"]],
-        last_day: ["max", { set: "holding" }, ["field", {}, "first"]],
+        span_years: [
+          "years_between",
+          {},
+          ["max", { set: "holding" }, ["field", {}, "first"]],
+          ["min", { set: "holding" }, ["field", {}, "first"]],
+        ],
       },
-      where: [[">=", {}, ["days_between", {}, ["field", {}, "last_day"], ["field", {}, "first_day"]], 1826]],
+      where: [[">=", {}, ["field", {}, "span_years"], 5]],
     });
     expect(span.out).toEqual({ set: "spans", level: "count" });
-    expect(example(NEW[0])).not.toMatch(/"prev"/u);
+    expect(example(NEW[0])).not.toMatch(/"prev"|days_between|1826/u);
     // the shape a draft is sent back with is the example's own
     const flat = (s: string) => s.replace(/\s+/gu, " ");
     for (const part of [
       'group: {of: holding, by: [["field", {}, "subject.code"]]}',
-      'first_day: ["min", {set: holding}, ["field", {}, "first"]]',
-      'last_day: ["max", {set: holding}, ["field", {}, "first"]]',
-      '["days_between", {}, ["field", {}, "last_day"], ["field", {}, "first_day"]]',
+      'span_years: ["years_between", {}, ["max", {set: holding}, ["field", {}, "first"]], ["min", {set: holding}, ["field", {}, "first"]]]',
+      '[">=", {}, ["field", {}, "span_years"],',
       "out: {set: spans, level: count}",
     ]) {
       expect(SPAN_SHAPE).toContain(part);
       expect(flat(example(NEW[0]))).toContain(part);
     }
+    // the shape follows the unit the words say the length in
+    expect(spanShape("month")).toContain('span_months: ["months_between", {}, ["max", {set: holding}');
+    expect(spanShape("day")).toContain('span_days: ["days_between", {}, ["max", {set: holding}');
+    expect(closestShape("month")).toContain('gap: ["months_between", {}, ["field", {}, "first"], ["prev"');
+    expect(lengthUnit("scans at least five years apart")).toBe("year");
+    expect(lengthUnit("two sessions within six months of each other")).toBe("month");
+    expect(lengthUnit("two sessions less than 180 days apart")).toBe("day");
+    expect(lengthUnit("two sessions less than three weeks apart")).toBe("day");
+    expect(lengthUnit("how far apart are their scans")).toBe("day");
+    expect(timeNote("span", "year")).toMatch(
+      /`years_between` is the whole calendar years from its second day to its first, so the later day goes first and the number is as the words say it/u,
+    );
+    expect(timeNote("closest", "month")).toMatch(
+      /`months_between` of the visit's day and then `prev` of it/u,
+    );
     // consecutive: the visit's day, then the one before
     const gap = parse(example(NEW[1])) as Doc;
     expect(gap.sets.visits.bind).toEqual({
-      gap: ["days_between", {}, ["field", {}, "first"], ["prev", {}, ["field", {}, "first"]]],
+      gap_months: ["months_between", {}, ["field", {}, "first"], ["prev", {}, ["field", {}, "first"]]],
     });
-    expect(gap.sets.far.where).toEqual([[">=", {}, ["field", {}, "gap"], 183]]);
+    expect(gap.sets.far.where).toEqual([[">=", {}, ["field", {}, "gap_months"], 6]]);
     // the closest pair: the sessions that hold it, the gap bound in a set drawn from them, the subjects that have one
     const two = parse(example(NEW[4])) as Doc;
     expect(two.sets.holding).toEqual({ grain: "session", from: "visits", has: [{ set: "flair", min: 1 }] });
@@ -761,7 +796,7 @@ describe("the find-data skill and its worked examples, for these readings", () =
     const live = "How many subjects have 3D FLAIR scans at least five years apart?";
     expect(first(live)).toBe("first-to-last-span-a.ask.yml");
     expect(bodyFor(skill, live, examples)).toContain(
-      'last_day:  ["max", {set: holding}, ["field", {}, "first"]]',
+      'span_years: ["years_between", {}, ["max", {set: holding}',
     );
     expect(first("Which consecutive sessions of cohort A are at least three months apart?")).toBe(
       "consecutive-sessions-apart-b.ask.yml",

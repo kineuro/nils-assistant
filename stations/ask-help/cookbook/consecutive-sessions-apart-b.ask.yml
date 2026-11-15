@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# question: In cohort B, which consecutive sessions are at least six months apart? Show the subject, the session date and the days since the session before.
+# question: In cohort B, which consecutive sessions are at least six months apart? Show the subject, the session date and the months since the session before.
 # synthetic: written for the cookbook, not a gold of the bench
 ast_version: 1
 name: consecutive sessions at least six months apart in cohort B
@@ -7,19 +7,20 @@ scheme: default
 sets:
   scope:  {grain: cohort, where: [["=", {}, ["field", {}, "name"], "ms-cohort-b"]]}
   people: {grain: subject, of: scope}
-  # consecutive is a session against the one before it: days_between with the later day first; six months are 183 days
+  # consecutive is a session against the one before it, the later day first: months_between is the whole
+  # calendar months from its second day to its first; six months are 6
   visits:
     grain: session
     of: people
     bind:
-      gap: ["days_between", {}, ["field", {}, "first"], ["prev", {}, ["field", {}, "first"]]]
+      gap_months: ["months_between", {}, ["field", {}, "first"], ["prev", {}, ["field", {}, "first"]]]
   far:
     grain: session
     from: visits
-    where: [[">=", {}, ["field", {}, "gap"], 183]]
+    where: [[">=", {}, ["field", {}, "gap_months"], 6]]
 keep: [far]
 out:
   set: far
   level: record
-  columns: [["field", {}, "subject.code"], ["field", {}, "first"], ["field", {}, "gap"]]
+  columns: [["field", {}, "subject.code"], ["field", {}, "first"], ["field", {}, "gap_months"]]
   order: [[["field", {}, "subject.code"], asc], [["field", {}, "first"], asc]]

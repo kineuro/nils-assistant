@@ -256,6 +256,38 @@ export function cohortSaidComplaint(t: TurnState, answer: string): string | null
   return `${which} is a cohort and a dataset of the same name, and the words do not say dataset, so the question counted the cohort's members: say so in one short clause (the members of the cohort ${which})`;
 }
 
+/**
+ * What is wrong with an answer that rests on a question the registry warned about: its dates the wrong way round
+ * (`reversed_dates`) or a sequence read after its rows were cut (`sequence_inherited`), which mean the count is not
+ * what was asked. Null when the question the answer keeps carries no such warning, or when the model drafted again
+ * and the warning came a second time: then the tool told it to answer and say so, and nothing loops.
+ */
+export function flawedComplaint(t: TurnState, answer: string): string | null {
+  if (t.flawed.length === 0 || t.asked || answer.trim() === "") return null;
+  const kept = keptDocument(t.drafted, answer);
+  const codes = [...new Set(t.flawed.filter((f) => f.document === kept).map((f) => f.code))].filter(
+    (c) => t.flawed.filter((f) => f.code === c).length === 1,
+  );
+  if (codes.length === 0) return null;
+  return `document ${kept} was stored with the warning ${codes.join(" and ")}, which means its count is not what was asked: mend the document as the warning's fix said and draft it again, then answer from the new count`;
+}
+
+/**
+ * What is missing from an answer whose question compares a maker, a scanner model, a station or a site with
+ * spellings the registry stores: the answer says which spellings were counted. Null when it names each (up to
+ * five; a longer list is said by its first ones), or when the turn stored no such question.
+ */
+export function spellingsComplaint(t: TurnState, answer: string): string | null {
+  if (t.spellings.size === 0 || t.asked || answer.trim() === "") return null;
+  const kept = keptDocument(t.drafted, answer);
+  const counted = kept === undefined ? [] : (t.spellings.get(kept) ?? []);
+  const must = counted.slice(0, 5);
+  const low = answer.toLowerCase();
+  const missing = must.filter((s) => !low.includes(s.toLowerCase()));
+  if (missing.length === 0) return null;
+  return `the question counted the spellings ${counted.map((s) => `"${s}"`).join(", ")}: say in the answer which spellings were counted, as they are stored`;
+}
+
 /** What is wrong with the turn as it would settle; empty when nothing is. */
 export async function complaintsOf(c: CheckContext): Promise<string[]> {
   const out: string[] = [];
@@ -294,6 +326,12 @@ export async function complaintsOf(c: CheckContext): Promise<string[]> {
   // a shared name read as the cohort: the answer says so in a clause, so the person knows which was counted
   const members = cohortSaidComplaint(c.turn, answer);
   if (members) out.push(members);
+  // a question stored with a warning that its count is not what was asked: never the one the answer rests on
+  const flawed = flawedComplaint(c.turn, answer);
+  if (flawed) out.push(flawed);
+  // a maker, a model, a station or a site named in the question: the answer says which spellings were counted
+  const spelled = spellingsComplaint(c.turn, answer);
+  if (spelled) out.push(spelled);
   // a question for data answered from memory: the person gets no question to keep, and the number is unchecked
   if (
     c.hinted === "find-data" &&
