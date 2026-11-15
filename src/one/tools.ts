@@ -91,9 +91,11 @@ import {
   newestFirst,
   readDatasets,
 } from "./datasets.ts";
+import { functionsFound } from "./functions.ts";
 import { parseNext } from "./grammar.ts";
 import type { Mounted, ToolName } from "./mount.ts";
-import { sendDraftBack } from "./readings.ts";
+import { readDraft, sendDraftBack } from "./readings.ts";
+import { deviceFields, noteLookup, spellingsCounted } from "./spellings.ts";
 import { type ConversationState, conversationOf, type Probe, runSteps, type TurnState } from "./state.ts";
 import { readSteps, STEPS_TOOL_WAIT_MS, stepsLine, stepsWithin, unknownSentence } from "./steps.ts";
 import { plainly } from "./words.ts";
@@ -582,7 +584,7 @@ export function mainScansLine(roles: readonly string[] | undefined): string {
   return `operator picked: the main scans, a visit's main ${rs.join(", ")} as the Main scans page shows them: a stack set with where: [["picked", {role: ${rs[0]}}]], one role per clause (roles: ${rs.join(", ")}); never the pick: clause, which only orders rows`;
 }
 
-/** The names of the registry that hold any of the words: fields, sorting values, kinds, cohorts, datasets, derived fields, and the main scans. */
+/** The names of the registry that hold any of the words: fields, sorting values, kinds, cohorts, datasets, derived fields, the main scans, and the language's functions the words mean. */
 export function searchCatalog(
   cat: ReturnType<typeof catalogOf>,
   words: string,
@@ -597,6 +599,9 @@ export function searchCatalog(
   // the main scans are a condition on a stack, never the pick clause: the chat
   // once drafted `pick: {model: main}` eight times (2026-10-11)
   if (ws.some((w) => MAIN_SCAN_WORDS.has(w) || /^main[-_]/u.test(w))) out.push(mainScansLine(cat?.roles));
+  // the language's functions the words mean (days between, the previous visit, first to last), each with how it is
+  // written, and only those this registry's catalog lists
+  out.push(...functionsFound(words, cat?.functions));
   for (const l of cat?.levels ?? [])
     for (const f of l.fields) if (hit(f.path)) out.push(`field ${f.path} of ${l.level} (${f.type})`);
   for (const a of cat?.axes ?? [])
@@ -777,7 +782,7 @@ const NOT_TRIED = ["study-instance-uid", "patient-id", "personnummer"];
 const registrySearch: OneTool = {
   name: "registry_search",
   description:
-    "Find the registry's own names for the person's words: fields, sorting values of scans (base, technique, modifier and the others), event kinds, cohorts, datasets (with their counts), derived fields, disease courses, and how to ask for the main scans NILS picked. Give `words`. With `level` and `field` instead, a sample of what one field holds (at most 20 values).",
+    "Find the registry's own names for the person's words: fields, sorting values of scans (base, technique, modifier and the others), event kinds, cohorts, datasets (with their counts), derived fields, disease courses, how to ask for the main scans NILS picked, and the functions of a question with how each is written (days between, years apart, the previous visit, first to last, since, a share). Give `words`. With `level` and `field` instead, a sample of what one field holds (at most 20 values): look up a maker, a scanner model, a station or a site this way before a question names one, since the registry stores several spellings.",
   input: v.object({
     words: v.optional(v.string()),
     level: v.optional(v.string()),
@@ -801,6 +806,8 @@ const registrySearch: OneTool = {
         phase: PHASE,
         rows: limit,
       });
+      // what the field holds is kept for the conversation: a question that names one of its values is held to them
+      if (a.kind === "ok") noteLookup(ctx.convo, name, a.body);
       return a.kind === "ok"
         ? { output: data(a.body, "ask for fewer values") }
         : notOk(a, "Check the level and the field against the registry summary, and ask again.");
@@ -940,6 +947,79 @@ export function issuesNext(issues: readonly DraftIssue[]): string {
   if (special !== DRAFT_AGAIN)
     return [special.replace(/ Draft the whole document again\.$/u, ""), ...out, AGAIN].join(" ");
   return out.length ? [...out, AGAIN].join(" ") : DRAFT_AGAIN;
+}
+
+/** The warnings that say a stored question's count is not what was asked, and what each means in plain words. */
+export const COUNT_WARNINGS: Record<string, string> = {
+  reversed_dates:
+    "the two dates of a time difference are the wrong way round, so the filter keeps no row where it should keep some",
+  sequence_inherited:
+    "a place in the order or a gap to the row before was counted before a later set dropped rows, so it is not the one among the rows that are left",
+};
+/** The warnings that are advice: the count stands as the document says it. */
+const ADVICE_WARNINGS = new Set(["sequence_before_where"]);
+/** A warning that says nothing of the count: which sets a release could take. */
+const QUIET_WARNINGS = new Set(["not_releasable"]);
+
+/**
+ * The warnings of a stored draft's diagnosis as the model reads them: each with its code, its path, its message
+ * and the registry's own fix. The diagnosis the model reads is cut short for a long funnel, its lists to their
+ * first items and its sentences to their first words, and a warning's fix is a long sentence; here they are whole. One about what a release could take is left in the diagnosis alone.
+ */
+export function warningsOf(diagnosis: unknown): DraftIssue[] {
+  if (!diagnosis || typeof diagnosis !== "object" || Array.isArray(diagnosis)) return [];
+  const list = (diagnosis as Record<string, unknown>).warnings;
+  return (Array.isArray(list) ? list : []).flatMap((raw) => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+    const w = raw as Record<string, unknown>;
+    const code = str(w.code) ?? "warning";
+    if (QUIET_WARNINGS.has(code)) return [];
+    const fix = str(w.next);
+    return [
+      {
+        code,
+        path: str(w.path) ?? "",
+        message: str(w.message) ?? "",
+        ...(fix && !/\b(?:GET|POST|PUT|DELETE) \/api\//u.test(fix) ? { fix } : {}),
+      },
+    ];
+  });
+}
+
+/**
+ * What the model does with a stored draft's warnings. One that says the count is not what was asked (dates the
+ * wrong way round, a sequence read after its rows were cut) sends it to draft again, once a turn for each kind: the
+ * document is kept as flawed, and the check before the turn settles holds an answer that rests on it. The second
+ * time the same kind comes, the answer says so instead. A warning that is advice is shown and forces nothing.
+ */
+export function warningsNext(
+  turn: Pick<TurnState, "flawed" | "sentBack">,
+  document: number,
+  warned: readonly DraftIssue[],
+): string {
+  const out: string[] = [];
+  const wrong = [...new Set(warned.map((w) => w.code).filter((c) => c in COUNT_WARNINGS))];
+  const first = wrong.filter((c) => !turn.sentBack.has(`warning:${c}`));
+  for (const c of wrong) {
+    turn.flawed.push({ document, code: c });
+    turn.sentBack.add(`warning:${c}`);
+  }
+  if (first.length)
+    out.push(
+      `Do not answer from this count: ${first.map((c) => `${c} means ${COUNT_WARNINGS[c]}`).join("; ")}. Mend the document as the warning's fix says, at the path it names, and draft the whole document again.`,
+    );
+  else if (wrong.length)
+    out.push(
+      `The warning ${wrong.join(" and ")} is still there after another draft: answer with what the question counted, and say in one plain sentence that the count may not be what was asked, and why.`,
+    );
+  if (warned.some((w) => ADVICE_WARNINGS.has(w.code)))
+    out.push(
+      "sequence_before_where is advice: the count stands as the document says it. Change the document only when the words ask for the row before among the rows that clause keeps.",
+    );
+  const other = warned.filter((w) => !(w.code in COUNT_WARNINGS) && !ADVICE_WARNINGS.has(w.code));
+  if (other.length)
+    out.push("Read the other warnings; they do not change the count unless their message says so.");
+  return out.join(" ");
 }
 
 /**
@@ -1237,7 +1317,8 @@ const queryDraft: OneTool = {
     if (before) return slowOut(ctx, before.document, {}, text);
     // a draft against how the turn reads the words (a shared name's dataset where the cohort is meant, the visit
     // before where first to last is, the days the wrong way round) goes back with the shape to use, once a fault
-    const back = sendDraftBack(text, ctx.turn);
+    const fields = deviceFields(catalogOf(ctx.subject));
+    const back = sendDraftBack(text, ctx.turn, { looked: ctx.convo.looked, fields });
     if (back) return refuse(back.why, back.next, { stored: false });
     const s = seam(ctx, "ask-help");
     const drafted = await s.door(
@@ -1265,6 +1346,10 @@ const queryDraft: OneTool = {
     if (document !== null) {
       ctx.turn.drafted.push(document);
       ctx.convo.documents.push(document);
+      // the spellings of a maker, a model, a station or a site it compares with: the answer names them
+      const read = readDraft(text);
+      const counted = read ? spellingsCounted(read, fields) : [];
+      if (counted.length) ctx.turn.spellings.set(document, counted);
     }
     if (stopped) return slowOut(ctx, document, diagnosed(), text);
     if (document === null) {
@@ -1319,12 +1404,17 @@ const queryDraft: OneTool = {
         : null;
     const emptied = emptiedOf(body.diagnosis);
     noteCounted(ctx, document, cut, previewed.kind === "ok");
+    // the registry's warnings, whole and beside the diagnosis, which is cut short for a long funnel; one that says
+    // the count is not what was asked sends the model to draft again, once a turn
+    const warned = warningsOf(body.diagnosis);
+    const about = warned.length ? warningsNext(ctx.turn, document, warned) : null;
     return {
       output: {
         document,
         diagnosis: diagnosis(true),
         // the answer came and the stage counts did not: said plainly, and never as a slow question
         ...(cut ? { stage_counts: cutNote(cut, previewed.kind === "ok") } : {}),
+        ...(about ? { warnings: shorten(warned as unknown as JsonValue, 3000), about_warnings: about } : {}),
         // an answer of no rows: the step that kept none, with what reached it, whatever the shortening left
         ...(emptied ? { emptied } : {}),
         preview:

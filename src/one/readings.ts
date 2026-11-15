@@ -24,6 +24,7 @@ import {
   namesOneOf,
   sharedReadings,
 } from "./datasets.ts";
+import { spellingFaults } from "./spellings.ts";
 import type { ConversationState, TurnState } from "./state.ts";
 
 // ------------------------------------------------------------------ the names a turn is about
@@ -160,26 +161,59 @@ export function timeReading(message: string): TimeReading | null {
   return BARE.test(message) ? "span" : null;
 }
 
-/** The first-to-last shape, for the hint and for a draft sent back: one the registry accepts as it stands. */
-export const SPAN_SHAPE =
-  'the sessions that hold what is asked (`holding: {grain: session, from: visits, has: [{set: <the scans>, min: 1}]}`), then a group by subject over them with each day bound by itself, `spans: {grain: group, group: {of: holding, by: [["field", {}, "subject.code"]]}, bind: {first_day: ["min", {set: holding}, ["field", {}, "first"]], last_day: ["max", {set: holding}, ["field", {}, "first"]]}, where: [[">=", {}, ["days_between", {}, ["field", {}, "last_day"], ["field", {}, "first_day"]], <days>]]}`, answered with `out: {set: spans, level: count}`';
+/** The unit a length is said in, which names the function that measures it: weeks are counted in days. */
+export type LengthUnit = "day" | "month" | "year";
 
-/** The closest-pair shape, for a draft sent back: a visit against the one before it among those that hold what is asked. */
-export const CLOSEST_SHAPE =
-  'the sessions that hold what is asked (`holding: {grain: session, from: visits, has: [{set: <the scans>, min: 1}]}`), then a set drawn from them with the gap to the one before bound and compared, `close: {grain: session, from: holding, bind: {gap: ["days_between", {}, ["field", {}, "first"], ["prev", {}, ["field", {}, "first"]]]}, where: [["<", {}, ["field", {}, "gap"], <days>]]}`, then the subjects that have one, `found: {grain: subject, from: people, has: [{set: close, min: 1}]}`, answered with `out: {set: found, level: count}`';
+/** The unit of the first length the words carry (five years, six months, 180 days); days where they carry none. */
+export function lengthUnit(message: string): LengthUnit {
+  const unit = new RegExp(String.raw`\b${QUANTITY}\b`, "iu")
+    .exec(message)?.[0]
+    .match(/(day|week|month|year)s?$/iu)?.[1];
+  const u = unit?.toLowerCase();
+  return u === "year" || u === "month" ? u : "day";
+}
+
+/** The function that measures a length said in a unit: whole calendar months and years, or days. */
+const between = (unit: LengthUnit): string => `${unit}s_between`;
+
+/** Which function a length takes, said wherever a shape is given. */
+const UNIT_RULE =
+  "A length said in years is `years_between` and in months `months_between`, the whole calendar years or months with the number as the words say it (5, 6); a length in days or weeks is `days_between`.";
+
+/**
+ * The first-to-last shape for a length in a unit, for a draft sent back: the latest and the earliest day as
+ * totals inside the one value, the latest first. The worked example `first-to-last-span-a` is this shape in years.
+ */
+export const spanShape = (unit: LengthUnit): string =>
+  `the sessions that hold what is asked (\`holding: {grain: session, from: visits, has: [{set: <the scans>, min: 1}]}\`), then a group by subject over them with the span bound from its latest and its earliest day, the latest first, \`spans: {grain: group, group: {of: holding, by: [["field", {}, "subject.code"]]}, bind: {span_${unit}s: ["${between(unit)}", {}, ["max", {set: holding}, ["field", {}, "first"]], ["min", {set: holding}, ["field", {}, "first"]]]}, where: [[">=", {}, ["field", {}, "span_${unit}s"], <${unit}s>]]}\`, answered with \`out: {set: spans, level: count}\``;
+
+/**
+ * The closest-pair shape for a length in a unit, for a draft sent back: a visit against the one before it among
+ * those that hold what is asked. The worked example `two-sessions-close-a` is this shape in days.
+ */
+export const closestShape = (unit: LengthUnit): string =>
+  `the sessions that hold what is asked (\`holding: {grain: session, from: visits, has: [{set: <the scans>, min: 1}]}\`), then a set drawn from them with the gap to the one before bound and compared, \`close: {grain: session, from: holding, bind: {gap: ["${between(unit)}", {}, ["field", {}, "first"], ["prev", {}, ["field", {}, "first"]]]}, where: [["<", {}, ["field", {}, "gap"], <${unit}s>]]}\`, then the subjects that have one, \`found: {grain: subject, from: people, has: [{set: close, min: 1}]}\`, answered with \`out: {set: found, level: count}\``;
+
+export const SPAN_SHAPE = spanShape("year");
+export const CLOSEST_SHAPE = closestShape("day");
 
 /** Where the gap to the one before is bound, said wherever `prev` is the reading. */
 const PREV_AMONG =
   "Bind the gap in the set that carries the `has`, or in a set drawn `from` it; never in a set above it (one the sessions that hold what is asked are drawn `from`), where the one before is any visit of the subject, and never beside a `where` that narrows the same set, since the one before is counted before the `where`.";
 
-/** What the hint says of words that ask the time between visits: which reading, and that the answer states it. */
-export function timeNote(reading: TimeReading | null): string {
+/** What the hint says of words that ask the time between visits: which reading, in which unit, and that the answer states it. */
+export function timeNote(reading: TimeReading | null, unit: LengthUnit = "day"): string {
+  const fn = `\`${between(unit)}\``;
+  const order =
+    unit === "day"
+      ? `${fn} is its first day minus its second, so the later day goes first`
+      : `${fn} is the whole calendar ${unit}s from its second day to its first, so the later day goes first and the number is as the words say it`;
   if (reading === "span")
-    return " The words ask how far apart in time, so far or more, and do not say consecutive: read it per subject from the earliest to the latest visit that holds what is asked, never against the visit before (`prev`). `days_between` is its first day minus its second, so the later day goes first. Say the reading in the answer in a few words (from the first to the last such visit).";
+    return ` The words ask how far apart in time, so far or more, and do not say consecutive: read it per subject from the earliest to the latest visit that holds what is asked, never against the visit before (\`prev\`). ${order}. Say the reading in the answer in a few words (from the first to the last such visit).`;
   if (reading === "closest")
-    return ` The words ask for two visits less than so far apart: the closest pair, which is a visit and the one before it among those that hold what is asked, \`days_between\` of the visit's day and then \`prev\` of it (the later day first), compared with \`<\` for less than and \`<=\` for within or at most; never the earliest to the latest visit, which is how far apart at most. ${PREV_AMONG} Say the reading in the answer in a few words (two such visits less than so many days apart).`;
+    return ` The words ask for two visits less than so far apart: the closest pair, which is a visit and the one before it among those that hold what is asked, ${fn} of the visit's day and then \`prev\` of it, compared with \`<\` for less than and \`<=\` for within or at most; never the earliest to the latest visit, which is how far apart at most. ${order}. ${PREV_AMONG} Say the reading in the answer in a few words (two such visits less than so far apart).`;
   if (reading === "consecutive")
-    return ` The words ask the time between consecutive visits: each visit against the one before it, \`days_between\` of the visit's day and then \`prev\` of it (the later day first). ${PREV_AMONG} Say the reading in the answer in a few words (between consecutive visits).`;
+    return ` The words ask the time between consecutive visits: each visit against the one before it, ${fn} of the visit's day and then \`prev\` of it. ${order}. ${PREV_AMONG} Say the reading in the answer in a few words (between consecutive visits).`;
   return "";
 }
 
@@ -271,14 +305,19 @@ function dayOf(x: unknown, binds: Map<string, unknown>, depth = 0): { kind: stri
   return name !== null && binds.has(name) ? dayOf(binds.get(name), binds, depth + 1) : null;
 }
 
+/** The functions that measure from their second day to their first: in days, whole months and whole years. */
+const GAPS = ["days_between", "months_between", "years_between"];
+
 /**
- * Whether a draft takes the days between two days the wrong way round: the day before, or the earliest, first.
- * `days_between` is its first day minus its second, so such a draft counts nothing at or above any threshold.
+ * Whether a draft takes the time between two days the wrong way round: the day before, or the earliest, first.
+ * `days_between`, `months_between` and `years_between` are their first day minus their second, so such a draft
+ * counts nothing at or above any threshold. The registry warns of it too (`reversed_dates`) once the count came
+ * back empty; held here, the draft is mended before it is counted.
  */
 export function daysReversed(doc: Record<string, unknown>): boolean {
   const binds = bindingsOf(doc);
   return clausesOf(doc.sets).some((c) => {
-    if (c[0] !== "days_between") return false;
+    if (!GAPS.includes(c[0])) return false;
     const a = dayOf(c[2], binds);
     const b = dayOf(c[3], binds);
     if (a?.kind === "prev") return b?.kind !== "prev";
@@ -290,11 +329,11 @@ export function daysReversed(doc: Record<string, unknown>): boolean {
 export const usesPrev = (doc: Record<string, unknown>): boolean =>
   clausesOf(doc.sets).some((c) => c[0] === "prev");
 
-/** Whether a draft measures from the earliest to the latest of a column: days_between of a `max` and a `min`. */
+/** Whether a draft measures from the earliest to the latest of a column: the time between a `max` and a `min`. */
 export function usesSpan(doc: Record<string, unknown>): boolean {
   const binds = bindingsOf(doc);
   return clausesOf(doc.sets).some((c) => {
-    if (c[0] !== "days_between") return false;
+    if (!GAPS.includes(c[0])) return false;
     const kinds = [dayOf(c[2], binds)?.kind, dayOf(c[3], binds)?.kind];
     return kinds.includes("min") && kinds.includes("max");
   });
@@ -367,8 +406,21 @@ export interface DraftFault {
 
 const same = (a: string, b: string): boolean => a.toLowerCase() === b.toLowerCase();
 
-/** What a draft does against the turn's readings; empty for one that keeps them, or that does not read as a document. */
-export function draftFaults(text: string, turn: Pick<TurnState, "message" | "readings">): DraftFault[] {
+/** What the conversation looked up, and the registry's device fields: what a draft's spellings are held to. */
+export interface Spellings {
+  looked: ConversationState["looked"];
+  fields: readonly string[];
+}
+
+/**
+ * What a draft does against the turn's readings, and against the rule of spellings where `spellings` is given;
+ * empty for one that keeps them, or that does not read as a document.
+ */
+export function draftFaults(
+  text: string,
+  turn: Pick<TurnState, "message" | "readings">,
+  spellings: Spellings | null = null,
+): DraftFault[] {
   const doc = readDraft(text);
   if (!doc) return [];
   const out: DraftFault[] = [];
@@ -391,21 +443,23 @@ export function draftFaults(text: string, turn: Pick<TurnState, "message" | "rea
   if (daysReversed(doc))
     out.push({
       key: "days-reversed",
-      why: "the draft takes days_between with the earlier day first; it is its first day minus its second, so every row gets zero or less and nothing passes a threshold",
-      next: 'Put the later day first: `["days_between", {}, ["field", {}, "first"], ["prev", {}, ["field", {}, "first"]]]` for a visit and the one before, `["days_between", {}, ["field", {}, "last_day"], ["field", {}, "first_day"]]` for a subject\'s latest and earliest.',
+      why: "the draft takes the time between two days with the earlier day first; days_between, months_between and years_between are the first day minus the second, so every row gets zero or less and nothing passes a threshold",
+      next: 'Put the later day first: `["days_between", {}, ["field", {}, "first"], ["prev", {}, ["field", {}, "first"]]]` for a visit and the one before, `["years_between", {}, ["max", {set: holding}, ["field", {}, "first"]], ["min", {set: holding}, ["field", {}, "first"]]]` for a subject\'s latest and earliest.',
     });
+  if (spellings) out.push(...spellingFaults(doc, spellings.looked, spellings.fields));
   const time = timeReading(turn.message);
+  const unit = lengthUnit(turn.message);
   if (time === "span" && usesPrev(doc))
     out.push({
       key: "span",
       why: "the draft measures each visit against the one before it (`prev`), and the person's words ask how far apart, so far or more, without saying consecutive: that is each subject's earliest to latest visit that holds what is asked",
-      next: `Take \`prev\` out and use ${SPAN_SHAPE}. Write a length in years as whole days of 365.25 a year (five years are 1826). Say in the answer, in a few words, that it is from the first to the last such visit.`,
+      next: `Take \`prev\` out and use ${spanShape(unit)}. ${UNIT_RULE} Say in the answer, in a few words, that it is from the first to the last such visit.`,
     });
   if (time === "closest" && usesSpan(doc) && !usesPrev(doc))
     out.push({
       key: "closest",
       why: "the draft measures from each subject's earliest to latest visit, and the person's words ask for two visits less than so far apart: a subject seen often over many years has two close visits and a long way from first to last, so the closest pair is asked, a visit and the one before it",
-      next: `Take the group with the earliest and the latest day out and use ${CLOSEST_SHAPE}. Compare with \`<\` for less than and \`<=\` for within or at most. Say in the answer, in a few words, that it is two such visits less than so many days apart.`,
+      next: `Take the group with the earliest and the latest day out and use ${closestShape(unit)}. ${UNIT_RULE} Compare with \`<\` for less than and \`<=\` for within or at most. Say in the answer, in a few words, that it is two such visits less than so far apart.`,
     });
   // held for the words that ask a visit against the one before it; elsewhere a number counted over every visit
   // and read after a narrowing can be what is asked (the first visit of all, when it holds a kind)
@@ -415,7 +469,7 @@ export function draftFaults(text: string, turn: Pick<TurnState, "message" | "rea
     out.push({
       key: "sequence-above",
       why: `the set ${reader} compares ${binding}, which is bound in ${set}, a set above the one that keeps the sessions holding what is asked: there it is counted over every visit of the subject, so the one before is also a visit that does not hold it`,
-      next: `Take ${binding} out of ${set} and bind it in the set that carries the \`has\`, or in a set drawn \`from\` it: \`holding: {grain: session, from: ${set}, has: [{set: <the scans>, min: 1}], bind: {gap: ["days_between", {}, ["field", {}, "first"], ["prev", {}, ["field", {}, "first"]]]}}\`, with the \`where\` on it in a set drawn from that one.`,
+      next: `Take ${binding} out of ${set} and bind it in the set that carries the \`has\`, or in a set drawn \`from\` it: \`holding: {grain: session, from: ${set}, has: [{set: <the scans>, min: 1}], bind: {gap: ["${between(unit)}", {}, ["field", {}, "first"], ["prev", {}, ["field", {}, "first"]]]}}\`, with the \`where\` on it in a set drawn from that one.`,
     });
   }
   return out;
@@ -428,8 +482,9 @@ export function draftFaults(text: string, turn: Pick<TurnState, "message" | "rea
 export function sendDraftBack(
   text: string,
   turn: Pick<TurnState, "message" | "readings" | "sentBack">,
+  spellings: Spellings | null = null,
 ): { why: string; next: string } | null {
-  const faults = draftFaults(text, turn).filter((f) => !turn.sentBack.has(f.key));
+  const faults = draftFaults(text, turn, spellings).filter((f) => !turn.sentBack.has(f.key));
   if (faults.length === 0) return null;
   for (const f of faults) turn.sentBack.add(f.key);
   return {

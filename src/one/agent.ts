@@ -59,7 +59,7 @@ import { memoryFacts } from "./memory.ts";
 import { type Access, grantsLine, type Mounted, mountFor, SKILL_ORDER } from "./mount.ts";
 import { noteNumbers } from "./numbers.ts";
 import { AGENT } from "./purpose.ts";
-import { readNames, timeNote, timeReading } from "./readings.ts";
+import { lengthUnit, readNames, timeNote, timeReading } from "./readings.ts";
 import { hintLine, routeOf } from "./route.ts";
 import { bodyFor, findExamples, loadSkills, skillOf } from "./skills.ts";
 import {
@@ -589,7 +589,7 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
             ? `The question is about the dataset ${about.join("; and the dataset ")}: name it with the field dataset.${steps.join("")}`
             : "",
           // a shared name the turn reads as the cohort, and how far apart in time is read
-          `${cohortNote(t.readings.filter((r) => r.as === "cohort").map((r) => r.name))}${timeNote(timeReading(message))}`.trim(),
+          `${cohortNote(t.readings.filter((r) => r.as === "cohort").map((r) => r.name))}${timeNote(timeReading(message), lengthUnit(message))}`.trim(),
           grantsLine(mounted),
         ]
           .filter(Boolean)
@@ -720,7 +720,7 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
           steps.filter((s): s is string => s !== null),
         )}${
           mounted.skills.includes("find-data")
-            ? `${cohortNote(read.cohorts)}${follows ? cohortKeptNote(read.keptCohorts) : ""}${datasetNote(read.asDataset)}${timeNote(timeReading(message))}`
+            ? `${cohortNote(read.cohorts)}${follows ? cohortKeptNote(read.keptCohorts) : ""}${datasetNote(read.asDataset)}${timeNote(timeReading(message), lengthUnit(message))}`
             : ""
         }`,
         // record 55 K6: a card, a result, a cohort or a saved selection named with @, and the tool that reads it
