@@ -29,8 +29,18 @@ const { conversationOf, newTurn } = await import("../src/one/state.ts");
 const { TOOLS } = await import("../src/one/tools.ts");
 const { cohortSaidComplaint } = await import("../src/one/checks.ts");
 const { cohortKeptNote, datasetNote } = await import("../src/one/datasets.ts");
-const { daysReversed, draftFaults, readDraft, readNames, SPAN_SHAPE, sendDraftBack, timeNote, timeReading } =
-  await import("../src/one/readings.ts");
+const {
+  CLOSEST_SHAPE,
+  daysReversed,
+  draftFaults,
+  prevBesideHas,
+  readDraft,
+  readNames,
+  SPAN_SHAPE,
+  sendDraftBack,
+  timeNote,
+  timeReading,
+} = await import("../src/one/readings.ts");
 const { bodyFor, findExamples, loadSkills } = await import("../src/one/skills.ts");
 const { closest } = await import("../src/stations/select.ts");
 type DatasetFact = import("../src/one/datasets.ts").DatasetFact;
@@ -314,12 +324,13 @@ name: subjects with FLAIR scans five years apart
 scheme: default
 sets:
   flair:  {grain: stack, where: [["has", {}, ["axis", {}, "modifier"], "FLAIR"]]}
-  visits:
+  visits: {grain: session, has: [{set: flair, min: 1}]}
+  gaps:
     grain: session
-    has: [{set: flair, min: 1}]
+    from: visits
     bind:
       gap: ["days_between", {}, ["prev", {}, ["field", {}, "first"]], ["field", {}, "first"]]
-  far:    {grain: session, from: visits, where: [[">=", {}, ["field", {}, "gap"], 1830]]}
+  far:    {grain: session, from: gaps, where: [[">=", {}, ["field", {}, "gap"], 1830]]}
   found:  {grain: subject, has: [{set: far, min: 1}]}
 keep: [found]
 out: {set: found, level: count}
@@ -374,7 +385,7 @@ describe("how far apart in time", () => {
     expect(out).toEqual({
       refused: true,
       stored: false,
-      why: "the draft was not sent to the registry: the draft measures each visit against the one before it (`prev`), and the person's words ask how far apart without saying consecutive: that is each subject's earliest to latest visit that holds what is asked",
+      why: "the draft was not sent to the registry: the draft measures each visit against the one before it (`prev`), and the person's words ask how far apart, so far or more, without saying consecutive: that is each subject's earliest to latest visit that holds what is asked",
       next: `Take \`prev\` out and use ${SPAN_SHAPE}. Write a length in years as whole days of 365.25 a year (five years are 1826). Say in the answer, in a few words, that it is from the first to the last such visit. Change only that and draft the whole document again.`,
     });
     // once: the same reading again goes on, and the first-to-last draft passes with nothing said
@@ -429,6 +440,137 @@ describe("how far apart in time", () => {
   });
 });
 
+describe("less than so far apart", () => {
+  const CLOSE = "How many subjects have two sessions holding a FLAIR less than 180 days apart?";
+  /** The closest pair as the worked example asks it: the gap bound in a set drawn from the sessions that hold it. */
+  const close = () => example("two-sessions-close-a.ask.yml");
+  /** The same words answered first to last, which counts how far apart at most. */
+  const spanned = () => example("first-to-last-span-a.ask.yml").replace('[">=", {}', '["<", {}');
+
+  it("is the closest pair, a visit and the one before it, and never first to last", () => {
+    for (const words of [
+      CLOSE,
+      "How many subjects have two FLAIR sessions within six months of each other?",
+      "Which subjects have two sessions at most a year apart?",
+      "How many subjects have two sessions no more than 90 days apart?",
+      "Which subjects have scans closer than 30 days apart?",
+    ])
+      expect(timeReading(words), words).toBe("closest");
+    // a length as the least, or said bare, is first to last: "five years apart" means so far apart or more
+    for (const words of [
+      "How many subjects have FLAIR scans at least five years apart?",
+      "How many subjects have FLAIR scans more than a year apart?",
+      "How many subjects have FLAIR scans five years apart?",
+      "How many subjects have FLAIR scans five years or more apart?",
+    ])
+      expect(timeReading(words), words).toBe("span");
+    // no length to tell the reading from, a least and a most together, or a most said of something else: no reading
+    for (const words of [
+      "How far apart are their scans?",
+      "Which subjects have sessions four to five years apart, each with a score within a year of its date?",
+      "How many subjects have scans more than one year and less than two years apart?",
+      "How many subjects under 30 years have scans five years apart?",
+      "How many sessions holding a FLAIR are within 90 days of a session holding an MPRAGE?",
+    ])
+      expect(timeReading(words), words).toBeNull();
+    expect(timeNote("closest")).toMatch(
+      /two visits less than so far apart: the closest pair, which is a visit and the one before it among those that hold what is asked/u,
+    );
+    expect(timeNote("closest")).toMatch(
+      /`<` for less than and `<=` for within or at most; never the earliest to the latest/u,
+    );
+    expect(timeNote("closest")).toMatch(
+      /Say the reading in the answer in a few words \(two such visits less than so many days apart\)/u,
+    );
+  });
+
+  it("passes a draft with the visit before untouched, through the tool", async () => {
+    for (const [i, words] of [
+      CLOSE,
+      "How many subjects have two FLAIR sessions within six months of each other?",
+    ].entries()) {
+      const t = turnOf(`close-1-${i}`, words);
+      const before = drafts();
+      const out = await t.draft(close());
+      expect(drafts(), words).toBe(before + 1);
+      expect(out.refused, words).toBeUndefined();
+      expect(out.document).toBe(61);
+      expect(t.turn.sentBack.size).toBe(0);
+    }
+    // every worked example with a length of time passes under its own question
+    for (const f of [
+      "first-to-last-span-a.ask.yml",
+      "consecutive-sessions-apart-b.ask.yml",
+      "two-sessions-close-a.ask.yml",
+      "first-to-second-gap-b.ask.yml",
+      "session-pairs.ask.yml",
+      "two-sessions-one-year.ask.yml",
+      "kind-near-another-kind.ask.yml",
+      "sessions-since-date-with-kind.ask.yml",
+      "diagnostic-window.ask.yml",
+    ]) {
+      const raw = example(f);
+      const question = /^# question: (.*)$/mu.exec(raw)?.[1] ?? "";
+      expect(question, f).not.toBe("");
+      expect(draftFaults(raw, asked(question)), f).toEqual([]);
+    }
+  });
+
+  it("sends back, once, a draft that measures first to last, with the closest-pair shape", async () => {
+    const t = turnOf("close-2", CLOSE);
+    const before = drafts();
+    const out = await t.draft(spanned());
+    expect(drafts()).toBe(before);
+    expect(out).toEqual({
+      refused: true,
+      stored: false,
+      why: "the draft was not sent to the registry: the draft measures from each subject's earliest to latest visit, and the person's words ask for two visits less than so far apart: a subject seen often over many years has two close visits and a long way from first to last, so the closest pair is asked, a visit and the one before it",
+      next: `Take the group with the earliest and the latest day out and use ${CLOSEST_SHAPE}. Compare with \`<\` for less than and \`<=\` for within or at most. Say in the answer, in a few words, that it is two such visits less than so many days apart. Change only that and draft the whole document again.`,
+    });
+    expect((await t.draft(spanned())).document).toBe(61);
+    // the shape it is told is the worked example's own
+    const flat = (s: string) => s.replace(/\s+/gu, " ");
+    for (const part of [
+      'gap: ["days_between", {}, ["field", {}, "first"], ["prev", {}, ["field", {}, "first"]]]',
+      "has: [{set: close, min: 1}]",
+      "out: {set: found, level: count}",
+    ]) {
+      expect(CLOSEST_SHAPE).toContain(part);
+      expect(flat(close())).toContain(part);
+    }
+    // first to last stays right for a length as the least, and for words with no reading
+    expect(
+      draftFaults(example("first-to-last-span-a.ask.yml"), asked("FLAIR scans at least five years apart?")),
+    ).toEqual([]);
+    expect(draftFaults(spanned(), asked("How far apart are their scans?"))).toEqual([]);
+  });
+
+  it("sends back, once, the visit before bound beside the has, where it is any visit of the subject", () => {
+    const beside = close()
+      .replace("    has: [{set: flair, min: 1}]\n", "")
+      .replace(
+        "    from: holding\n    bind:",
+        "    from: holding\n    has: [{set: flair, min: 1}]\n    bind:",
+      );
+    expect(prevBesideHas(readDraft(close()) ?? {})).toEqual([]);
+    expect(prevBesideHas(readDraft(beside) ?? {})).toEqual(["close"]);
+    const turn = asked(CLOSE);
+    const back = sendDraftBack(beside, turn);
+    expect(back?.why).toBe(
+      "the draft was not sent to the registry: the set close binds the visit before (`prev`) beside its `has`: there the one before is any visit of the subject, also one that does not hold what is asked",
+    );
+    expect(back?.next).toContain("from: close, bind: {gap: [");
+    expect(sendDraftBack(beside, turn)).toBeNull();
+    // held for consecutive words too, and for no others
+    expect(
+      draftFaults(beside, asked("Which consecutive FLAIR sessions are less than 180 days apart?")).map(
+        (f) => f.key,
+      ),
+    ).toEqual(["prev-beside-has"]);
+    expect(draftFaults(beside, asked("How many subjects have a FLAIR?"))).toEqual([]);
+  });
+});
+
 describe("the find-data skill and its worked examples, for these readings", () => {
   const skill = loadSkills(["./stations"], ["find-data"]).get("find-data");
   if (!skill) throw new Error("the find-data skill is missing");
@@ -438,6 +580,7 @@ describe("the find-data skill and its worked examples, for these readings", () =
     "consecutive-sessions-apart-b.ask.yml",
     "sessions-since-date-with-kind.ask.yml",
     "kind-near-another-kind.ask.yml",
+    "two-sessions-close-a.ask.yml",
   ];
   type Doc = {
     sets: Record<string, Record<string, unknown>>;
@@ -460,11 +603,16 @@ describe("the find-data skill and its worked examples, for these readings", () =
       /Only when the words say \*\*consecutive\*\*, \*\*successive\*\*, \*\*between visits\*\*, \*\*a gap\*\* or \*\*an interval between\*\*/u,
     );
     expect(b).toMatch(/`days_between` is its first day minus its second: the later day goes first/u);
+    expect(b).toMatch(
+      /\*\*Less than\*\* so far apart, \*\*within N of each other\*\*, \*\*at most\*\* .* is the closest pair, never first to last/u,
+    );
+    expect(b).toMatch(/bound beside the `has`, the one before is any visit of the subject/u);
+    expect(b).toMatch(/`<` for less than and `<=` for within or at most/u);
     expect(b).toMatch(/five 1826/u);
     expect(b).toMatch(/The answer says the reading in a few words/u);
   });
 
-  it("is backed by four worked examples in the cookbook's made-up names, which no check sends back", () => {
+  it("is backed by five worked examples in the cookbook's made-up names, which no check sends back", () => {
     for (const f of NEW) {
       const raw = example(f);
       const question = /^# question: (.{40,})$/mu.exec(raw)?.[1] ?? "";
@@ -507,6 +655,17 @@ describe("the find-data skill and its worked examples, for these readings", () =
       gap: ["days_between", {}, ["field", {}, "first"], ["prev", {}, ["field", {}, "first"]]],
     });
     expect(gap.sets.far.where).toEqual([[">=", {}, ["field", {}, "gap"], 183]]);
+    // the closest pair: the sessions that hold it, the gap bound in a set drawn from them, the subjects that have one
+    const two = parse(example(NEW[4])) as Doc;
+    expect(two.sets.holding).toEqual({ grain: "session", from: "visits", has: [{ set: "flair", min: 1 }] });
+    expect(two.sets.close).toEqual({
+      grain: "session",
+      from: "holding",
+      bind: { gap: ["days_between", {}, ["field", {}, "first"], ["prev", {}, ["field", {}, "first"]]] },
+      where: [["<", {}, ["field", {}, "gap"], 400]],
+    });
+    expect(two.sets.found).toEqual({ grain: "subject", from: "people", has: [{ set: "close", min: 1 }] });
+    expect(two.out).toEqual({ set: "found", level: "count" });
     // since a date, with the subjects in the same count
     const since = parse(example(NEW[2])) as Doc;
     expect(since.sets.recent).toEqual({
@@ -537,6 +696,9 @@ describe("the find-data skill and its worked examples, for these readings", () =
     );
     expect(first("Which consecutive sessions of cohort A are at least three months apart?")).toBe(
       "consecutive-sessions-apart-b.ask.yml",
+    );
+    expect(first("How many subjects have two sessions holding an MPRAGE less than 180 days apart?")).toBe(
+      "two-sessions-close-a.ask.yml",
     );
     expect(first("How many sessions since 2018 hold a TSE, and how many subjects?")).toBe(
       "sessions-since-date-with-kind.ask.yml",

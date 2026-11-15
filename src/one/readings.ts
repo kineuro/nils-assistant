@@ -103,33 +103,83 @@ export function readNames(
 
 /** Words that ask how far apart in time two scans or visits of a subject are. */
 const APART =
-  /\bapart\b|\bspan(?:s|ned|ning)?\b|\bfollow[- ]?up\s+(?:of|for|over|spanning)\s+(?:at least|more than|over|a minimum of|\d)|\bfollowed(?:\s+up)?\s+(?:for|over)\b/iu;
+  /\bapart\b|\b(?:of|from)\s+(?:each\s+other|one\s+another)\b|\bspan(?:s|ned|ning)?\b|\bfollow[- ]?up\s+(?:of|for|over|spanning)\s+(?:at least|more than|over|a minimum of|\d)|\bfollowed(?:\s+up)?\s+(?:for|over)\b/iu;
 /** Words that ask it of one visit and the one before. */
 const CONSECUTIVE =
   /\bconsecutive(?:ly)?\b|\bsuccessive\b|\bbetween\s+(?:(?:two|the|their|his|her|each|any|following|subsequent|adjacent|one|and|next)\s+){0,3}(?:visits|sessions|scans)\b|\bgaps?\b|\bintervals?\s+between\b|\bprevious\b|\bthe\s+one\s+before\b|\badjacent\b|\bin\s+a\s+row\b|\bback[- ]to[- ]back\b/iu;
 /** A length of time, which makes a word of consecutive visits a question of time. */
 const LENGTH = /\b(?:days?|weeks?|months?|years?)\b/iu;
+/** A length of time with its number: five years, 180 days, a year, six and a half months. */
+const QUANTITY = String.raw`(?:\d+(?:[.,]\d+)?|an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|half\s+an?)\s+(?:and\s+a\s+half\s+)?(?:days?|weeks?|months?|years?)`;
+/** A length the words set as the most: less than 180 days, within six months, at most a year. */
+const AT_MOST = new RegExp(
+  String.raw`\b(?:less\s+than|fewer\s+than|within|under|below|at\s+most|no\s+more\s+than|not\s+more\s+than|no\s+longer\s+than|closer\s+than|shorter\s+than|up\s+to|a\s+maximum\s+of)\s+${QUANTITY}\b`,
+  "giu",
+);
+/** A length the words set as the least: at least five years, more than a year, five years or more. */
+const AT_LEAST = new RegExp(
+  String.raw`\b(?:at\s+least|more\s+than|over|above|longer\s+than|greater\s+than|exceeding|a\s+minimum\s+of|no\s+less\s+than|not\s+less\s+than)\s+${QUANTITY}\b|\b${QUANTITY}\s+(?:apart\s+)?or\s+(?:more|longer)\b`,
+  "iu",
+);
+const BARE = new RegExp(String.raw`\b${QUANTITY}\b`, "iu");
+/** A most said of the two visits themselves: the length, then apart or of each other. */
+const MOST_APART = new RegExp(
+  String.raw`${AT_MOST.source}(?:\s+\S+){0,2}?\s+(?:apart|(?:of|from)\s+(?:each\s+other|one\s+another))\b`,
+  "iu",
+);
+/** A least and a most together: four to five years, between two and three months. */
+const RANGE = new RegExp(String.raw`\b(?:\d+(?:[.,]\d+)?|[a-z]+)\s+(?:to|and)\s+${QUANTITY}\b`, "iu");
+
+/** How the words ask the time between a subject's visits. */
+export type TimeReading = "span" | "closest" | "consecutive";
 
 /**
- * How the words ask the time between a subject's visits: `span`, from the earliest to the latest that holds what
- * is asked (apart, a span, a follow-up of at least), `consecutive`, a visit against the one before (consecutive,
- * successive, between visits, a gap, an interval between), or null when they ask neither.
+ * How the words ask the time between a subject's visits; null when they ask none of these, or carry no length
+ * the reading could be told from.
+ * - `consecutive`: a visit against the one before, as the words say (consecutive, successive, between visits, a
+ *   gap, an interval between).
+ * - `span`: apart, a span or a follow-up with a length as the least (at least five years apart, five years or
+ *   more): from the earliest to the latest visit that holds what is asked.
+ * - `closest`: apart with a length as the most (less than 180 days apart, within six months of each other): two
+ *   such visits that close are a visit and the one before it, since the closest pair is always a consecutive
+ *   one; first to last would count a subject seen at day 0, 100 and 900 as 900 apart.
+ * A length said bare ("five years apart") is read as the least: so far apart or more. Words that set both a
+ * least and a most (four to five years apart) are a pair in a window, which is neither.
  */
-export function timeReading(message: string): "span" | "consecutive" | null {
+export function timeReading(message: string): TimeReading | null {
   if (CONSECUTIVE.test(message)) return APART.test(message) || LENGTH.test(message) ? "consecutive" : null;
-  return APART.test(message) ? "span" : null;
+  if (!APART.test(message)) return null;
+  // "no more than a year" sets no least: the lengths set as the most are taken out before the least is looked for
+  const rest = message.replace(AT_MOST, " ");
+  const least = AT_LEAST.test(rest) || /\bfollowed(?:\s+up)?\s+(?:for|over)\b/iu.test(rest);
+  // the most is said of the two visits (less than 180 days apart, within six months of each other); a most said
+  // of something else (a score within a year of its date) leaves the reading open
+  if (MOST_APART.test(message)) return least ? null : "closest";
+  if (least) return "span";
+  if (rest !== message || RANGE.test(message)) return null;
+  return BARE.test(message) ? "span" : null;
 }
 
 /** The first-to-last shape, for the hint and for a draft sent back: one the registry accepts as it stands. */
 export const SPAN_SHAPE =
   'the sessions that hold what is asked (`holding: {grain: session, from: visits, has: [{set: <the scans>, min: 1}]}`), then a group by subject over them with each day bound by itself, `spans: {grain: group, group: {of: holding, by: [["field", {}, "subject.code"]]}, bind: {first_day: ["min", {set: holding}, ["field", {}, "first"]], last_day: ["max", {set: holding}, ["field", {}, "first"]]}, where: [[">=", {}, ["days_between", {}, ["field", {}, "last_day"], ["field", {}, "first_day"]], <days>]]}`, answered with `out: {set: spans, level: count}`';
 
+/** The closest-pair shape, for a draft sent back: a visit against the one before it among those that hold what is asked. */
+export const CLOSEST_SHAPE =
+  'the sessions that hold what is asked (`holding: {grain: session, from: visits, has: [{set: <the scans>, min: 1}]}`), then a set drawn from them with the gap to the one before bound and compared, `close: {grain: session, from: holding, bind: {gap: ["days_between", {}, ["field", {}, "first"], ["prev", {}, ["field", {}, "first"]]]}, where: [["<", {}, ["field", {}, "gap"], <days>]]}`, then the subjects that have one, `found: {grain: subject, from: people, has: [{set: close, min: 1}]}`, answered with `out: {set: found, level: count}`';
+
+/** Where the gap to the one before is bound, said wherever `prev` is the reading. */
+const PREV_AMONG =
+  "Bind the gap in a set drawn `from` the sessions that hold what is asked, never in the set that carries the `has`: bound beside the `has`, the one before is any visit of the subject.";
+
 /** What the hint says of words that ask the time between visits: which reading, and that the answer states it. */
-export function timeNote(reading: "span" | "consecutive" | null): string {
+export function timeNote(reading: TimeReading | null): string {
   if (reading === "span")
-    return " The words ask how far apart in time and do not say consecutive: read it per subject from the earliest to the latest visit that holds what is asked, never against the visit before (`prev`). `days_between` is its first day minus its second, so the later day goes first. Say the reading in the answer in a few words (from the first to the last such visit).";
+    return " The words ask how far apart in time, so far or more, and do not say consecutive: read it per subject from the earliest to the latest visit that holds what is asked, never against the visit before (`prev`). `days_between` is its first day minus its second, so the later day goes first. Say the reading in the answer in a few words (from the first to the last such visit).";
+  if (reading === "closest")
+    return ` The words ask for two visits less than so far apart: the closest pair, which is a visit and the one before it among those that hold what is asked, \`days_between\` of the visit's day and then \`prev\` of it (the later day first), compared with \`<\` for less than and \`<=\` for within or at most; never the earliest to the latest visit, which is how far apart at most. ${PREV_AMONG} Say the reading in the answer in a few words (two such visits less than so many days apart).`;
   if (reading === "consecutive")
-    return " The words ask the time between consecutive visits: each visit against the one before it, `days_between` of the visit's day and then `prev` of it (the later day first). Say the reading in the answer in a few words (between consecutive visits).";
+    return ` The words ask the time between consecutive visits: each visit against the one before it, \`days_between\` of the visit's day and then \`prev\` of it (the later day first). ${PREV_AMONG} Say the reading in the answer in a few words (between consecutive visits).`;
   return "";
 }
 
@@ -240,6 +290,27 @@ export function daysReversed(doc: Record<string, unknown>): boolean {
 export const usesPrev = (doc: Record<string, unknown>): boolean =>
   clausesOf(doc.sets).some((c) => c[0] === "prev");
 
+/** Whether a draft measures from the earliest to the latest of a column: days_between of a `max` and a `min`. */
+export function usesSpan(doc: Record<string, unknown>): boolean {
+  const binds = bindingsOf(doc);
+  return clausesOf(doc.sets).some((c) => {
+    if (c[0] !== "days_between") return false;
+    const kinds = [dayOf(c[2], binds)?.kind, dayOf(c[3], binds)?.kind];
+    return kinds.includes("min") && kinds.includes("max");
+  });
+}
+
+/**
+ * The sets of a draft that bind the row before beside a `has`: the registry reads `prev` there before the `has`
+ * keeps its rows, so the one before is any session of the subject, also one that does not hold what is asked.
+ * Bound in a set drawn `from` that one, it is the one before among the rows kept.
+ */
+export function prevBesideHas(doc: Record<string, unknown>): string[] {
+  return Object.entries(doc.sets as Record<string, unknown>)
+    .filter(([, s]) => isMap(s) && Array.isArray(s.has) && clausesOf(s.bind).some((c) => c[0] === "prev"))
+    .map(([name]) => name);
+}
+
 // ------------------------------------------------------------------ the draft, held to the reading
 
 /** One fault a draft is sent back for: its key, what is wrong, and the shape to use. */
@@ -278,11 +349,25 @@ export function draftFaults(text: string, turn: Pick<TurnState, "message" | "rea
       why: "the draft takes days_between with the earlier day first; it is its first day minus its second, so every row gets zero or less and nothing passes a threshold",
       next: 'Put the later day first: `["days_between", {}, ["field", {}, "first"], ["prev", {}, ["field", {}, "first"]]]` for a visit and the one before, `["days_between", {}, ["field", {}, "last_day"], ["field", {}, "first_day"]]` for a subject\'s latest and earliest.',
     });
-  if (timeReading(turn.message) === "span" && usesPrev(doc))
+  const time = timeReading(turn.message);
+  if (time === "span" && usesPrev(doc))
     out.push({
       key: "span",
-      why: "the draft measures each visit against the one before it (`prev`), and the person's words ask how far apart without saying consecutive: that is each subject's earliest to latest visit that holds what is asked",
+      why: "the draft measures each visit against the one before it (`prev`), and the person's words ask how far apart, so far or more, without saying consecutive: that is each subject's earliest to latest visit that holds what is asked",
       next: `Take \`prev\` out and use ${SPAN_SHAPE}. Write a length in years as whole days of 365.25 a year (five years are 1826). Say in the answer, in a few words, that it is from the first to the last such visit.`,
+    });
+  if (time === "closest" && usesSpan(doc) && !usesPrev(doc))
+    out.push({
+      key: "closest",
+      why: "the draft measures from each subject's earliest to latest visit, and the person's words ask for two visits less than so far apart: a subject seen often over many years has two close visits and a long way from first to last, so the closest pair is asked, a visit and the one before it",
+      next: `Take the group with the earliest and the latest day out and use ${CLOSEST_SHAPE}. Compare with \`<\` for less than and \`<=\` for within or at most. Say in the answer, in a few words, that it is two such visits less than so many days apart.`,
+    });
+  const beside = time === "closest" || time === "consecutive" ? prevBesideHas(doc) : [];
+  if (beside.length)
+    out.push({
+      key: "prev-beside-has",
+      why: `the set ${beside.join(" and ")} binds the visit before (\`prev\`) beside its \`has\`: there the one before is any visit of the subject, also one that does not hold what is asked`,
+      next: `Leave the \`has\` in that set and move the binding into a set drawn from it: \`{grain: session, from: ${beside[0]}, bind: {gap: ["days_between", {}, ["field", {}, "first"], ["prev", {}, ["field", {}, "first"]]]}}\`, with the \`where\` on the gap there or in a set after it.`,
     });
   return out;
 }
