@@ -243,6 +243,19 @@ export function uncountedComplaint(t: TurnState, answer: string): string | null 
   return `the steps of ${which} could not be counted in the time, so nothing checked ${cut.length === 1 ? "its number" : "their numbers"} step by step: say so in one plain sentence (the steps could not be counted in the time, and the number is the question's own count, unchecked step by step)`;
 }
 
+/**
+ * What is missing from an answer to words that named a cohort and a dataset of one name without saying dataset
+ * (the ruling of 2026-11-15): the question counted the cohort's members, and the answer says so in a clause.
+ * Null when it does, when the turn drafted nothing, or for a follow-up, which the first answer already told.
+ */
+export function cohortSaidComplaint(t: TurnState, answer: string): string | null {
+  const names = t.readings.filter((r) => r.as === "cohort" && !r.kept).map((r) => r.name);
+  if (names.length === 0 || t.drafted.length === 0 || t.asked || answer.trim() === "") return null;
+  if (/\bcohort(?:'s|\u2019s|s)?\b/iu.test(answer)) return null;
+  const which = names.join(" and ");
+  return `${which} is a cohort and a dataset of the same name, and the words do not say dataset, so the question counted the cohort's members: say so in one short clause (the members of the cohort ${which})`;
+}
+
 /** What is wrong with the turn as it would settle; empty when nothing is. */
 export async function complaintsOf(c: CheckContext): Promise<string[]> {
   const out: string[] = [];
@@ -278,6 +291,9 @@ export async function complaintsOf(c: CheckContext): Promise<string[]> {
       `the words name the dataset ${c.turn.datasets.join(" and ")}, which the registry holds: answer from its counts in the facts, and never say it is not there`,
     );
   const active = activeSkills(c.turn);
+  // a shared name read as the cohort: the answer says so in a clause, so the person knows which was counted
+  const members = cohortSaidComplaint(c.turn, answer);
+  if (members) out.push(members);
   // a question for data answered from memory: the person gets no question to keep, and the number is unchecked
   if (
     c.hinted === "find-data" &&

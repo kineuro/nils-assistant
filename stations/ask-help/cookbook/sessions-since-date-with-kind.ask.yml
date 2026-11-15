@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: How many sessions since 1 January 2015 hold an MPRAGE, and how many subjects have one?
+# synthetic: written for the cookbook, not a gold of the bench
+ast_version: 1
+name: sessions since a date that hold an MPRAGE, with their subjects
+scheme: default
+sets:
+  mprage: {grain: stack, where: [["=", {}, ["axis", {}, "technique"], "MPRAGE"]]}
+  # since a date: the session's day on or after it; the count answers the sessions and their subjects in one row
+  recent:
+    grain: session
+    has: [{set: mprage, min: 1}]
+    where: [[">=", {}, ["field", {}, "first"], "2015-01-01"]]
+keep: [recent]
+out: {set: recent, level: count}

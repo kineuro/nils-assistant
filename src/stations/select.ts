@@ -71,7 +71,12 @@ export function idiomsOfQuestion(q: string): Set<string> {
   )
     out.add("clinical");
   if (/\bage\b|\bold\b|\byounger\b|\bolder\b|\bunder\b|\bborn\b/u.test(t)) out.add("age");
-  if (/\byear\b|\bcalendar\b|\bdays\b|\bgap\b|\bbetween\b/u.test(t)) out.add("time");
+  if (
+    /\byears?\b|\bmonths?\b|\bcalendar\b|\bdays\b|\bgaps?\b|\bbetween\b|\bapart\b|\bsince\b|\bconsecutive\b|\bintervals?\b|\bfollow[- ]?up\b/u.test(
+      t,
+    )
+  )
+    out.add("time");
   return out;
 }
 

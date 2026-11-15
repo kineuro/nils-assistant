@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-# question: List the main scans of study-a per visit: for each subject and visit, its picked T1w, FLAIR and T2w, with the role, the stack id and the series description.
+# question: List the main scans of the dataset study-a per visit: for each subject and visit, its picked T1w, FLAIR and T2w, with the role, the stack id and the series description.
 # synthetic: written for the cookbook, not a gold of the bench
 ast_version: 1
 name: main scans of a dataset per visit

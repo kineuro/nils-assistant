@@ -273,7 +273,8 @@ const engine = await stubEngine((c) => {
           },
           {
             name: "study-b",
-            dataset: { kind: "dataset", state: "identified", cohort: null },
+            // a cohort of the same name is fed by it
+            dataset: { kind: "dataset", state: "identified", cohort: "study-b" },
             digests: { count: 1, last: { name: "study-b-2026-10-01", finished_at: "2026-10-01 08:00:00" } },
             totals: { subjects: 4, sessions: 8, stacks: 40, to_sort: 0, sure: 40, unsorted: 0 },
           },
@@ -539,6 +540,65 @@ describe("the one agent", () => {
     await h.read(await h.dispatch("How many subjects are in cohort B?"));
     expect(turnOf("oc-dataset-follow").datasets).toEqual([]);
     expect(appended(seen[0])).toMatch(/this looks like the find-data skill/u);
+  }, 60_000);
+
+  it("reads a name that is a cohort's and a dataset's as the cohort, sends back a draft of the dataset, and keeps the cohort in a follow-up", async () => {
+    const ofDataset = (name: string) =>
+      `ast_version: 1\nname: ${name}\nscheme: default\nsets:\n  flair:\n    grain: stack\n    where:\n      - ["=", {}, ["field", {}, "dataset"], "study-b"]\n      - ["has", {}, ["axis", {}, "modifier"], "FLAIR"]\n  found: {grain: subject, has: [{set: flair, min: 1}]}\nkeep: [found]\nout: {set: found, level: count}\n`;
+    const ofCohort = (name: string) =>
+      `ast_version: 1\nname: ${name}\nscheme: default\nsets:\n  scope:  {grain: cohort, where: [["=", {}, ["field", {}, "name"], "study-b"]]}\n  people: {grain: subject, of: scope}\n  visits: {grain: session, of: people}\n  flair:  {grain: stack, of: visits, where: [["has", {}, ["axis", {}, "modifier"], "FLAIR"]]}\n  found:  {grain: subject, from: people, has: [{set: flair, min: 1}]}\nkeep: [found]\nout: {set: found, level: count}\n`;
+    const sent = (name: string) =>
+      engine.seen.filter((x) => x.path === "/api/ask/draft" && JSON.stringify(x.body).includes(name)).length;
+    play([
+      { tool: "activate_skill", args: { name: "find-data" } },
+      { tool: "query_draft", args: { text: ofDataset("shared name, the dataset") } },
+      { tool: "query_draft", args: { text: ofCohort("shared name, the cohort") } },
+      { text: "24 members of the cohort study-b have a FLAIR (document 812)." },
+      { tool: "query_draft", args: { text: ofDataset("shared name, the dataset again") } },
+      { tool: "query_draft", args: { text: ofCohort("shared name, the cohort again") } },
+      { text: "24 of them have a 3D one (document 812)." },
+    ]);
+    const h = init(Nils, { id: "oc-shared-name" });
+    const reply = await h.read(await h.dispatch("How many subjects in study-b have a FLAIR?"));
+    const first = appended(seen[0]);
+    // the hint reads the name as the cohort, with the shape, and names no dataset
+    expect(first).toMatch(
+      /The words name study-b, which is a cohort and a dataset of the same name, and do not say dataset/u,
+    );
+    expect(first).toMatch(/people: \{grain: subject, of: scope\}/u);
+    expect(first).not.toMatch(/they name the dataset study-b/u);
+    expect(turnOf("oc-shared-name").datasets).toEqual([]);
+    expect(turnOf("oc-shared-name").readings).toEqual([{ name: "study-b", as: "cohort", kept: false }]);
+    // the dataset's draft went back before the registry saw it, with the shape; the cohort's was stored
+    const back = lastResult(seen[2]);
+    expect(back).toMatchObject({ refused: true, stored: false });
+    expect(String(back.why)).toMatch(
+      /was not sent to the registry: the draft narrows to the dataset study-b/u,
+    );
+    expect(String(back.next)).toMatch(
+      /scope: \{grain: cohort, where: \[\["=", \{\}, \["field", \{\}, "name"\], "study-b"\]\]\}/u,
+    );
+    expect(sent("shared name, the dataset")).toBe(0);
+    expect(sent("shared name, the cohort")).toBe(1);
+    expect(turnOf("oc-shared-name").drafted).toEqual([812]);
+    expect(reply.text).toMatch(/24 members of the cohort study-b/u);
+    // nothing else sent the turn back: four calls of the model, and the answer stood
+    expect(calls).toBe(4);
+    // a follow-up that names nothing keeps the cohort: the hint says so, and the dataset's draft goes back again
+    const then = await h.read(await h.dispatch("And how many of them have a 3D one?"));
+    const second = appended(seen[4]);
+    expect(second).toMatch(
+      /Earlier in this conversation the words named study-b, read as the cohort \(a dataset has the same name\)/u,
+    );
+    expect(second).not.toMatch(/the person named the dataset study-b/u);
+    expect(turnOf("oc-shared-name").readings).toEqual([{ name: "study-b", as: "cohort", kept: true }]);
+    expect(String(lastResult(seen[5]).why)).toMatch(
+      /go on about the cohort named before and do not say dataset/u,
+    );
+    expect(sent("shared name, the dataset again")).toBe(0);
+    expect(sent("shared name, the cohort again")).toBe(1);
+    expect(then.text).toMatch(/24 of them have a 3D one/u);
+    expect(calls).toBe(7);
   }, 60_000);
 
   it("lets an answer settle whose counts the question's result holds, and sends back one that states another", async () => {
@@ -1010,7 +1070,7 @@ describe("the one agent tells what is true now (2026-10-09)", () => {
   it("leaves the steps out, and says nothing of it, where the engine has no summary of the dataset", async () => {
     play([{ text: "study-b holds 40 scans from 4 subjects over 8 visits." }]);
     const h = init(Nils, { id: "oc-steps-none" });
-    await h.read(await h.dispatch("How many scans are in study-b?"));
+    await h.read(await h.dispatch("How many scans are in the dataset study-b?"));
     const first = appended(seen[0]);
     expect(engine.seen.some((x) => x.path === "/api/datasets/study-b/summary")).toBe(true);
     expect(first).toMatch(/they name the dataset study-b \(identified\): 4 subjects, 8 visits, 40 scans/u);

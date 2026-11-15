@@ -240,35 +240,80 @@ export function datasetsNamed(message: string, list: readonly DatasetFact[]): Da
   );
 }
 
+/** How the words read a name that is a cohort's and a dataset's. */
+export type SharedReading = "cohort" | "dataset" | "both";
+
+/** A name called a cohort or a dataset by the words beside it: "the X cohort", "the dataset named X". */
+const calledAs = (name: string, what: string): RegExp =>
+  new RegExp(
+    String.raw`(?<![\p{L}\p{N}_-])(?:${literal(name.toLowerCase())}\s+${what}s?|${what}s?\s+(?:named\s+|called\s+)?${literal(name.toLowerCase())})(?![\p{L}\p{N}_-])`,
+    "giu",
+  );
+const COHORT = "cohort";
+const DATASET = "data\\s?set";
+
 /**
- * The names the words call a cohort and not a dataset, of those that are both: "in the X cohort", "the members of
- * the cohort X". A cohort and the dataset that feeds it often share a name and do not hold the same scans; told
- * that such words named the dataset, a chat added a dataset clause to a question of the cohort in some runs and
- * not in others, and the count moved by a few subjects.
+ * How the words read each name they hold that is a cohort's and a dataset's (the ruling of 2026-11-15): the cohort,
+ * unless the words say dataset. A cohort and the dataset that feeds it often share a name and do not hold the same
+ * scans; the same kind of question was answered from the dataset in some chats and from the cohort in others, and
+ * the count moved by a few subjects. The dataset is meant when the words call the name one ("the X dataset",
+ * "stored in the dataset X"), or say dataset beside no other name and do not call this one a cohort; both when they
+ * call it each ("in the X cohort, the scans from the X dataset").
  */
+export function sharedReadings(
+  message: string,
+  datasets: readonly DatasetFact[],
+  cohorts: readonly string[],
+): { name: string; as: SharedReading }[] {
+  const are = new Set(cohorts.map((c) => c.toLowerCase()));
+  const named = datasetsNamed(message, datasets).map((d) => d.name);
+  return named
+    .filter((n) => are.has(n.toLowerCase()))
+    .map((name) => {
+      const cohort = calledAs(name, COHORT).test(message);
+      const dataset = calledAs(name, DATASET).test(message);
+      if (cohort && dataset) return { name, as: "both" as const };
+      if (cohort || dataset) return { name, as: cohort ? ("cohort" as const) : ("dataset" as const) };
+      // the word dataset said of another name the words hold is not said of this one
+      let rest = message;
+      for (const other of named) if (other !== name) rest = rest.replace(calledAs(other, DATASET), " ");
+      return { name, as: /\bdata\s?sets?\b/iu.test(rest) ? ("dataset" as const) : ("cohort" as const) };
+    });
+}
+
+/** The names the words read as a cohort and not a dataset, of those that are both. */
 export function cohortsMeant(
   message: string,
   datasets: readonly DatasetFact[],
   cohorts: readonly string[],
 ): string[] {
-  const are = new Set(cohorts.map((c) => c.toLowerCase()));
-  const called = (name: string, what: string): boolean => {
-    const n = literal(name.toLowerCase());
-    return new RegExp(
-      String.raw`(?<![\p{L}\p{N}_-])(?:${n}\s+${what}s?|${what}s?\s+(?:named\s+|called\s+)?${n})(?![\p{L}\p{N}_-])`,
-      "iu",
-    ).test(message);
-  };
-  return datasetsNamed(message, datasets)
-    .map((d) => d.name)
-    .filter((n) => are.has(n.toLowerCase()) && called(n, "cohort") && !called(n, "dataset"));
+  return sharedReadings(message, datasets, cohorts)
+    .filter((r) => r.as === "cohort")
+    .map((r) => r.name);
 }
 
-/** What the hint says of a name the words call a cohort that a dataset shares. */
+/** The cohort's members as a question asks them, for a hint or a draft sent back. */
+export const cohortShape = (name: string): string =>
+  `\`scope: {grain: cohort, where: [["=", {}, ["field", {}, "name"], "${name}"]]}\` and \`people: {grain: subject, of: scope}\``;
+
+/** What the hint says of a name the words read as a cohort that a dataset shares. */
 export function cohortNote(names: readonly string[]): string {
   if (names.length === 0) return "";
   const which = names.join(" and ");
-  return ` The words name the cohort ${which}; a dataset has the same name, and the words do not ask for it: the question is of the cohort's members alone, with no dataset clause.`;
+  const [is, a] = names.length === 1 ? ["is", "a cohort and a dataset"] : ["are", "cohorts and datasets"];
+  return ` The words name ${which}, which ${is} ${a} of the same name, and do not say dataset: the question is of the cohort's members alone, the sets ${names.map(cohortShape).join("; ")}, with no dataset clause. Say in the answer, in one short clause, that the cohort's members were counted.`;
+}
+
+/** What the hint says of a follow-up to a turn that read a shared name as the cohort: it keeps the cohort. */
+export function cohortKeptNote(names: readonly string[]): string {
+  if (names.length === 0) return "";
+  return ` Earlier in this conversation the words named ${names.join(" and ")}, read as the cohort (a dataset has the same name): words that go on about it (them, those, how many of them) keep the cohort's members, with no dataset clause.`;
+}
+
+/** What the hint says of a shared name the words call a dataset: the dataset alone. */
+export function datasetNote(names: readonly string[]): string {
+  if (names.length === 0) return "";
+  return ` The words say dataset of ${names.join(" and ")}, also a cohort's name: the question names the dataset with the field dataset, with no cohort set of that name.`;
 }
 
 /** What a hint says last: which steps have run on each dataset it names (src/one/steps.ts), where they were read. */
@@ -294,15 +339,19 @@ export function carriedHint(
   return `Hint from the words: earlier in this conversation the person named the dataset ${which}. Words that go on about it (them, those, these scans, how many of them) keep it: ${then} Words about something else leave it.${after(steps)}`;
 }
 
-/** Whether the words turn to a cohort, which ends a dataset named before: they say cohort, or name one. */
-export function leavesDatasets(message: string, cohorts: readonly string[]): boolean {
-  if (/\bcohorts?\b/iu.test(message)) return true;
+/** Whether the words hold one of the names, each by its whole name. */
+export function namesOneOf(message: string, names: readonly string[]): boolean {
   const text = message.toLowerCase();
-  return cohorts.some(
+  return names.some(
     (c) =>
       c.length >= 2 &&
       new RegExp(`(?<![\\p{L}\\p{N}_-])${literal(c.toLowerCase())}(?![\\p{L}\\p{N}_-])`, "u").test(text),
   );
+}
+
+/** Whether the words turn to a cohort, which ends a dataset named before: they say cohort, or name one. */
+export function leavesDatasets(message: string, cohorts: readonly string[]): boolean {
+  return /\bcohorts?\b/iu.test(message) || namesOneOf(message, cohorts);
 }
 
 /** Whether an answer gives one of the datasets' own counts in all: a count from the facts, which needs no question. */
