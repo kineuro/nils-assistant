@@ -232,30 +232,40 @@ describe("a name that is a cohort's and a dataset's", () => {
     ({ name, state: null, subjects: 1204, visits: 5310, scans: 20877, feeds }) as unknown as DatasetFact;
   const list = [fact("study-a", ["study-a"]), fact("study-b")];
 
-  it("is the cohort when the words call it one", () => {
+  it("is the cohort unless the words say dataset", () => {
     const cohorts = ["study-a", "ms-cohort-b"];
-    expect(cohortsMeant("In the study-a cohort, how many subjects have a FLAIR?", list, cohorts)).toEqual([
-      "study-a",
-    ]);
-    expect(cohortsMeant("How many scans do the members of the cohort study-a have?", list, cohorts)).toEqual([
-      "study-a",
-    ]);
-    // called a dataset, called both, or called neither: the dataset stays named
+    for (const words of [
+      "In the study-a cohort, how many subjects have a FLAIR?",
+      "How many scans do the members of the cohort study-a have?",
+      // called neither: the cohort (the ruling of 2026-11-15)
+      "How many scans does study-a hold?",
+      "How many subjects in study-a have a 3D FLAIR?",
+      // the word dataset said of another name is not said of this one
+      "How many subjects of study-a have scans in the dataset study-b?",
+    ])
+      expect(cohortsMeant(words, list, cohorts), words).toEqual(["study-a"]);
+    // called a dataset, or called both: the dataset stays named
     for (const words of [
       "How many T2w scans are stored in the dataset study-a?",
+      "How many T2w scans does the study-a dataset hold?",
+      "In study-a, how many T2w scans does the dataset hold?",
       "In the study-a cohort, how many scans come from the study-a dataset?",
-      "How many scans does study-a hold?",
     ])
       expect(cohortsMeant(words, list, cohorts), words).toEqual([]);
     // a dataset that is no cohort's name is a dataset whatever the words say beside it
     expect(cohortsMeant("In the study-b cohort, how many?", list, cohorts)).toEqual([]);
+    expect(cohortsMeant("How many scans does study-b hold?", list, cohorts)).toEqual([]);
   });
 
-  it("is said in the hint, with no dataset clause", () => {
+  it("is said in the hint, with the cohort's shape and no dataset clause", () => {
     expect(cohortNote([])).toBe("");
-    expect(cohortNote(["study-a"])).toMatch(
-      /name the cohort study-a; a dataset has the same name.*cohort's members alone, with no dataset clause/u,
+    const note = cohortNote(["study-a"]);
+    expect(note).toMatch(
+      /name study-a, which is a cohort and a dataset of the same name, and do not say dataset.*cohort's members alone/u,
     );
+    expect(note).toContain('`scope: {grain: cohort, where: [["=", {}, ["field", {}, "name"], "study-a"]]}`');
+    expect(note).toContain("`people: {grain: subject, of: scope}`");
+    expect(note).toMatch(/with no dataset clause\. Say in the answer, in one short clause/u);
   });
 });
 

@@ -93,6 +93,7 @@ import {
 } from "./datasets.ts";
 import { parseNext } from "./grammar.ts";
 import type { Mounted, ToolName } from "./mount.ts";
+import { sendDraftBack } from "./readings.ts";
 import { type ConversationState, conversationOf, type Probe, runSteps, type TurnState } from "./state.ts";
 import { readSteps, STEPS_TOOL_WAIT_MS, stepsLine, stepsWithin, unknownSentence } from "./steps.ts";
 import { plainly } from "./words.ts";
@@ -1234,6 +1235,10 @@ const queryDraft: OneTool = {
     // the same document sent again after its timeout would only wait out the limit once more: answered as before
     const before = ctx.turn.slow.find((x) => x.text === text);
     if (before) return slowOut(ctx, before.document, {}, text);
+    // a draft against how the turn reads the words (a shared name's dataset where the cohort is meant, the visit
+    // before where first to last is, the days the wrong way round) goes back with the shape to use, once a fault
+    const back = sendDraftBack(text, ctx.turn);
+    if (back) return refuse(back.why, back.next, { stored: false });
     const s = seam(ctx, "ask-help");
     const drafted = await s.door(
       "/api/ask/draft",

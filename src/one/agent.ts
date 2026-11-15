@@ -43,14 +43,13 @@ import { complaintsOf, readable, SILENT_BACK, sendBack, validator } from "./chec
 import {
   carriedHint,
   citesCount,
+  cohortKeptNote,
   cohortNote,
-  cohortsMeant,
   type DatasetFact,
   datasetHint,
+  datasetNote,
   datasetsBlock,
-  datasetsNamed,
   knownDatasets,
-  leavesDatasets,
   lineOf,
   namesOnly,
   readDatasets,
@@ -60,6 +59,7 @@ import { memoryFacts } from "./memory.ts";
 import { type Access, grantsLine, type Mounted, mountFor, SKILL_ORDER } from "./mount.ts";
 import { noteNumbers } from "./numbers.ts";
 import { AGENT } from "./purpose.ts";
+import { readNames, timeNote, timeReading } from "./readings.ts";
 import { hintLine, routeOf } from "./route.ts";
 import { bodyFor, findExamples, loadSkills, skillOf } from "./skills.ts";
 import {
@@ -588,6 +588,8 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
           about.length
             ? `The question is about the dataset ${about.join("; and the dataset ")}: name it with the field dataset.${steps.join("")}`
             : "",
+          // a shared name the turn reads as the cohort, and how far apart in time is read
+          `${cohortNote(t.readings.filter((r) => r.as === "cohort").map((r) => r.name))}${timeNote(timeReading(message))}`.trim(),
           grantsLine(mounted),
         ]
           .filter(Boolean)
@@ -659,23 +661,18 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
       const names = namesOnly(catalogOf(subject)?.datasets);
       const list = datasets?.kind === "ok" ? datasets.list : names;
       const route = routeOf(message);
-      // a name that is a cohort's and a dataset's, called a cohort by the words, names no dataset
+      // a name that is a cohort's and a dataset's is the cohort unless the words say dataset, and names no dataset
+      // then; a follow-up that names nothing keeps the dataset or the cohort named before, until the words turn
+      // elsewhere (src/one/readings.ts)
       const cohortNames = (catalogOf(subject)?.cohorts ?? []).map((c) => c.name);
-      const asCohort = cohortsMeant(message, list, [...cohortNames, ...list.flatMap((x) => x.feeds ?? [])]);
-      const named = datasetsNamed(message, list).filter((x) => !asCohort.includes(x.name));
-      // a follow-up that names no dataset keeps the one named before; words that turn to a cohort leave it
-      let carried: DatasetFact[] = [];
-      if (named.length) convo.datasets = named.map((x) => x.name);
-      else if (leavesDatasets(message, cohortNames)) convo.datasets = [];
-      else if (
-        !route.summary &&
-        !route.jobs &&
-        !route.file &&
-        (route.skill === null || route.skill === "find-data")
-      )
-        carried = list.filter((x) => convo.datasets.includes(x.name));
+      const follows =
+        !route.summary && !route.jobs && !route.file && (route.skill === null || route.skill === "find-data");
+      const read = readNames(message, list, cohortNames, convo, follows);
+      const { named, carried } = read;
       const current = turnOf(id);
       current.datasets = [...named, ...carried].map((x) => x.name);
+      // what a draft of this turn is held to
+      current.readings = read.readings;
       // the datasets the hint is about get their steps, read once a turn; the ones too slow are left out
       const about = aboutOf(route, mounted, named, carried);
       const steps = mounted.tools.includes("registry_describe")
@@ -721,7 +718,11 @@ export function oneAgent(o: OneOptions): ((props: { id: string }) => string) & {
           o.arm,
           about,
           steps.filter((s): s is string => s !== null),
-        )}${mounted.skills.includes("find-data") ? cohortNote(asCohort) : ""}`,
+        )}${
+          mounted.skills.includes("find-data")
+            ? `${cohortNote(read.cohorts)}${follows ? cohortKeptNote(read.keptCohorts) : ""}${datasetNote(read.asDataset)}${timeNote(timeReading(message))}`
+            : ""
+        }`,
         // record 55 K6: a card, a result, a cohort or a saved selection named with @, and the tool that reads it
         mentioned: mentionsLine(message, mounted.tools),
         document,

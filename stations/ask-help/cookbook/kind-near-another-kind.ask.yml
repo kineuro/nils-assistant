@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: In cohort A, how many sessions holding a 3D FLAIR are within 90 days of a session holding an MPRAGE of the same subject?
+# synthetic: written for the cookbook, not a gold of the bench
+ast_version: 1
+name: sessions with a 3D FLAIR within 90 days of a session with an MPRAGE
+scheme: default
+sets:
+  scope:  {grain: cohort, where: [["=", {}, ["field", {}, "name"], "ms-cohort-a"]]}
+  people: {grain: subject, of: scope}
+  visits: {grain: session, of: people}
+  flair:
+    grain: stack
+    of: visits
+    where:
+      - ["=",   {}, ["axis", {}, "base"], "T2w"]
+      - ["has", {}, ["axis", {}, "modifier"], "FLAIR"]
+      - ["=",   {}, ["derived", {}, "acquisition_type"], "3D"]
+  mprage: {grain: stack, of: visits, where: [["=", {}, ["axis", {}, "technique"], "MPRAGE"]]}
+  with_mprage: {grain: session, from: visits, has: [{set: mprage, min: 1}]}
+  # the nearest session of the other kind within the window, both ends inclusive; a session without one drops
+  close:
+    grain: session
+    from: visits
+    has: [{set: flair, min: 1}]
+    near: [{as: other, set: with_mprage, window: {from: -90, to: 90, unit: day}, policy: nearest, tie: earlier}]
+keep: [close]
+out: {set: close, level: count}

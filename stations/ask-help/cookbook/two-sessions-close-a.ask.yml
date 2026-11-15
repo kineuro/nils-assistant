@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: In cohort A, how many subjects have two sessions holding a 3D FLAIR less than 400 days apart?
+# synthetic: written for the cookbook, not a gold of the bench
+ast_version: 1
+name: subjects with two sessions holding a 3D FLAIR less than 400 days apart
+scheme: default
+sets:
+  scope:  {grain: cohort, where: [["=", {}, ["field", {}, "name"], "ms-cohort-a"]]}
+  people: {grain: subject, of: scope}
+  visits: {grain: session, of: people}
+  flair:
+    grain: stack
+    of: visits
+    where:
+      - ["=",   {}, ["axis", {}, "base"], "T2w"]
+      - ["has", {}, ["axis", {}, "modifier"], "FLAIR"]
+      - ["=",   {}, ["derived", {}, "acquisition_type"], "3D"]
+  holding:
+    grain: session
+    from: visits
+    has: [{set: flair, min: 1}]
+  # less than so far apart is the closest pair, and the closest pair is a session and the one before it: the gap
+  # is bound below the has, here in a set drawn from the sessions that hold the scan, so the one before is the
+  # one before among them (bound in visits, above the has, it would be any session of the subject); the later
+  # day goes first
+  close:
+    grain: session
+    from: holding
+    bind:
+      gap: ["days_between", {}, ["field", {}, "first"], ["prev", {}, ["field", {}, "first"]]]
+    where: [["<", {}, ["field", {}, "gap"], 400]]
+  found:
+    grain: subject
+    from: people
+    has: [{set: close, min: 1}]
+keep: [close, found]
+out: {set: found, level: count}

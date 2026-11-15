@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: In cohort A, how many subjects have 3D FLAIR scans at least five years apart, from their first to their last session that holds one?
+# synthetic: written for the cookbook, not a gold of the bench
+ast_version: 1
+name: subjects whose first and last session holding a 3D FLAIR are at least five years apart
+scheme: default
+sets:
+  scope:  {grain: cohort, where: [["=", {}, ["field", {}, "name"], "ms-cohort-a"]]}
+  people: {grain: subject, of: scope}
+  visits: {grain: session, of: people}
+  flair:
+    grain: stack
+    of: visits
+    where:
+      - ["=",   {}, ["axis", {}, "base"], "T2w"]
+      - ["has", {}, ["axis", {}, "modifier"], "FLAIR"]
+      - ["=",   {}, ["derived", {}, "acquisition_type"], "3D"]
+  holding:
+    grain: session
+    from: visits
+    has: [{set: flair, min: 1}]
+  # apart is the earliest to the latest session that holds the scan, per subject: each bound by itself, then
+  # days_between with the later day first (it is the first day minus the second); five years are 1826 days
+  spans:
+    grain: group
+    group: {of: holding, by: [["field", {}, "subject.code"]]}
+    bind:
+      first_day: ["min", {set: holding}, ["field", {}, "first"]]
+      last_day:  ["max", {set: holding}, ["field", {}, "first"]]
+    where:
+      - [">=", {}, ["days_between", {}, ["field", {}, "last_day"], ["field", {}, "first_day"]], 1826]
+keep: [spans]
+out: {set: spans, level: count}

@@ -63,6 +63,13 @@ export interface TurnState {
   offered: boolean;
   /** The datasets the turn is about: those its words name, or those named before that a follow-up keeps. */
   datasets: string[];
+  /**
+   * How the turn reads each name that is a cohort's and a dataset's (src/one/datasets.ts): the cohort unless the
+   * words say dataset; `kept` where a follow-up keeps the reading of the turn before. A draft is held to it.
+   */
+  readings: { name: string; as: "cohort" | "dataset"; kept: boolean }[];
+  /** The faults a draft of this turn was sent back for before it reached the registry, each once (src/one/readings.ts). */
+  sentBack: Set<string>;
   /** What the turn's analysis handed the person from its workspace's /out: charts and files, and what was seen. */
   outputs: TurnOutputs;
   /**
@@ -130,6 +137,8 @@ export interface ConversationState {
   documents: number[];
   /** The datasets the person named last: a follow-up that names none keeps them. */
   datasets: string[];
+  /** The names that are a cohort's and a dataset's that the person's words last read as the cohort: a follow-up keeps it. */
+  cohorts: string[];
   /** The numbers the conversation's earlier turns were given and stated, as this process saw them. */
   known: Set<number>;
   /** The turns of the conversation this process saw start. */
@@ -161,6 +170,8 @@ export function newTurn(conversation: string, message: string, now = Date.now())
     asked: false,
     offered: false,
     datasets: [],
+    readings: [],
+    sentBack: new Set(),
     outputs: { charts: [], files: [], seen: new Map() },
     shaped: [],
     heldBack: [],
@@ -192,6 +203,7 @@ export function conversationOf(id: string): ConversationState {
       held: new Map(),
       documents: [],
       datasets: [],
+      cohorts: [],
       known: new Set(),
       turns: 0,
       unseen: false,

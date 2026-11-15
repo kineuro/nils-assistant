@@ -300,7 +300,7 @@ describe("the find skill", () => {
 
   it("names a dataset in its worked words by a made-up name, and asks for the scans given contrast whether or not the step has run", () => {
     expect(find.body).toMatch(
-      /\*\*the T1 scans with contrast in study-a\*\* is a stack set with `\["=", \{\}, \["field", \{\}, "dataset"\], "study-a"\]`, `\["=", \{\}, \["axis", \{\}, "base"\], "T1w"\]` and `\["=", \{\}, \["axis", \{\}, "post_contrast"\], "given"\]`/u,
+      /\*\*the T1 scans with contrast in the dataset study-a\*\* is a stack set with `\["=", \{\}, \["field", \{\}, "dataset"\], "study-a"\]`, `\["=", \{\}, \["axis", \{\}, "base"\], "T1w"\]` and `\["=", \{\}, \["axis", \{\}, "post_contrast"\], "given"\]`/u,
     );
     expect(find.body).not.toMatch(/where post-contrast has run on it/u);
   });

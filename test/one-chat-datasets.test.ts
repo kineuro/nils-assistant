@@ -329,7 +329,8 @@ describe("the words the agent reads about datasets", () => {
     const skills = loadSkills(["./stations"], ["find-data", "check-identities"]);
     for (const [id, sk] of skills) {
       expect(sk.description, id).not.toMatch(/\bpeople\b/iu);
-      expect(sk.body, id).not.toMatch(/\bpeople\b/iu);
+      // in its words: a set of a document's shape may be named people, as the worked examples name it
+      expect(sk.body.replace(/`[^`]*`/gu, ""), id).not.toMatch(/\bpeople\b/iu);
     }
     expect(grantsLine(mountFor(SETS.admin))).not.toMatch(/\bpeople\b/iu);
   });
