@@ -170,7 +170,7 @@ export const CLOSEST_SHAPE =
 
 /** Where the gap to the one before is bound, said wherever `prev` is the reading. */
 const PREV_AMONG =
-  "Bind the gap in a set drawn `from` the sessions that hold what is asked, never in the set that carries the `has`: bound beside the `has`, the one before is any visit of the subject.";
+  "Bind the gap in the set that carries the `has`, or in a set drawn `from` it; never in a set above it (one the sessions that hold what is asked are drawn `from`), where the one before is any visit of the subject, and never beside a `where` that narrows the same set, since the one before is counted before the `where`.";
 
 /** What the hint says of words that ask the time between visits: which reading, and that the answer states it. */
 export function timeNote(reading: TimeReading | null): string {
@@ -300,15 +300,60 @@ export function usesSpan(doc: Record<string, unknown>): boolean {
   });
 }
 
+/** The functions that read a row's place among the rows of its set: the one before, the one after, its number. */
+const SEQUENCE = ["prev", "next", "ordinal"];
+
+/** A binding counted over a set's rows that a narrower set below compares. */
+export interface SequenceAbove {
+  /** The set that binds it. */
+  set: string;
+  binding: string;
+  /** The set, drawn from it, whose `where` reads it after rows were dropped. */
+  reader: string;
+}
+
 /**
- * The sets of a draft that bind the row before beside a `has`: the registry reads `prev` there before the `has`
- * keeps its rows, so the one before is any session of the subject, also one that does not hold what is asked.
- * Bound in a set drawn `from` that one, it is the one before among the rows kept.
+ * The sequences of a draft bound above the set that narrows their rows. A set is worked out in the order source,
+ * near, attach, has, same, bind, where, pick: a `prev`, `next` or `ordinal` bound in a set is counted over the
+ * rows its `has` kept, and before its `where`. Bound in a set above, and read through `from` by a set that has
+ * dropped rows (a `has` of its own, or a `has` or a `where` of a set between), it is still counted over
+ * every row of the set above: the gap to "the one before" is then to any visit of the subject, also one that
+ * does not hold what is asked. A live count was wrong for it. A `where` that reads the binding in the first set
+ * drawn from it, with no `has` there, drops nothing before it reads (the second session of each subject).
  */
-export function prevBesideHas(doc: Record<string, unknown>): string[] {
-  return Object.entries(doc.sets as Record<string, unknown>)
-    .filter(([, s]) => isMap(s) && Array.isArray(s.has) && clausesOf(s.bind).some((c) => c[0] === "prev"))
-    .map(([name]) => name);
+export function sequencesAbove(doc: Record<string, unknown>): SequenceAbove[] {
+  const sets = Object.entries(doc.sets as Record<string, unknown>).filter(
+    (e): e is [string, Record<string, unknown>] => isMap(e[1]),
+  );
+  const reads = (x: unknown, names: ReadonlySet<string>): boolean =>
+    clausesOf(x).some((c) => names.has(fieldOf(c) ?? ""));
+  const sequence = (x: unknown): boolean => clausesOf(x).some((c) => SEQUENCE.includes(c[0]));
+  const out: SequenceAbove[] = [];
+  for (const [above, a] of sets) {
+    const bound = Object.entries(isMap(a.bind) ? a.bind : {}).filter(([, v]) => sequence(v));
+    if (bound.length === 0) continue;
+    const walk = (name: string, names: ReadonlySet<string>, narrowed: boolean, depth: number): void => {
+      if (depth > 12) return;
+      for (const [below, d] of sets) {
+        if (d.from !== name) continue;
+        // what the set binds from them carries them on; a name it binds anew is its own
+        const carried = new Set(names);
+        for (const [k, v] of Object.entries(isMap(d.bind) ? d.bind : {}))
+          if (reads(v, names)) carried.add(k);
+          else carried.delete(k);
+        const has = Array.isArray(d.has) && d.has.length > 0;
+        if ((narrowed || has) && reads(d.where, carried))
+          out.push({
+            set: above,
+            binding: bound.map(([k]) => k).find((k) => carried.has(k)) ?? bound[0][0],
+            reader: below,
+          });
+        walk(below, carried, narrowed || has || d.where !== undefined, depth + 1);
+      }
+    };
+    walk(above, new Set(bound.map(([k]) => k)), false, 0);
+  }
+  return out;
 }
 
 // ------------------------------------------------------------------ the draft, held to the reading
@@ -362,13 +407,17 @@ export function draftFaults(text: string, turn: Pick<TurnState, "message" | "rea
       why: "the draft measures from each subject's earliest to latest visit, and the person's words ask for two visits less than so far apart: a subject seen often over many years has two close visits and a long way from first to last, so the closest pair is asked, a visit and the one before it",
       next: `Take the group with the earliest and the latest day out and use ${CLOSEST_SHAPE}. Compare with \`<\` for less than and \`<=\` for within or at most. Say in the answer, in a few words, that it is two such visits less than so many days apart.`,
     });
-  const beside = time === "closest" || time === "consecutive" ? prevBesideHas(doc) : [];
-  if (beside.length)
+  // held for the words that ask a visit against the one before it; elsewhere a number counted over every visit
+  // and read after a narrowing can be what is asked (the first visit of all, when it holds a kind)
+  const above = time === "closest" || time === "consecutive" ? sequencesAbove(doc) : [];
+  if (above.length) {
+    const { set, binding, reader } = above[0];
     out.push({
-      key: "prev-beside-has",
-      why: `the set ${beside.join(" and ")} binds the visit before (\`prev\`) beside its \`has\`: there the one before is any visit of the subject, also one that does not hold what is asked`,
-      next: `Leave the \`has\` in that set and move the binding into a set drawn from it: \`{grain: session, from: ${beside[0]}, bind: {gap: ["days_between", {}, ["field", {}, "first"], ["prev", {}, ["field", {}, "first"]]]}}\`, with the \`where\` on the gap there or in a set after it.`,
+      key: "sequence-above",
+      why: `the set ${reader} compares ${binding}, which is bound in ${set}, a set above the one that keeps the sessions holding what is asked: there it is counted over every visit of the subject, so the one before is also a visit that does not hold it`,
+      next: `Take ${binding} out of ${set} and bind it in the set that carries the \`has\`, or in a set drawn \`from\` it: \`holding: {grain: session, from: ${set}, has: [{set: <the scans>, min: 1}], bind: {gap: ["days_between", {}, ["field", {}, "first"], ["prev", {}, ["field", {}, "first"]]]}}\`, with the \`where\` on it in a set drawn from that one.`,
     });
+  }
   return out;
 }
 

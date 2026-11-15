@@ -33,11 +33,11 @@ const {
   CLOSEST_SHAPE,
   daysReversed,
   draftFaults,
-  prevBesideHas,
   readDraft,
   readNames,
   SPAN_SHAPE,
   sendDraftBack,
+  sequencesAbove,
   timeNote,
   timeReading,
 } = await import("../src/one/readings.ts");
@@ -545,29 +545,96 @@ describe("less than so far apart", () => {
     expect(draftFaults(spanned(), asked("How far apart are their scans?"))).toEqual([]);
   });
 
-  it("sends back, once, the visit before bound beside the has, where it is any visit of the subject", () => {
-    const beside = close()
-      .replace("    has: [{set: flair, min: 1}]\n", "")
-      .replace(
-        "    from: holding\n    bind:",
-        "    from: holding\n    has: [{set: flair, min: 1}]\n    bind:",
-      );
-    expect(prevBesideHas(readDraft(close()) ?? {})).toEqual([]);
-    expect(prevBesideHas(readDraft(beside) ?? {})).toEqual(["close"]);
-    const turn = asked(CLOSE);
-    const back = sendDraftBack(beside, turn);
-    expect(back?.why).toBe(
-      "the draft was not sent to the registry: the set close binds the visit before (`prev`) beside its `has`: there the one before is any visit of the subject, also one that does not hold what is asked",
+  /** The trap of a live count: the gap bound in the set above, and compared after the has dropped rows. */
+  const ABOVE = `ast_version: 1
+name: subjects with two FLAIR sessions less than 180 days apart
+scheme: default
+sets:
+  scope:   {grain: cohort}
+  people:  {grain: subject, of: scope}
+  visits:
+    grain: session
+    of: people
+    bind:
+      gap: ["days_between", {}, ["field", {}, "first"], ["prev", {}, ["field", {}, "first"]]]
+  flair:   {grain: stack, of: visits, where: [["has", {}, ["axis", {}, "modifier"], "FLAIR"]]}
+  holding: {grain: session, from: visits, has: [{set: flair, min: 1}]}
+  pairs:   {grain: session, from: holding, where: [["<", {}, ["field", {}, "gap"], 180]]}
+  found:   {grain: subject, from: people, has: [{set: pairs, min: 1}]}
+keep: [found]
+out: {set: found, level: count}
+`;
+  /** The has and the gap in one set, the where in the next: the gap is among the sessions the has kept. */
+  const ONE_SET = ABOVE.replace(
+    / {2}visits:\n {4}grain: session\n {4}of: people\n {4}bind:\n {6}gap: (.*)\n/u,
+    "  visits:  {grain: session, of: people}\n",
+  ).replace(
+    "holding: {grain: session, from: visits, has: [{set: flair, min: 1}]}",
+    'holding: {grain: session, from: visits, has: [{set: flair, min: 1}], bind: {gap: ["days_between", {}, ["field", {}, "first"], ["prev", {}, ["field", {}, "first"]]]}}',
+  );
+
+  it("sends back, once, a gap bound in a set above the has, where the one before is any visit", async () => {
+    expect(sequencesAbove(readDraft(ABOVE) ?? {})).toEqual([
+      { set: "visits", binding: "gap", reader: "pairs" },
+    ]);
+    const t = turnOf("above-1", CLOSE);
+    const before = drafts();
+    const out = await t.draft(ABOVE);
+    expect(drafts()).toBe(before);
+    expect(out).toEqual({
+      refused: true,
+      stored: false,
+      why: "the draft was not sent to the registry: the set pairs compares gap, which is bound in visits, a set above the one that keeps the sessions holding what is asked: there it is counted over every visit of the subject, so the one before is also a visit that does not hold it",
+      next: 'Take gap out of visits and bind it in the set that carries the `has`, or in a set drawn `from` it: `holding: {grain: session, from: visits, has: [{set: <the scans>, min: 1}], bind: {gap: ["days_between", {}, ["field", {}, "first"], ["prev", {}, ["field", {}, "first"]]]}}`, with the `where` on it in a set drawn from that one. Change only that and draft the whole document again.',
+    });
+    // once
+    expect((await t.draft(ABOVE)).document).toBe(61);
+    // the has and the where in the reading set itself, and a binding carried on under another name
+    const same = ABOVE.replace(
+      "holding: {grain: session, from: visits, has: [{set: flair, min: 1}]}\n  pairs:   {grain: session, from: holding, where:",
+      "pairs:   {grain: session, from: visits, has: [{set: flair, min: 1}], where:",
     );
-    expect(back?.next).toContain("from: close, bind: {gap: [");
-    expect(sendDraftBack(beside, turn)).toBeNull();
-    // held for consecutive words too, and for no others
+    expect(same).not.toBe(ABOVE);
+    expect(sequencesAbove(readDraft(same) ?? {}).map((x) => x.reader)).toEqual(["pairs"]);
+    const renamed = ABOVE.replace(
+      'has: [{set: flair, min: 1}]}\n  pairs:   {grain: session, from: holding, where: [["<", {}, ["field", {}, "gap"], 180]]}',
+      'has: [{set: flair, min: 1}], bind: {days: ["field", {}, "gap"]}}\n  pairs:   {grain: session, from: holding, where: [["<", {}, ["field", {}, "days"], 180]]}',
+    );
+    expect(renamed).not.toBe(ABOVE);
+    expect(draftFaults(renamed, asked(CLOSE)).map((f) => f.key)).toEqual(["sequence-above"]);
+    // held for consecutive words too; for other words a number counted over every visit can be what is asked
     expect(
-      draftFaults(beside, asked("Which consecutive FLAIR sessions are less than 180 days apart?")).map(
+      draftFaults(ABOVE, asked("Which consecutive FLAIR sessions are less than 180 days apart?")).map(
         (f) => f.key,
       ),
-    ).toEqual(["prev-beside-has"]);
-    expect(draftFaults(beside, asked("How many subjects have a FLAIR?"))).toEqual([]);
+    ).toEqual(["sequence-above"]);
+    expect(draftFaults(ABOVE, asked("How many subjects have a FLAIR?"))).toEqual([]);
+  });
+
+  it("passes the gap bound in the set that carries the has, through the tool", async () => {
+    expect(ONE_SET).toContain("has: [{set: flair, min: 1}], bind: {gap:");
+    expect(ONE_SET).not.toMatch(/of: people\n {4}bind:/u);
+    expect(sequencesAbove(readDraft(ONE_SET) ?? {})).toEqual([]);
+    const t = turnOf("above-2", CLOSE);
+    const before = drafts();
+    const out = await t.draft(ONE_SET);
+    expect(drafts()).toBe(before + 1);
+    expect(out.refused).toBeUndefined();
+    expect(out.document).toBe(61);
+    expect(t.turn.sentBack.size).toBe(0);
+  });
+
+  it("passes the gap bound in a set drawn from the one with the has, and every worked example", async () => {
+    expect(sequencesAbove(readDraft(close()) ?? {})).toEqual([]);
+    const t = turnOf("above-3", CLOSE);
+    expect((await t.draft(close())).document).toBe(61);
+    expect(t.turn.sentBack.size).toBe(0);
+    // a where that reads the number in the first set drawn from it drops nothing before it reads
+    expect(sequencesAbove(readDraft(example("first-to-second-gap-b.ask.yml")) ?? {})).toEqual([]);
+    expect(sequencesAbove(readDraft(example("first-session-before-2005.ask.yml")) ?? {})).toEqual([]);
+    // no worked example is sent back for the question it answers
+    for (const c of findExamples(["./stations"]))
+      expect(draftFaults(c.text, asked(c.question)), c.file).toEqual([]);
   });
 });
 
@@ -606,7 +673,9 @@ describe("the find-data skill and its worked examples, for these readings", () =
     expect(b).toMatch(
       /\*\*Less than\*\* so far apart, \*\*within N of each other\*\*, \*\*at most\*\* .* is the closest pair, never first to last/u,
     );
-    expect(b).toMatch(/bound beside the `has`, the one before is any visit of the subject/u);
+    expect(b).toMatch(
+      /in the set that carries the `has` or in a set drawn `from` it, never in a set above it .* and never beside a `where` that narrows the same set/u,
+    );
     expect(b).toMatch(/`<` for less than and `<=` for within or at most/u);
     expect(b).toMatch(/five 1826/u);
     expect(b).toMatch(/The answer says the reading in a few words/u);
