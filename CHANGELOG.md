@@ -4,6 +4,8 @@ All notable changes to the NILS assistant are recorded here. The format follows 
 
 ## [Unreleased]
 
+## [1.0.0-alpha.36] - 2026-11-15
+
 ### Fixed
 
 - A name that is a cohort's and a dataset's is the cohort unless the words say dataset (2026-11-15, from live use). Asked the same kind of question of such a name, the chat counted the dataset in some conversations and the cohort in others, and the counts differed a little. The reading is now one: the cohort's members, the sets `scope: {grain: cohort, where name = X}` and `people: {grain: subject, of: scope}`, unless the words call the name a dataset ("the X dataset", "stored in the dataset X") or say dataset beside no other name. The find-data skill and the turn's hint say so with the shape, and the reading is held where the question is made: `query_draft` sends a draft back before it reaches the registry when it narrows to the dataset with the field `dataset` while the words read as the cohort, or asks the cohort by its name while the words say dataset, with the exact shape to use. Each fault is sent back once a turn, so the same draft sent again goes on to the registry. A follow-up that names nothing keeps the reading of the turn before, until the words say dataset or name another cohort; a name the words call both is held to neither. The answer says in one short clause that the cohort's members were counted, and the check before the turn settles asks for it once. Until now only words that called the name a cohort were read as the cohort.
