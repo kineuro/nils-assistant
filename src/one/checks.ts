@@ -21,7 +21,7 @@ import {
   slowDocument,
   type TurnState,
 } from "./state.ts";
-import { alikePairs } from "./tools.ts";
+import { alikePairs, NARROW_WARNING } from "./tools.ts";
 import { unplainWords } from "./words.ts";
 
 const SQL =
@@ -259,8 +259,10 @@ export function cohortSaidComplaint(t: TurnState, answer: string): string | null
 /**
  * What is wrong with an answer that rests on a question the registry warned about: its dates the wrong way round
  * (`reversed_dates`) or a sequence read after its rows were cut (`sequence_inherited`), which mean the count is not
- * what was asked. Null when the question the answer keeps carries no such warning, or when the model drafted again
- * and the warning came a second time: then the tool told it to answer and say so, and nothing loops.
+ * what was asked, or a filter narrower than the person's word (`narrow_value`), whose count is right only where the
+ * words ask for the fine value alone. Null when the question the answer keeps carries no such warning, or when the
+ * model drafted again and the warning came a second time: then the tool told it to answer and say so, and nothing
+ * loops. The turn is sent back by its checks once at most, so this complaint is made once.
  */
 export function flawedComplaint(t: TurnState, answer: string): string | null {
   if (t.flawed.length === 0 || t.asked || answer.trim() === "") return null;
@@ -269,7 +271,15 @@ export function flawedComplaint(t: TurnState, answer: string): string | null {
     (c) => t.flawed.filter((f) => f.code === c).length === 1,
   );
   if (codes.length === 0) return null;
-  return `document ${kept} was stored with the warning ${codes.join(" and ")}, which means its count is not what was asked: mend the document as the warning's fix said and draft it again, then answer from the new count`;
+  // a filter narrower than the person's word: right only where the words ask for the fine value alone
+  const narrow = codes.includes(NARROW_WARNING)
+    ? `document ${kept} was stored with the warning ${NARROW_WARNING}: its filter names one fine value and kept a small share, where the wider value the warning names holds most of the rest. Unless the person's words ask for that one value alone, write the clause the warning's fix gave and draft it again, then answer from the new count; where they do, say in the answer which value was counted and that the wider one holds more`
+    : null;
+  const wrong = codes.filter((c) => c !== NARROW_WARNING);
+  const count = wrong.length
+    ? `document ${kept} was stored with the warning ${wrong.join(" and ")}, which means its count is not what was asked: mend the document as the warning's fix said and draft it again, then answer from the new count`
+    : null;
+  return [count, narrow].filter(Boolean).join("; ");
 }
 
 /**

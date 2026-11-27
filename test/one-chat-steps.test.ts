@@ -304,4 +304,46 @@ describe("the find skill", () => {
     );
     expect(find.body).not.toMatch(/where post-contrast has run on it/u);
   });
+
+  it("reads an anatomy word by what it names: the head for a brain, the fine part for a neck", () => {
+    // a person asked for scans that are all brain, and the fine value of that name was written (the stacks that end
+    // above the neck), which leaves out a head scan that reaches into it; and a neck is no word for every spine
+    const region = find.body.split("\n\n").find((x) => x.startsWith("**An anatomy word**")) ?? "";
+    expect(region).toMatch(/^\*\*An anatomy word\*\* is read by what it names\./u);
+    expect(region).toMatch(
+      /\*\*Brain\*\*, \*\*head\*\* \(brain scans, all brain\): `\["=", \{\}, \["axis", \{\}, "body_region"\], "head"\]`/u,
+    );
+    expect(region).toMatch(
+      /`body_part` `brain` and `brain-neck` only split the head by how far the stack reaches, written only when the words ask for that reach/u,
+    );
+    expect(region).toMatch(/\*\*Chest\*\*: `body_region` `chest`\./u);
+    expect(region).toMatch(/\*\*The spine\*\* in general: `body_region` `spine`\./u);
+    expect(region).toMatch(/\*\*Neck\*\* is the fine part, `body_part` `neck`, never every spine/u);
+    expect(region).toMatch(/a named level or the spinal cord is the value `registry_search` finds\./u);
+    // the principle, for a word two values share
+    expect(region).toMatch(
+      /A word in both a region and a fine part: read each value's meaning in the facts and take the one asked; in doubt use `registry_search`, never guess\.$/u,
+    );
+    // no blanket rule that an anatomy word is the region
+    expect(region).not.toMatch(/names the region/u);
+    // short, in the skill's voice, and no figure of any registry
+    expect(region.split(/\s+/u).length).toBeLessThan(110);
+    expect(region).not.toMatch(/\d{2,}/u);
+    expect(region).not.toMatch(/\bpeople\b|\bstation\b|\bdoor\b/iu);
+  });
+
+  it("doubts a count far smaller than expected, and gives no reason it did not verify", () => {
+    // the chat once explained a handful of scans by the rarity of a kind, where its own filter had dropped the rest
+    const doubt = find.body.split("\n").find((x) => x.startsWith("- A count **far smaller**")) ?? "";
+    expect(doubt).toMatch(
+      /A count \*\*far smaller\*\* than the facts or the earlier stages suggest is doubted, never explained away/u,
+    );
+    expect(doubt).toMatch(/read in the diagnosis which step dropped the rows/u);
+    expect(doubt).toMatch(/check that step's value with `registry_search`[^.]*and draft again\./u);
+    expect(doubt).toMatch(/Never tell the person a reason for a small number that you did not verify\./u);
+    expect(doubt).toMatch(/the warning `narrow_value` names the step and the clause to write in its place/u);
+    expect(doubt.split(/\s+/u).length).toBeLessThan(90);
+    // the rule for a count of none stands beside it
+    expect(find.body).toMatch(/A set that \*\*drops to zero\*\* on a name the question gave/u);
+  });
 });

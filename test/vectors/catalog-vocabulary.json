@@ -1,0 +1,758 @@
+{
+ "epoch": 7,
+ "pack": {
+  "name": "mri",
+  "version": "1.5.0"
+ },
+ "edges": [
+  {
+   "from": "cohort",
+   "to": "subject",
+   "cardinality": "many-to-many",
+   "standing": [
+    "current members"
+   ]
+  },
+  {
+   "from": "subject",
+   "to": "session",
+   "cardinality": "one-to-many"
+  },
+  {
+   "from": "session",
+   "to": "stack",
+   "cardinality": "one-to-many"
+  },
+  {
+   "from": "subject",
+   "to": "event",
+   "cardinality": "one-to-many"
+  }
+ ],
+ "levels": [
+  {
+   "level": "cohort",
+   "fields": [
+    {
+     "path": "id",
+     "type": "int",
+     "class": "plain"
+    },
+    {
+     "path": "name",
+     "type": "text",
+     "class": "plain"
+    },
+    {
+     "path": "owner",
+     "type": "text",
+     "class": "plain"
+    }
+   ]
+  },
+  {
+   "level": "subject",
+   "fields": [
+    {
+     "path": "id",
+     "type": "int",
+     "class": "plain"
+    },
+    {
+     "path": "code",
+     "type": "text",
+     "class": "plain"
+    },
+    {
+     "path": "sex",
+     "type": "text",
+     "class": "plain"
+    },
+    {
+     "path": "birth_date",
+     "type": "date",
+     "class": "quasi_identifying"
+    },
+    {
+     "path": "dataset",
+     "type": "text",
+     "class": "plain"
+    }
+   ]
+  },
+  {
+   "level": "session",
+   "fields": [
+    {
+     "path": "id",
+     "type": "int",
+     "class": "plain"
+    },
+    {
+     "path": "first",
+     "type": "date",
+     "class": "quasi_identifying",
+     "dated": true
+    },
+    {
+     "path": "n_stacks",
+     "type": "int",
+     "class": "plain"
+    },
+    {
+     "path": "dataset",
+     "type": "text",
+     "class": "plain"
+    }
+   ]
+  },
+  {
+   "level": "stack",
+   "fields": [
+    {
+     "path": "id",
+     "type": "int",
+     "class": "plain"
+    },
+    {
+     "path": "n_instances",
+     "type": "int",
+     "class": "plain"
+    },
+    {
+     "path": "slice_thickness",
+     "type": "real",
+     "class": "plain"
+    },
+    {
+     "path": "pixel_spacing_row",
+     "type": "real",
+     "class": "plain"
+    },
+    {
+     "path": "pixel_spacing_col",
+     "type": "real",
+     "class": "plain"
+    },
+    {
+     "path": "repetition_time",
+     "type": "real",
+     "class": "plain"
+    },
+    {
+     "path": "echo_time",
+     "type": "real",
+     "class": "plain"
+    },
+    {
+     "path": "manufacturer",
+     "type": "text",
+     "class": "plain"
+    },
+    {
+     "path": "manufacturer_model_name",
+     "type": "text",
+     "class": "plain"
+    },
+    {
+     "path": "station_name",
+     "type": "text",
+     "class": "plain"
+    },
+    {
+     "path": "text_series_description",
+     "type": "text",
+     "class": "plain"
+    },
+    {
+     "path": "dataset",
+     "type": "text",
+     "class": "plain"
+    }
+   ]
+  },
+  {
+   "level": "event",
+   "fields": [
+    {
+     "path": "id",
+     "type": "int",
+     "class": "plain"
+    },
+    {
+     "path": "kind",
+     "type": "text",
+     "class": "plain"
+    },
+    {
+     "path": "date",
+     "type": "date",
+     "class": "quasi_identifying",
+     "dated": true
+    },
+    {
+     "path": "number",
+     "type": "real",
+     "class": "plain"
+    }
+   ]
+  }
+ ],
+ "axes": [
+  {
+   "name": "base",
+   "multi": false,
+   "stores": "label",
+   "values": [
+    {
+     "id": "DWI",
+     "label": "DWI",
+     "terms": [
+      "DWI",
+      "diffusion weighted"
+     ]
+    },
+    {
+     "id": "SWI",
+     "label": "SWI",
+     "terms": [
+      "SWI",
+      "susceptibility weighted"
+     ]
+    },
+    {
+     "id": "T2starw",
+     "label": "T2*w",
+     "stored": "T2starw",
+     "terms": [
+      "T2*",
+      "T2 star",
+      "T2star weighted",
+      "GRE T2*"
+     ]
+    },
+    {
+     "id": "T2w",
+     "label": "T2w",
+     "terms": [
+      "T2",
+      "T2 weighted"
+     ]
+    },
+    {
+     "id": "PDw",
+     "label": "PDw",
+     "terms": [
+      "PD",
+      "proton density weighted"
+     ]
+    },
+    {
+     "id": "T1w",
+     "label": "T1w",
+     "terms": [
+      "T1",
+      "T1 weighted"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "technique",
+   "multi": false,
+   "stores": "label",
+   "values": [
+    {
+     "id": "DWI-EPI",
+     "label": "DWIEPI",
+     "terms": [
+      "DWI",
+      "EPI diffusion",
+      "ep2d_diff",
+      "diffusion EPI"
+     ]
+    },
+    {
+     "id": "3D-TSE",
+     "label": "SPACE",
+     "terms": [
+      "SPACE",
+      "CUBE",
+      "VISTA",
+      "3D TSE",
+      "3D FSE"
+     ]
+    },
+    {
+     "id": "SS-TSE",
+     "label": "SSTSE",
+     "aliases": [
+      "HASTE"
+     ],
+     "terms": [
+      "HASTE",
+      "SSFSE",
+      "SSh TSE",
+      "single shot TSE",
+      "FASE",
+      "single-shot FSE"
+     ]
+    },
+    {
+     "id": "TSE",
+     "label": "TSE",
+     "terms": [
+      "TSE",
+      "FSE",
+      "turbo spin echo",
+      "fast spin echo"
+     ]
+    },
+    {
+     "id": "MPRAGE",
+     "label": "MPRAGE",
+     "description": "3D inversion-prepared rapid gradient echo (T1-weighted)",
+     "terms": [
+      "MPRAGE",
+      "MP-RAGE",
+      "BRAVO",
+      "3D TFE",
+      "IR-FSPGR"
+     ]
+    },
+    {
+     "id": "comb-ME-GRE",
+     "label": "combMEGRE",
+     "aliases": [
+      "MEDIC"
+     ],
+     "terms": [
+      "MEDIC",
+      "MERGE",
+      "mFFE",
+      "combined multi-echo GRE"
+     ]
+    },
+    {
+     "id": "SP-GRE",
+     "label": "SPGRE",
+     "aliases": [
+      "FLASH"
+     ],
+     "description": "a spoiled gradient echo",
+     "terms": [
+      "FLASH",
+      "SPGR",
+      "T1-FFE",
+      "spoiled gradient echo"
+     ]
+    },
+    {
+     "id": "Unknown",
+     "label": "Unknown"
+    }
+   ]
+  },
+  {
+   "name": "modifier",
+   "multi": true,
+   "stores": "id",
+   "values": [
+    {
+     "id": "FLAIR",
+     "label": "FLAIR",
+     "terms": [
+      "FLAIR",
+      "dark fluid",
+      "fluid attenuated inversion recovery"
+     ]
+    },
+    {
+     "id": "FatSat",
+     "label": "FatSat",
+     "terms": [
+      "fat sat",
+      "fat suppressed",
+      "SPIR",
+      "SPAIR"
+     ]
+    },
+    {
+     "id": "STIR",
+     "label": "STIR",
+     "terms": [
+      "STIR",
+      "short tau inversion recovery"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "post_contrast",
+   "multi": false,
+   "stores": "id",
+   "values": [
+    {
+     "id": "given",
+     "label": "given",
+     "aliases": [
+      "1"
+     ],
+     "terms": [
+      "post contrast",
+      "post-contrast",
+      "contrast enhanced",
+      "gadolinium",
+      "Gd",
+      "+C",
+      "CE",
+      "post gad",
+      "T1+C"
+     ]
+    },
+    {
+     "id": "not_given",
+     "label": "not_given",
+     "aliases": [
+      "0"
+     ],
+     "terms": [
+      "pre contrast",
+      "pre-contrast",
+      "native",
+      "non-contrast",
+      "no contrast",
+      "plain",
+      "pre gad"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "disposition",
+   "multi": false,
+   "stores": "id",
+   "values": [
+    {
+     "id": "acquisition",
+     "label": "acquisition"
+    },
+    {
+     "id": "derived",
+     "label": "derived"
+    },
+    {
+     "id": "scout",
+     "label": "scout"
+    }
+   ]
+  },
+  {
+   "name": "body_region",
+   "multi": false,
+   "stores": "id",
+   "coarse_of": "body_part",
+   "values": [
+    {
+     "id": "head",
+     "label": "head",
+     "description": "the head: what \"a brain scan\" or \"a head scan\" means in ordinary words, a brain or a brain and neck, however far down the stack reaches (body_part splits it into brain and brain-neck)",
+     "terms": [
+      "head",
+      "brain",
+      "skull",
+      "neuro"
+     ],
+     "covers": [
+      "brain",
+      "brain-neck"
+     ]
+    },
+    {
+     "id": "spine",
+     "label": "spine",
+     "description": "the spine or the neck: any level of the spine, and imaging aimed at the neck's soft tissue or vessels (body_part splits it into spine and neck)",
+     "terms": [
+      "spine",
+      "neck",
+      "cervical spine",
+      "thoracic spine",
+      "lumbar spine",
+      "spinal cord",
+      "whole spine"
+     ],
+     "covers": [
+      "spine",
+      "neck"
+     ]
+    },
+    {
+     "id": "chest",
+     "label": "chest",
+     "terms": [
+      "chest",
+      "thorax",
+      "lungs"
+     ],
+     "covers": [
+      "chest"
+     ]
+    },
+    {
+     "id": "other",
+     "label": "other",
+     "description": "none of the others, or not known: as for the body part's other",
+     "terms": [
+      "unknown",
+      "other body part",
+      "phantom",
+      "whole body"
+     ],
+     "covers": [
+      "other"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "body_part",
+   "multi": false,
+   "stores": "id",
+   "values": [
+    {
+     "id": "spine",
+     "label": "spine",
+     "terms": [
+      "spine",
+      "spinal cord",
+      "cervical spine",
+      "thoracic spine",
+      "lumbar spine",
+      "C-spine",
+      "T-spine",
+      "L-spine",
+      "whole spine"
+     ],
+     "within": [
+      {
+       "axis": "body_region",
+       "value": "spine"
+      }
+     ]
+    },
+    {
+     "id": "neck",
+     "label": "neck",
+     "terms": [
+      "neck",
+      "soft tissue neck"
+     ],
+     "within": [
+      {
+       "axis": "body_region",
+       "value": "spine"
+      }
+     ]
+    },
+    {
+     "id": "brain",
+     "label": "brain",
+     "description": "the brain, the stack ending at or above C2. With brain-neck it is the fine split of the head (body_region head) by how far down the stack reaches; \"a brain scan\" in ordinary words is body_region head, not this value alone",
+     "terms": [
+      "brain",
+      "neuro"
+     ],
+     "within": [
+      {
+       "axis": "body_region",
+       "value": "head"
+      }
+     ]
+    },
+    {
+     "id": "brain-neck",
+     "label": "brain-neck",
+     "description": "the brain and the neck: the stack covers the brain and reaches below C2. With brain it is the fine split of the head (body_region head) by how far down the stack reaches; a sagittal 3D scan of the head often reaches this far",
+     "terms": [
+      "head and neck",
+      "head-neck",
+      "brain and neck",
+      "brain and cervical spine"
+     ],
+     "within": [
+      {
+       "axis": "body_region",
+       "value": "head"
+      }
+     ]
+    },
+    {
+     "id": "chest",
+     "label": "chest",
+     "terms": [
+      "chest",
+      "thorax",
+      "lungs"
+     ],
+     "within": [
+      {
+       "axis": "body_region",
+       "value": "chest"
+      }
+     ]
+    },
+    {
+     "id": "other",
+     "label": "other",
+     "description": "none of the others, or not known: another part of the body, a phantom, a stack over several parts, or one whose coverage cannot be named",
+     "terms": [
+      "unknown",
+      "other body part",
+      "phantom",
+      "whole body"
+     ],
+     "within": [
+      {
+       "axis": "body_region",
+       "value": "other"
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "derived": [
+  {
+   "name": "acquisition_type",
+   "grain": "stack",
+   "description": "2D or 3D"
+  },
+  {
+   "name": "field_strength",
+   "grain": "stack",
+   "description": "tesla"
+  },
+  {
+   "name": "signature",
+   "grain": "stack",
+   "params": [
+    [
+     "level",
+     "strict"
+    ]
+   ],
+   "description": "the protocol at a comparability level"
+  }
+ ],
+ "comparability_levels": [
+  {
+   "name": "strict",
+   "description": "the numbers as written"
+  },
+  {
+   "name": "loose",
+   "description": "the numbers rounded widest"
+  }
+ ],
+ "kinds": [
+  {
+   "name": "edss",
+   "value_type": "number"
+  },
+  {
+   "name": "sdmt",
+   "value_type": "number"
+  },
+  {
+   "name": "diagnosis",
+   "value_type": null
+  }
+ ],
+ "diseases": [
+  {
+   "name": "Multiple Sclerosis",
+   "courses": [
+    "CIS",
+    "RRMS",
+    "SPMS",
+    "PPMS"
+   ]
+  }
+ ],
+ "cohorts": [
+  {
+   "name": "ms-cohort-a",
+   "members": 24,
+   "created_at": "2026-03-02T09:00:00Z"
+  },
+  {
+   "name": "ms-cohort-b",
+   "members": 24,
+   "created_at": "2026-04-11T10:30:00Z"
+  }
+ ],
+ "datasets": [
+  "study-a",
+  "study-b"
+ ],
+ "schemes": [
+  {
+   "name": "default"
+  }
+ ],
+ "roles": [
+  "t1w",
+  "flair",
+  "t2w"
+ ],
+ "pick_models": [
+  "main"
+ ],
+ "namespaces": [
+  "subject-code",
+  "ctrl-id"
+ ],
+ "presets": [
+  {
+   "name": "month",
+   "days": 31
+  },
+  {
+   "name": "year",
+   "days": 366
+  }
+ ],
+ "functions": {
+  "compare": [
+   "=",
+   "<>",
+   "<",
+   "<=",
+   ">",
+   ">=",
+   "~=",
+   "in",
+   "has",
+   "contains"
+  ],
+  "time": [
+   "days_between",
+   "months_between",
+   "years_between",
+   "prev",
+   "next",
+   "ordinal",
+   "age_at",
+   "part"
+  ],
+  "aggregate": [
+   "count",
+   "distinct",
+   "sum",
+   "avg",
+   "min",
+   "max",
+   "share"
+  ]
+ }
+}

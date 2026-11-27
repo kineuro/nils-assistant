@@ -29,12 +29,12 @@ const p: Prediction = {
   list: "contrast_positive",
   add: ["zzgado"],
   remove: [],
-  flip: ["post_contrast:vote|1|"],
-  must_not_regress: ["post_contrast=0"],
+  flip: ["post_contrast:vote|given|"],
+  must_not_regress: ["post_contrast=not_given"],
   at: 1,
 };
 
-const onValue: Prediction = { ...p, bucket: null, value: "1", list: "post_contrast.1" };
+const onValue: Prediction = { ...p, bucket: null, value: "given", list: "post_contrast.given" };
 
 const verdict = (result: Record<string, unknown>): Verdict => ({ result }) as unknown as Verdict;
 
@@ -76,24 +76,24 @@ describe("keyword-tune", () => {
   });
 
   it("turns a hypothesis into an overlay of one bucket, or of one value's list as axis.value, with the site's case", () => {
-    const o = overlayOf(p, { manufacturer: "SYNTHETIC" }, "t1 mprage zzgado", "1");
+    const o = overlayOf(p, { manufacturer: "SYNTHETIC" }, "t1 mprage zzgado", "given");
     expect(o.buckets).toEqual({ contrast_positive: { add: ["zzgado"] } });
     expect(o.lists).toBeUndefined();
     expect(o.scope).toEqual({ manufacturer: "SYNTHETIC" });
-    expect((o.cases as { axes: Record<string, string> }[])[0].axes).toEqual({ post_contrast: "1" });
-    const l = overlayOf({ ...onValue, remove: ["gd"] }, {}, "t1 mprage zzgado", "1");
-    expect(l.lists).toEqual({ "post_contrast.1": { add: ["zzgado"], remove: ["gd"] } });
+    expect((o.cases as { axes: Record<string, string> }[])[0].axes).toEqual({ post_contrast: "given" });
+    const l = overlayOf({ ...onValue, remove: ["gd"] }, {}, "t1 mprage zzgado", "given");
+    expect(l.lists).toEqual({ "post_contrast.given": { add: ["zzgado"], remove: ["gd"] } });
     expect(l.buckets).toBeUndefined();
-    expect((l.cases as { name: string }[])[0].name).toBe("the site's post_contrast.1 term");
+    expect((l.cases as { name: string }[])[0].name).toBe("the site's post_contrast.given term");
     expect(listsTouched(o)).toEqual(["contrast_positive"]);
-    expect(listsTouched(l)).toEqual(["post_contrast.1"]);
+    expect(listsTouched(l)).toEqual(["post_contrast.given"]);
     expect(listsTouched({ buckets: { a: {} }, lists: { "x.y": {} } })).toEqual(["a", "x.y"]);
     expect(listName("technique", null, "mprage")).toBe("technique.mprage");
     expect(listName("technique", "tech_bucket", null)).toBe("tech_bucket");
   });
 
   it("reads the values the signals report by value, and the lists a pack answers in either shape", () => {
-    expect(valuesOf({ "0": {}, "1": {} })).toEqual(["0", "1"]);
+    expect(valuesOf({ not_given: {}, given: {} })).toEqual(["not_given", "given"]);
     expect(valuesOf([{ value: "mprage" }, "tse"])).toEqual(["mprage", "tse"]);
     expect(valuesOf(null)).toEqual([]);
     const asLists = listsOfPack({
@@ -101,16 +101,16 @@ describe("keyword-tune", () => {
         {
           axis: "post_contrast",
           values: [
-            { value: "1", keywords: ["Gad", "gd"] },
-            { value: "0", keywords: [] },
+            { value: "given", keywords: ["Gad", "gd"] },
+            { value: "not_given", keywords: [] },
           ],
         },
       ],
       buckets: [{ bucket: "contrast_positive", keywords: ["gad"] }],
     });
     expect([...asLists]).toEqual([
-      ["post_contrast.1", ["gad", "gd"]],
-      ["post_contrast.0", []],
+      ["post_contrast.given", ["gad", "gd"]],
+      ["post_contrast.not_given", []],
       ["contrast_positive", ["gad"]],
     ]);
     const asObjects = listsOfPack({
@@ -126,20 +126,20 @@ describe("keyword-tune", () => {
   it("reads keep, partial and revert from the rehearsal against the prediction", () => {
     expect(
       diffOf(p, {
-        moves: [{ axis: "post_contrast", from: "", to: "1", stacks: 17 }],
+        moves: [{ axis: "post_contrast", from: "", to: "given", stacks: 17 }],
         review_items: { close: 1, open: 0 },
       }).verdict,
     ).toBe("keep");
     expect(
       diffOf(p, {
-        moves: [{ axis: "post_contrast", from: "", to: "1", stacks: 17 }],
+        moves: [{ axis: "post_contrast", from: "", to: "given", stacks: 17 }],
         review_items: { close: 0, open: 2 },
       }).verdict,
     ).toBe("partial");
     expect(diffOf(p, { moves: [], review_items: { close: 0, open: 0 } }).verdict).toBe("partial");
     expect(
       diffOf(p, {
-        moves: [{ axis: "post_contrast", from: "0", to: "1", stacks: 2 }],
+        moves: [{ axis: "post_contrast", from: "not_given", to: "given", stacks: 2 }],
         review_items: { close: 0, open: 0 },
       }),
     ).toMatchObject({ verdict: "revert", why: expect.stringMatching(/must not regress/u) });
@@ -158,8 +158,8 @@ describe("keyword-tune", () => {
           body: {
             axes: {
               post_contrast: {
-                open_review: { "post_contrast:vote|1|": 3 },
-                by_value: { "0": { keywords: 40 }, "1": { keywords: 10 } },
+                open_review: { "post_contrast:vote|given|": 3 },
+                by_value: { not_given: { keywords: 40 }, given: { keywords: 10 } },
               },
               technique: { open_review: {}, by_value: [{ value: "mprage" }, { value: "tse" }] },
             },
@@ -173,8 +173,8 @@ describe("keyword-tune", () => {
               {
                 axis: "post_contrast",
                 values: [
-                  { value: "1", keywords: ["gad", "gd"] },
-                  { value: "0", keywords: [] },
+                  { value: "given", keywords: ["gad", "gd"] },
+                  { value: "not_given", keywords: [] },
                 ],
               },
               { axis: "technique", values: [{ value: "mprage", keywords: ["mprage"] }] },
@@ -193,16 +193,16 @@ describe("keyword-tune", () => {
     );
     const ctx = (phase: string, n: number) => toolContext(seam, conversation, phase, n);
     await tool("nils_signals").run({ scope: "batch:1" }, ctx("survey", 1));
-    expect(valuesSeen(conversation, "post_contrast")).toEqual(["0", "1"]);
+    expect(valuesSeen(conversation, "post_contrast")).toEqual(["not_given", "given"]);
     expect(valuesSeen(conversation, "technique")).toEqual(["mprage", "tse"]);
     // the pack's lists, one axis at a time, the buckets always
     const pack = await tool("nils_pack").run({ axis: "post_contrast" }, ctx("survey", 2));
     expect(Object.keys((pack.output as { lists: Record<string, unknown> }).lists).sort()).toEqual([
       "contrast_positive",
-      "post_contrast.0",
-      "post_contrast.1",
+      "post_contrast.given",
+      "post_contrast.not_given",
     ]);
-    expect(packListOf(conversation, "post_contrast.1")).toEqual(["gad", "gd"]);
+    expect(packListOf(conversation, "post_contrast.given")).toEqual(["gad", "gd"]);
     expect(packListOf(conversation, "technique.mprage")).toEqual(["mprage"]);
     const hyp = (args: Record<string, unknown>, n: number) =>
       tool("hypothesis").run(args, ctx("hypothesise", n));
@@ -212,22 +212,24 @@ describe("keyword-tune", () => {
       why: expect.stringMatching(/one list/u),
     });
     expect(
-      (await hyp({ axis: "post_contrast", bucket: "contrast_positive", value: "1", add: ["zzgado"] }, 4))
+      (await hyp({ axis: "post_contrast", bucket: "contrast_positive", value: "given", add: ["zzgado"] }, 4))
         .output,
     ).toMatchObject({ refused: true, why: expect.stringMatching(/one of the two/u) });
     // a value the signals did not show
-    expect((await hyp({ axis: "post_contrast", value: "2", add: ["zzgado"] }, 5)).output).toMatchObject({
+    expect((await hyp({ axis: "post_contrast", value: "maybe", add: ["zzgado"] }, 5)).output).toMatchObject({
       refused: true,
-      why: "2 is not a value the signals report on post_contrast; they report 0, 1",
+      why: "maybe is not a value the signals report on post_contrast; they report not_given, given",
     });
     // a term the list already holds, a term it does not hold
-    expect((await hyp({ axis: "post_contrast", value: "1", add: ["Gad"] }, 6)).output).toMatchObject({
+    expect((await hyp({ axis: "post_contrast", value: "given", add: ["Gad"] }, 6)).output).toMatchObject({
       refused: true,
-      why: expect.stringMatching(/post_contrast\.1 already holds gad/u),
+      why: expect.stringMatching(/post_contrast\.given already holds gad/u),
     });
-    expect((await hyp({ axis: "post_contrast", value: "1", remove: ["zzgado"] }, 7)).output).toMatchObject({
+    expect(
+      (await hyp({ axis: "post_contrast", value: "given", remove: ["zzgado"] }, 7)).output,
+    ).toMatchObject({
       refused: true,
-      why: "post_contrast.1 does not hold zzgado",
+      why: "post_contrast.given does not hold zzgado",
     });
     expect(
       (await hyp({ axis: "post_contrast", bucket: "contrast_positive", add: ["gad"] }, 8)).output,
@@ -236,10 +238,10 @@ describe("keyword-tune", () => {
     const ok = await hyp(
       {
         axis: "post_contrast",
-        value: "1",
+        value: "given",
         add: ["zzgado"],
-        flip: ["post_contrast:vote|1|"],
-        must_not_regress: ["post_contrast=0"],
+        flip: ["post_contrast:vote|given|"],
+        must_not_regress: ["post_contrast=not_given"],
       },
       9,
     );
@@ -247,23 +249,26 @@ describe("keyword-tune", () => {
     expect(predictionOf(conversation)).toMatchObject({
       axis: "post_contrast",
       bucket: null,
-      value: "1",
-      list: "post_contrast.1",
+      value: "given",
+      list: "post_contrast.given",
       add: ["zzgado"],
     });
     // the one-file check counts one list of either kind, the hypothesis's own
     const checks = keywordTuneChecks();
-    const overlay = overlayOf(predictionOf(conversation) as Prediction, {}, "t1 zzgado", "1");
+    const overlay = overlayOf(predictionOf(conversation) as Prediction, {}, "t1 zzgado", "given");
     expect(checks.one_file(verdict({ overlay }), { conversation })).toBeNull();
     expect(
       checks.one_file(verdict({ overlay: { buckets: { contrast_positive: { add: ["zzgado"] } } } }), {
         conversation,
       }),
-    ).toMatch(/a tune touches one, post_contrast\.1/u);
+    ).toMatch(/a tune touches one, post_contrast\.given/u);
     expect(
-      checks.one_file(verdict({ overlay: { lists: { "post_contrast.1": {}, "post_contrast.0": {} } } }), {
-        conversation,
-      }),
+      checks.one_file(
+        verdict({ overlay: { lists: { "post_contrast.given": {}, "post_contrast.not_given": {} } } }),
+        {
+          conversation,
+        },
+      ),
     ).toMatch(/touches 2 lists/u);
     expect(checks.groups_exist(verdict({}), { conversation })).toBeNull();
     // a bucket the pack names still goes under buckets

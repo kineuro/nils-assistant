@@ -24,13 +24,39 @@ interface Level {
   /** How many fields the level has in all, as the engine counts them. */
   total?: number;
 }
+/**
+ * One value of an axis as the catalog lists it. What it means (`description`), the other words a person knows it by
+ * (`terms`), and its place under a coarser axis (`within`) or over a finer one (`covers`) are served since the
+ * engine's catalog of 2026-11; each is absent where the pack says nothing, and on an older engine.
+ */
+export interface AxisValue {
+  id: string;
+  label?: string;
+  /** The names the value had before, which a document may still write. */
+  aliases?: string[];
+  /** What a row stores, where it is not the label. */
+  stored?: string;
+  description?: string;
+  terms?: string[];
+  /** On a coarse axis: the values of the finer axis this value covers. */
+  covers?: string[];
+  /** On a finer axis: the coarser value that covers this one, the wider choice. */
+  within?: { axis: string; value: string }[];
+}
+export interface Axis {
+  name: string;
+  multi?: boolean;
+  /** The finer axis this axis is the coarse form of. */
+  coarse_of?: string;
+  values: AxisValue[];
+}
 export interface Catalog {
   epoch?: number;
   pack?: { name?: string; version?: string };
   grains?: { grain: string; key?: string; day?: string | null; carries?: string[] }[];
   edges?: { from: string; to: string; cardinality?: string; standing?: string[] }[];
   levels?: Level[];
-  axes?: { name: string; multi?: boolean; values: { id: string; label?: string }[] }[];
+  axes?: Axis[];
   kinds?: {
     name: string;
     category?: string;
@@ -143,6 +169,55 @@ export function derivedRef(d: { name: string; params?: [string, string][] }): st
   return `["derived", {${opts}}, "${d.name}"]`;
 }
 
+/** The most characters of a value's description the summary carries; a search gives it whole. */
+export const MEANING_CHARS = 320;
+
+const listed = (xs: readonly string[]): string => xs.join(", ");
+
+/** A value's place beside another axis, in a few words: what it covers of the finer one, or the wider value it is within. */
+export function kinOf(v: AxisValue, finer?: string): string {
+  const covers = (v.covers ?? []).filter((x) => typeof x === "string");
+  const within = (v.within ?? []).filter(
+    (w) => w && typeof w.axis === "string" && typeof w.value === "string",
+  );
+  const parts: string[] = [];
+  if (covers.length) parts.push(`covers ${finer ? `${finer} ` : ""}${listed(covers)}`);
+  if (within.length) parts.push(`within ${within.map((w) => `${w.axis} ${w.value}`).join(" and ")}`);
+  return parts.join("; ");
+}
+
+/**
+ * One axis as the summary carries it: the line of its values as before, and under it one line for each value the
+ * catalog says something of, its meaning and its place under a wider value or over finer ones. A person's "brain"
+ * was once written as the fine value of that name, where the region was meant, because the summary listed bare
+ * names. Only what the catalog gives is written: a value with no description and no relation gets no
+ * line, the words a person knows a value by stay with the search, and a catalog without these fields reads as before.
+ */
+export function renderAxis(a: Axis, all: readonly Axis[] = []): string[] {
+  const coarser = all.filter((x) => x.coarse_of === a.name).map((x) => x.name);
+  const notes = [
+    a.multi ? "multi-valued, use has" : "",
+    a.coarse_of
+      ? `the coarse form of ${a.coarse_of}, each value covering the ${a.coarse_of} values on its line below`
+      : "",
+    coarser.length ? `the fine form of ${coarser.join(" and ")}` : "",
+  ]
+    .filter(Boolean)
+    .join("; ");
+  const out = [`- ${a.name}${notes ? ` (${notes})` : ""}: ${a.values.map((v) => v.id).join(", ")}`];
+  for (const v of a.values) {
+    const means = typeof v.description === "string" ? v.description.replace(/\s+/gu, " ").trim() : "";
+    // a coarse value that covers only its namesake says nothing the name does not
+    const own = (v.covers ?? []).length === 1 && v.covers?.[0] === v.id;
+    const kin = own ? "" : kinOf(v, a.coarse_of);
+    // on the finer axis the relation is told once, by the coarse value's line: a value with no meaning gets none
+    if (!means && !(kin && (v.covers ?? []).length)) continue;
+    const text = means.length > MEANING_CHARS ? `${means.slice(0, MEANING_CHARS).trimEnd()}…` : means;
+    out.push(`  - ${v.id}${kin ? ` (${kin})` : ""}${text ? `: ${text}` : ""}`);
+  }
+  return out;
+}
+
 /** The catalog as text a small model reads once: grains and how they nest, the fields per level, the axes and their values, the kinds, the cohorts, the schemes, the derived fields, the functions. */
 export function renderCatalog(c: Catalog): string {
   const out: string[] = [];
@@ -165,10 +240,7 @@ export function renderCatalog(c: Catalog): string {
     out.push(
       'Axes of a stack (`["axis", {}, "<name>"]`; compare with `=`, or `has` for a multi-valued axis) and their values:',
     );
-    for (const a of c.axes)
-      out.push(
-        `- ${a.name}${a.multi ? " (multi-valued, use has)" : ""}: ${a.values.map((v) => v.id).join(", ")}`,
-      );
+    for (const a of c.axes) out.push(...renderAxis(a, c.axes));
   }
   if (c.derived?.length) {
     out.push('Derived fields (`["derived", {}, "<name>"]`; one that takes options is written with them):');

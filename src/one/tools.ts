@@ -79,7 +79,7 @@ import {
   type Sessions,
   selectionSpec,
 } from "../stations/pipelines.ts";
-import { catalogOf, derivedRef, madeOn, prelude } from "../stations/prelude.ts";
+import { type Axis, type AxisValue, catalogOf, derivedRef, madeOn, prelude } from "../stations/prelude.ts";
 import { failedOf, readRun } from "../stations/run-read.ts";
 import { CARD_OF, type ChangeKind, theChanges } from "./changes.ts";
 import { SHAPED_FILE } from "./chart.ts";
@@ -512,6 +512,26 @@ const PARTS: Record<string, RegExp> = {
 };
 
 /**
+ * One part of the summary: the lines that speak of it. The scans' part is the axes with their values whole, each
+ * axis's line and the lines under it that say what a value means: a filter by words kept the heading and dropped
+ * the values, and would keep a value's meaning wherever it happened to say "stack".
+ */
+export function partLines(text: string, part: string | null): string[] {
+  const lines = text.split("\n");
+  const re = part && part !== "all" ? PARTS[part] : null;
+  if (!re) return lines;
+  if (part !== "scans") return lines.filter((l) => re.test(l));
+  const out: string[] = [];
+  let axes = false;
+  for (const l of lines) {
+    if (/^Axes of a stack/u.test(l)) axes = true;
+    else if (axes && !/^(?:- | {2}- )/u.test(l)) axes = false;
+    if (axes || (!/^ {2}- /u.test(l) && re.test(l))) out.push(l);
+  }
+  return out;
+}
+
+/**
  * The summary's fields (2026-10-12): the heading and one line per level, every field of it; with `level`, that
  * level's line alone. The lines of other parts that also begin with a dash (the axes, the grains) are not fields.
  */
@@ -559,8 +579,7 @@ const registrySummary: OneTool = {
       );
     const part = str(args.part);
     if (part === "fields") return fieldsOut(text, str(args.level));
-    const re = part && part !== "all" ? PARTS[part] : null;
-    const lines = re ? text.split("\n").filter((l) => re.test(l)) : text.split("\n");
+    const lines = partLines(text, part);
     return { output: data(lines.join("\n"), "ask for one part: cohorts, scores, scans or fields") };
   },
 };
@@ -584,6 +603,148 @@ export function mainScansLine(roles: readonly string[] | undefined): string {
   return `operator picked: the main scans, a visit's main ${rs.join(", ")} as the Main scans page shows them: a stack set with where: [["picked", {role: ${rs[0]}}]], one role per clause (roles: ${rs.join(", ")}); never the pick: clause, which only orders rows`;
 }
 
+/** The little words of a search that name no value: "head and neck" is looked up by head and by neck. */
+const TERM_STOP = new Set(["and", "or", "of", "the", "to", "in", "on", "with", "for", "at", "by"]);
+
+/** A word as it is compared with the words a person knows a value by: letters and digits, a plural folded. */
+const termWord = (w: string): string => {
+  const x = w.toLowerCase().replace(/[^a-z0-9]+/gu, "");
+  return x.length > 3 && x.endsWith("s") ? x.slice(0, -1) : x;
+};
+
+/**
+ * The other words of a value (its `terms`, as the pack lists them) that a search's words say: a term is found when
+ * every word of it is among the words asked ("head and neck" by head and neck, "T2 star" by t2 and star), never by
+ * a part of a word or by one word of several, so "single" finds no "single shot TSE" and "t1" no "T1 TFE". The terms
+ * explain a value and are no names of it: the line found still says the value by its identity, which is what a
+ * document writes.
+ */
+export function termsFound(x: AxisValue, ws: readonly string[]): string[] {
+  const asked = new Set(ws.map(termWord).filter((w) => w.length >= 2));
+  if (asked.size === 0) return [];
+  return (x.terms ?? []).filter((t) => {
+    if (typeof t !== "string") return false;
+    const words = t
+      .split(/[^A-Za-z0-9]+/u)
+      .map(termWord)
+      .filter((w) => w !== "" && !TERM_STOP.has(w));
+    return words.length > 0 && words.every((w) => asked.has(w));
+  });
+}
+
+const axisValueOf = (axes: readonly Axis[], axis: string, id: string): { a: Axis; x: AxisValue } | null => {
+  const a = axes.find((y) => y.name === axis);
+  const x = a?.values.find((y) => y.id === id);
+  return a && x ? { a, x } : null;
+};
+
+/**
+ * One sorting value as a search answers it: how a document names it, the words of the search it is also known by,
+ * its place beside the other axis (the finer values a wider one covers; for a fine value the wider one, with what
+ * that covers, so the wider choice is read next to the fine one) and what it means, where the catalog says.
+ */
+export function sortingLine(
+  a: Axis,
+  x: AxisValue,
+  axes: readonly Axis[] = [],
+  known: readonly string[] = [],
+): string {
+  const label = x.label && x.label !== x.id ? ` (${x.label})` : "";
+  const also = [...new Set(known)].filter((k) => k.toLowerCase() !== x.id.toLowerCase() && k !== x.label);
+  const kin: string[] = [];
+  const covers = (x.covers ?? []).filter((c) => !(x.covers?.length === 1 && c === x.id));
+  if (covers.length)
+    kin.push(`the wider value: covers ${a.coarse_of ? `${a.coarse_of} ` : ""}${covers.join(", ")}`);
+  for (const w of x.within ?? []) {
+    if (!w || typeof w.axis !== "string" || typeof w.value !== "string") continue;
+    const wide = axisValueOf(axes, w.axis, w.value)?.x.covers ?? [];
+    // a wider value that covers this one alone is no wider choice
+    if (wide.length === 1 && wide[0] === x.id) continue;
+    kin.push(
+      `a fine value within ${w.axis} = ${w.value}, the wider choice${wide.length > 1 ? `, which covers ${wide.join(", ")}` : ""}`,
+    );
+  }
+  const means = typeof x.description === "string" ? x.description.replace(/\s+/gu, " ").trim() : "";
+  return `scan sorting ${a.name} = ${x.id}${label}${also.length ? `, also known as ${also.join(", ")}` : ""}${kin.length ? ` (${kin.join("; ")})` : ""}${means ? `: ${means}` : ""}`;
+}
+
+/**
+ * The sorting values a search's words find. A value is found by its identity, its label, a name it had before, what
+ * a row stores, its axis's name, and by a word a person knows it by (`terms`); a fine value found brings the wider
+ * value that covers it. Which of the two is read first follows what the words name. A wider value comes first when
+ * a word is its own name, or when the words find every fine value it covers, so they tell none of them apart:
+ * "brain" finds brain and brain-neck, and shows the head before either. Where the words find one fine value of
+ * several ("neck" under a region that also covers the spine), that value comes first and the wider one right after
+ * it: a person who asks for the neck does not ask for every spine. On a catalog without terms and relations the
+ * lines are the ones a search gave before, in the catalog's order.
+ */
+export function sortingFound(axes: readonly Axis[], ws: readonly string[]): string[] {
+  const hit = (s: string) => ws.some((w) => s.toLowerCase().includes(w));
+  type Found = { a: Axis; x: AxisValue; known: string[] };
+  const key = (axis: string, id: string): string => `${axis}=${id}`;
+  const found = new Map<string, Found>();
+  for (const a of axes)
+    for (const x of a.values) {
+      const known = termsFound(x, ws);
+      const names = [x.id, x.label ?? "", x.stored ?? "", ...(x.aliases ?? [])];
+      if (names.some((n) => typeof n === "string" && n !== "" && hit(n)) || known.length || hit(a.name))
+        found.set(key(a.name, x.id), {
+          a,
+          x,
+          known: [...(x.aliases ?? []).filter((n) => typeof n === "string" && hit(n)), ...known],
+        });
+    }
+  // what the words found themselves, before the wider value of each fine one is brought beside it
+  const direct = new Set(found.keys());
+  for (const { x } of [...found.values()])
+    for (const w of x.within ?? []) {
+      const wide = w && typeof w.axis === "string" ? axisValueOf(axes, w.axis, w.value) : null;
+      if (wide && !found.has(key(wide.a.name, wide.x.id)))
+        found.set(key(wide.a.name, wide.x.id), { ...wide, known: [] });
+    }
+  const asked = new Set(ws.map(termWord));
+  const isWide = (f: Found): boolean => Boolean(f.a.coarse_of) || (f.x.covers ?? []).length > 0;
+  // a wider value is what the words name when one of them is its name, or when they find all it covers
+  const named = (f: Found): boolean => {
+    if (asked.has(termWord(f.x.id)) || (f.x.label ? asked.has(termWord(f.x.label)) : false)) return true;
+    // all it covers: each found by the words, or holding one of them in its name (brains, for brain-neck)
+    const covers = f.x.covers ?? [];
+    const held = (c: string): boolean => [...asked].some((w) => w.length >= 2 && termWord(c).includes(w));
+    return (
+      Boolean(f.a.coarse_of) &&
+      covers.length > 0 &&
+      covers.every((c) => direct.has(key(f.a.coarse_of ?? "", c)) || held(c))
+    );
+  };
+  const out: Found[] = [];
+  const put = (f: Found | undefined): void => {
+    if (f && !out.includes(f)) out.push(f);
+  };
+  for (const f of found.values()) if (isWide(f) && named(f)) put(f);
+  for (const f of found.values()) {
+    if (isWide(f)) continue;
+    put(f);
+    // the wider choice right after the fine value the words named
+    for (const w of f.x.within ?? [])
+      if (w && typeof w.axis === "string") put(found.get(key(w.axis, w.value)));
+  }
+  for (const f of found.values()) put(f);
+  return out.map((f) => sortingLine(f.a, f.x, axes, f.known));
+}
+
+/** What the catalog says of one axis's values, for a lookup of the axis by its name: the wider values first, then each value it describes or relates. Empty where it says nothing. */
+export function axisAbout(axis: Axis, axes: readonly Axis[]): string[] {
+  const told = (x: AxisValue) =>
+    Boolean(x.description) || (x.covers ?? []).length > 0 || (x.within ?? []).length > 0;
+  const wide = axis.values.flatMap((x) =>
+    (x.within ?? []).flatMap((w) => {
+      const v = w && typeof w.axis === "string" ? axisValueOf(axes, w.axis, w.value) : null;
+      return v ? [sortingLine(v.a, v.x, axes)] : [];
+    }),
+  );
+  return [...new Set([...wide, ...axis.values.filter(told).map((x) => sortingLine(axis, x, axes))])];
+}
+
 /** The names of the registry that hold any of the words: fields, sorting values, kinds, cohorts, datasets, derived fields, the main scans, and the language's functions the words mean. */
 export function searchCatalog(
   cat: ReturnType<typeof catalogOf>,
@@ -604,10 +765,7 @@ export function searchCatalog(
   out.push(...functionsFound(words, cat?.functions));
   for (const l of cat?.levels ?? [])
     for (const f of l.fields) if (hit(f.path)) out.push(`field ${f.path} of ${l.level} (${f.type})`);
-  for (const a of cat?.axes ?? [])
-    for (const x of a.values)
-      if (hit(x.id) || hit(x.label ?? "") || hit(a.name))
-        out.push(`scan sorting ${a.name} = ${x.id}${x.label ? ` (${x.label})` : ""}`);
+  out.push(...sortingFound(cat?.axes ?? [], ws));
   for (const k of cat?.kinds ?? [])
     if (hit(k.name)) out.push(`event kind ${k.name}${k.unit ? ` in ${k.unit}` : ""}`);
   for (const c of cat?.cohorts ?? [])
@@ -782,7 +940,7 @@ const NOT_TRIED = ["study-instance-uid", "patient-id", "personnummer"];
 const registrySearch: OneTool = {
   name: "registry_search",
   description:
-    "Find the registry's own names for the person's words: fields, sorting values of scans (base, technique, modifier and the others), event kinds, cohorts, datasets (with their counts), derived fields, disease courses, how to ask for the main scans NILS picked, and the functions of a question with how each is written (days between, years apart, the previous visit, first to last, since, a share). Give `words`. With `level` and `field` instead, a sample of what one field holds (at most 20 values): look up a maker, a scanner model, a station or a site this way before a question names one, since the registry stores several spellings.",
+    "Find the registry's own names for the person's words: fields, sorting values of scans (base, technique, modifier, body region and the others; each with what it means and the wider value that covers it, where the registry says), event kinds, cohorts, datasets (with their counts), derived fields, disease courses, how to ask for the main scans NILS picked, and the functions of a question with how each is written (days between, years apart, the previous visit, first to last, since, a share). Give `words`. With `level` and `field` instead, a sample of what one field holds (at most 20 values): look up a maker, a scanner model, a station or a site this way before a question names one, since the registry stores several spellings.",
   input: v.object({
     words: v.optional(v.string()),
     level: v.optional(v.string()),
@@ -797,7 +955,16 @@ const registrySearch: OneTool = {
     if (level && field) {
       const name = field.replace(/^axis\./u, "");
       const axis = catalogOf(ctx.subject)?.axes?.find((a) => a.name === name);
-      if (axis) return { output: data({ sorting: axis.name, values: axis.values.map((x) => x.id) }, "") };
+      if (axis) {
+        // what the values mean and how they sit beside a wider or a finer axis, where the catalog says
+        const about = axisAbout(axis, catalogOf(ctx.subject)?.axes ?? []);
+        return {
+          output: data(
+            { sorting: axis.name, values: axis.values.map((x) => x.id), ...(about.length ? { about } : {}) },
+            "",
+          ),
+        };
+      }
       const limit = Math.min(20, Math.max(1, Number(args.limit ?? 20)));
       const a = await seam(ctx, "ask-help").call({
         method: "GET",
@@ -956,6 +1123,17 @@ export const COUNT_WARNINGS: Record<string, string> = {
   sequence_inherited:
     "a place in the order or a gap to the row before was counted before a later set dropped rows, so it is not the one among the rows that are left",
 };
+/**
+ * The warning that a filter is narrower than the person's word: it names one fine value, kept a small share of the
+ * rows, and the values beside it under the same wider value hold most of the rest (`body_part = brain` where a
+ * brain scan, the head, was meant). The count is right for the document and most likely not what was asked, so the
+ * model drafts again with the wider clause the registry gives, unless the words ask for that fine value alone.
+ */
+export const NARROW_WARNING = "narrow_value";
+const NARROW_MEANS =
+  "a filter names one fine value and kept a small share of the rows, while the values beside it under the same wider value hold most of the rest, so the filter is most likely narrower than the person's word";
+/** The warnings that send the model to draft again, once a turn each. */
+const redrafts = (code: string): boolean => code in COUNT_WARNINGS || code === NARROW_WARNING;
 /** The warnings that are advice: the count stands as the document says it. */
 const ADVICE_WARNINGS = new Set(["sequence_before_where"]);
 /** A warning that says nothing of the count: which sets a release could take. */
@@ -991,6 +1169,11 @@ export function warningsOf(diagnosis: unknown): DraftIssue[] {
  * wrong way round, a sequence read after its rows were cut) sends it to draft again, once a turn for each kind: the
  * document is kept as flawed, and the check before the turn settles holds an answer that rests on it. The second
  * time the same kind comes, the answer says so instead. A warning that is advice is shown and forces nothing.
+ *
+ * A filter narrower than the person's word (`narrow_value`) is sent back the same way and bounded the same way:
+ * once a turn, however many clauses or documents carry it, and the second time the answer says which value was
+ * counted. It differs in one thing: the count is right where the words ask for the fine value alone, so the model
+ * is told to keep the document then and say so.
  */
 export function warningsNext(
   turn: Pick<TurnState, "flawed" | "sentBack">,
@@ -1012,11 +1195,21 @@ export function warningsNext(
     out.push(
       `The warning ${wrong.join(" and ")} is still there after another draft: answer with what the question counted, and say in one plain sentence that the count may not be what was asked, and why.`,
     );
+  if (warned.some((w) => w.code === NARROW_WARNING)) {
+    const again = turn.sentBack.has(`warning:${NARROW_WARNING}`);
+    turn.flawed.push({ document, code: NARROW_WARNING });
+    turn.sentBack.add(`warning:${NARROW_WARNING}`);
+    out.push(
+      again
+        ? `The warning ${NARROW_WARNING} is still there after another draft: draft no more for it. Answer with what the question counted, and say in one plain sentence which value was counted and that the wider value the warning names holds more.`
+        : `Do not answer from this count yet, and give the person no reason for a small number: ${NARROW_WARNING} means ${NARROW_MEANS}. Unless the person's words ask for that one value alone (the fine part, or how far the scan reaches), write the clause the warning's fix gives, exactly as it is written and at the path it names, and draft the whole document again. Where they do ask for it alone, keep the document and say in the answer which value was counted.`,
+    );
+  }
   if (warned.some((w) => ADVICE_WARNINGS.has(w.code)))
     out.push(
       "sequence_before_where is advice: the count stands as the document says it. Change the document only when the words ask for the row before among the rows that clause keeps.",
     );
-  const other = warned.filter((w) => !(w.code in COUNT_WARNINGS) && !ADVICE_WARNINGS.has(w.code));
+  const other = warned.filter((w) => !redrafts(w.code) && !ADVICE_WARNINGS.has(w.code));
   if (other.length)
     out.push("Read the other warnings; they do not change the count unless their message says so.");
   return out.join(" ");

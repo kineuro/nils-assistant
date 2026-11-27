@@ -59,7 +59,7 @@ export function idiomsOfQuestion(q: string): Set<string> {
   )
     out.add("has");
   if (
-    /\bflair\b|\bmprage\b|\bt1\b|\bt2\b|\btse\b|\bdwi\b|\bswi\b|\b3d\b|\btesla\b|\bslice\b|\bresolution\b|\bisotropic\b|\bmillimet|\bmm\b|\bscout\b|\blocalizer\b|\breformat\b|\bderived\b|\bstack\b|\bseries\b|\bprotocol\b|\bsequence\b|\bfield strength\b|\bweighted\b/u.test(
+    /\bflair\b|\bmprage\b|\bt1\b|\bt2\b|\btse\b|\bdwi\b|\bswi\b|\b3d\b|\btesla\b|\bslice\b|\bresolution\b|\bisotropic\b|\bmillimet|\bmm\b|\bscout\b|\blocalizer\b|\breformat\b|\bderived\b|\bstack\b|\bseries\b|\bprotocol\b|\bsequence\b|\bfield strength\b|\bweighted\b|\bbrains?\b|\bheads?\b|\bspines?\b|\bnecks?\b|\bchests?\b|\bbody (part|region)\b/u.test(
       t,
     )
   )
