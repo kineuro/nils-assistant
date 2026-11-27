@@ -72,7 +72,8 @@ export interface TurnState {
   sentBack: Set<string>;
   /**
    * The questions stored this turn with a warning that says their count is not what was asked (dates the wrong way
-   * round, a sequence read after its rows were cut): the model drafts again once, and the answer never rests on one.
+   * round, a sequence read after its rows were cut), or that a filter is narrower than the person's word
+   * (`narrow_value`): the model drafts again once for each kind, and the answer never rests on one unasked.
    */
   flawed: { document: number; code: string }[];
   /** The spellings of a device's name (a maker, a model, a station, a site) the stored questions compare with: the answer names them. */
