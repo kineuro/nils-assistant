@@ -669,36 +669,67 @@ export function sortingLine(
 }
 
 /**
- * The sorting values a search's words find, the wider values first. A value is found by its identity, its label, a
- * name it had before, what a row stores, its axis's name, and by a word a person knows it by (`terms`); a fine value
- * found brings the wider value that covers it, so "brain" shows the head before the part alone. On a catalog without terms and relations the lines are the ones a search gave before.
+ * The sorting values a search's words find. A value is found by its identity, its label, a name it had before, what
+ * a row stores, its axis's name, and by a word a person knows it by (`terms`); a fine value found brings the wider
+ * value that covers it. Which of the two is read first follows what the words name. A wider value comes first when
+ * a word is its own name, or when the words find every fine value it covers, so they tell none of them apart:
+ * "brain" finds brain and brain-neck, and shows the head before either. Where the words find one fine value of
+ * several ("neck" under a region that also covers the spine), that value comes first and the wider one right after
+ * it: a person who asks for the neck does not ask for every spine. On a catalog without terms and relations the
+ * lines are the ones a search gave before, in the catalog's order.
  */
 export function sortingFound(axes: readonly Axis[], ws: readonly string[]): string[] {
   const hit = (s: string) => ws.some((w) => s.toLowerCase().includes(w));
-  const found = new Map<string, { a: Axis; x: AxisValue; known: string[] }>();
+  type Found = { a: Axis; x: AxisValue; known: string[] };
+  const key = (axis: string, id: string): string => `${axis}=${id}`;
+  const found = new Map<string, Found>();
   for (const a of axes)
     for (const x of a.values) {
       const known = termsFound(x, ws);
       const names = [x.id, x.label ?? "", x.stored ?? "", ...(x.aliases ?? [])];
       if (names.some((n) => typeof n === "string" && n !== "" && hit(n)) || known.length || hit(a.name))
-        found.set(`${a.name}=${x.id}`, {
+        found.set(key(a.name, x.id), {
           a,
           x,
           known: [...(x.aliases ?? []).filter((n) => typeof n === "string" && hit(n)), ...known],
         });
     }
-  // the wider value of each fine one found, where the words did not find it themselves
+  // what the words found themselves, before the wider value of each fine one is brought beside it
+  const direct = new Set(found.keys());
   for (const { x } of [...found.values()])
     for (const w of x.within ?? []) {
       const wide = w && typeof w.axis === "string" ? axisValueOf(axes, w.axis, w.value) : null;
-      if (wide && !found.has(`${wide.a.name}=${wide.x.id}`))
-        found.set(`${wide.a.name}=${wide.x.id}`, { ...wide, known: [] });
+      if (wide && !found.has(key(wide.a.name, wide.x.id)))
+        found.set(key(wide.a.name, wide.x.id), { ...wide, known: [] });
     }
-  const lines = [...found.values()].map((f) => ({
-    wide: Boolean(f.a.coarse_of) || (f.x.covers ?? []).length > 0,
-    line: sortingLine(f.a, f.x, axes, f.known),
-  }));
-  return [...lines.filter((l) => l.wide), ...lines.filter((l) => !l.wide)].map((l) => l.line);
+  const asked = new Set(ws.map(termWord));
+  const isWide = (f: Found): boolean => Boolean(f.a.coarse_of) || (f.x.covers ?? []).length > 0;
+  // a wider value is what the words name when one of them is its name, or when they find all it covers
+  const named = (f: Found): boolean => {
+    if (asked.has(termWord(f.x.id)) || (f.x.label ? asked.has(termWord(f.x.label)) : false)) return true;
+    // all it covers: each found by the words, or holding one of them in its name (brains, for brain-neck)
+    const covers = f.x.covers ?? [];
+    const held = (c: string): boolean => [...asked].some((w) => w.length >= 2 && termWord(c).includes(w));
+    return (
+      Boolean(f.a.coarse_of) &&
+      covers.length > 0 &&
+      covers.every((c) => direct.has(key(f.a.coarse_of ?? "", c)) || held(c))
+    );
+  };
+  const out: Found[] = [];
+  const put = (f: Found | undefined): void => {
+    if (f && !out.includes(f)) out.push(f);
+  };
+  for (const f of found.values()) if (isWide(f) && named(f)) put(f);
+  for (const f of found.values()) {
+    if (isWide(f)) continue;
+    put(f);
+    // the wider choice right after the fine value the words named
+    for (const w of f.x.within ?? [])
+      if (w && typeof w.axis === "string") put(found.get(key(w.axis, w.value)));
+  }
+  for (const f of found.values()) put(f);
+  return out.map((f) => sortingLine(f.a, f.x, axes, f.known));
 }
 
 /** What the catalog says of one axis's values, for a lookup of the axis by its name: the wider values first, then each value it describes or relates. Empty where it says nothing. */

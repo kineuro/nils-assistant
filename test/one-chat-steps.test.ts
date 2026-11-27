@@ -305,20 +305,27 @@ describe("the find skill", () => {
     expect(find.body).not.toMatch(/where post-contrast has run on it/u);
   });
 
-  it("reads an anatomy word as the region, and keeps the fine part for questions about coverage", () => {
+  it("reads an anatomy word by what it names: the head for a brain, the fine part for a neck", () => {
     // a person asked for scans that are all brain, and the fine value of that name was written (the stacks that end
-    // above the neck), which leaves out a head scan that reaches into it
+    // above the neck), which leaves out a head scan that reaches into it; and a neck is no word for every spine
     const region = find.body.split("\n\n").find((x) => x.startsWith("**An anatomy word**")) ?? "";
+    expect(region).toMatch(/^\*\*An anatomy word\*\* is read by what it names\./u);
     expect(region).toMatch(
-      /\*\*An anatomy word\*\* in the person's words \(brain, head, spine, neck, chest\) names the region, the `body_region` value that covers it as the facts list them/u,
+      /\*\*Brain\*\*, \*\*head\*\* \(brain scans, all brain\): `\["=", \{\}, \["axis", \{\}, "body_region"\], "head"\]`/u,
     );
     expect(region).toMatch(
-      /\*\*brain scans\*\*, \*\*head scans\*\*, \*\*all brain\*\* are `\["=", \{\}, \["axis", \{\}, "body_region"\], "head"\]`/u,
+      /`body_part` `brain` and `brain-neck` only split the head by how far the stack reaches, written only when the words ask for that reach/u,
     );
-    expect(region).toMatch(/`body_part` is the fine split of a region by how far the stack reaches/u);
+    expect(region).toMatch(/\*\*Chest\*\*: `body_region` `chest`\./u);
+    expect(region).toMatch(/\*\*The spine\*\* in general: `body_region` `spine`\./u);
+    expect(region).toMatch(/\*\*Neck\*\* is the fine part, `body_part` `neck`, never every spine/u);
+    expect(region).toMatch(/a named level or the spinal cord is the value `registry_search` finds\./u);
+    // the principle, for a word two values share
     expect(region).toMatch(
-      /its values are for questions about coverage, written only when the words ask for the fine part or the reach of the stack/u,
+      /A word in both a region and a fine part: read each value's meaning in the facts and take the one asked; in doubt use `registry_search`, never guess\.$/u,
     );
+    // no blanket rule that an anatomy word is the region
+    expect(region).not.toMatch(/names the region/u);
     // short, in the skill's voice, and no figure of any registry
     expect(region.split(/\s+/u).length).toBeLessThan(110);
     expect(region).not.toMatch(/\d{2,}/u);

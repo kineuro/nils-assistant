@@ -258,14 +258,32 @@ describe("a sorting value found by a person's word", () => {
     }
   });
 
-  it("brings the wider value of a fine one the words found alone", () => {
-    const found = searchCatalog(CATALOG, "brain-neck");
-    expect(found).toHaveLength(2);
-    expect(found[0]).toMatch(
+  it("shows the fine part first where the words name one part of several, the wider value right after it", () => {
+    // a neck is a fine part: the region that covers it also covers the spine, which the word does not ask for
+    const neck = searchCatalog(CATALOG, "neck");
+    expect(neck[0]).toBe(
+      "scan sorting body_part = neck (a fine value within body_region = spine, the wider choice, which covers spine, neck)",
+    );
+    expect(neck[1]).toMatch(
+      /^scan sorting body_region = spine, also known as neck \(the wider value: covers body_part spine, neck\): the spine or the neck: /u,
+    );
+    expect(searchCatalog(CATALOG, "neck scans").slice(0, 2)).toEqual(neck.slice(0, 2));
+    // a fine value the words found alone brings its wider value beside it
+    const reach = searchCatalog(CATALOG, "brain-neck");
+    expect(reach).toHaveLength(2);
+    expect(reach[0]).toMatch(
+      /^scan sorting body_part = brain-neck \(a fine value within body_region = head, the wider choice/u,
+    );
+    expect(reach[1]).toMatch(
       /^scan sorting body_region = head \(the wider value: covers body_part brain, brain-neck\): /u,
     );
-    expect(found[1]).toMatch(
-      /^scan sorting body_part = brain-neck \(a fine value within body_region = head, the wider choice/u,
+    // a word that is the wider value's own name shows it first: the spine in general, the chest
+    const spine = searchCatalog(CATALOG, "spine");
+    expect(spine[0]).toMatch(
+      /^scan sorting body_region = spine \(the wider value: covers body_part spine, neck\): /u,
+    );
+    expect(spine[1]).toBe(
+      "scan sorting body_part = spine (a fine value within body_region = spine, the wider choice, which covers spine, neck)",
     );
     // a part whose region covers it alone has no wider choice to name
     expect(searchCatalog(CATALOG, "chest")).toEqual([
