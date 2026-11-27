@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# question: How many subjects of cohort A have a 3D FLAIR brain scan?
+# synthetic: written for the cookbook, not a gold of the bench
+ast_version: 1
+name: subjects of cohort A with a 3D FLAIR of the head
+scheme: default
+sets:
+  scope:  {grain: cohort, where: [["=", {}, ["field", {}, "name"], "ms-cohort-a"]]}
+  people: {grain: subject, of: scope}
+  visits: {grain: session, of: people}
+  # a brain scan is the head: body_region head covers body_part brain and brain-neck. body_part brain alone is
+  # the stacks that end above the neck, and leaves out a head scan that reaches into it, as a 3D one often does
+  flair:
+    grain: stack
+    of: visits
+    where:
+      - ["=",   {}, ["axis", {}, "body_region"], "head"]
+      - ["=",   {}, ["axis", {}, "base"], "T2w"]
+      - ["has", {}, ["axis", {}, "modifier"], "FLAIR"]
+      - ["=",   {}, ["derived", {}, "acquisition_type"], "3D"]
+  answer:
+    grain: subject
+    from: people
+    has: [{set: flair, min: 1}]
+keep: [answer]
+out: {set: answer, level: count}

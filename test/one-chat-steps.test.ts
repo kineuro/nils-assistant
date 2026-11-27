@@ -304,4 +304,39 @@ describe("the find skill", () => {
     );
     expect(find.body).not.toMatch(/where post-contrast has run on it/u);
   });
+
+  it("reads an anatomy word as the region, and keeps the fine part for questions about coverage", () => {
+    // a person asked for scans that are all brain, and the fine value of that name was written (the stacks that end
+    // above the neck), which leaves out a head scan that reaches into it
+    const region = find.body.split("\n\n").find((x) => x.startsWith("**An anatomy word**")) ?? "";
+    expect(region).toMatch(
+      /\*\*An anatomy word\*\* in the person's words \(brain, head, spine, neck, chest\) names the region, the `body_region` value that covers it as the facts list them/u,
+    );
+    expect(region).toMatch(
+      /\*\*brain scans\*\*, \*\*head scans\*\*, \*\*all brain\*\* are `\["=", \{\}, \["axis", \{\}, "body_region"\], "head"\]`/u,
+    );
+    expect(region).toMatch(/`body_part` is the fine split of a region by how far the stack reaches/u);
+    expect(region).toMatch(
+      /its values are for questions about coverage, written only when the words ask for the fine part or the reach of the stack/u,
+    );
+    // short, in the skill's voice, and no figure of any registry
+    expect(region.split(/\s+/u).length).toBeLessThan(110);
+    expect(region).not.toMatch(/\d{2,}/u);
+    expect(region).not.toMatch(/\bpeople\b|\bstation\b|\bdoor\b/iu);
+  });
+
+  it("doubts a count far smaller than expected, and gives no reason it did not verify", () => {
+    // the chat once explained a handful of scans by the rarity of a kind, where its own filter had dropped the rest
+    const doubt = find.body.split("\n").find((x) => x.startsWith("- A count **far smaller**")) ?? "";
+    expect(doubt).toMatch(
+      /A count \*\*far smaller\*\* than the facts or the earlier stages suggest is doubted, never explained away/u,
+    );
+    expect(doubt).toMatch(/read in the diagnosis which step dropped the rows/u);
+    expect(doubt).toMatch(/check that step's value with `registry_search`[^.]*and draft again\./u);
+    expect(doubt).toMatch(/Never tell the person a reason for a small number that you did not verify\./u);
+    expect(doubt).toMatch(/the warning `narrow_value` names the step and the clause to write in its place/u);
+    expect(doubt.split(/\s+/u).length).toBeLessThan(90);
+    // the rule for a count of none stands beside it
+    expect(find.body).toMatch(/A set that \*\*drops to zero\*\* on a name the question gave/u);
+  });
 });
